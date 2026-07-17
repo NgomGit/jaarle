@@ -48,6 +48,45 @@ export async function signup(formData: FormData) {
   redirect("/dashboard");
 }
 
+export async function updateProfile(formData: FormData) {
+  const fullName = formData.get("fullName") as string;
+  const phone = formData.get("phone") as string;
+  const whatsapp = (formData.get("whatsapp") as string) || phone;
+  const currentPassword = formData.get("currentPassword") as string;
+
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user || !user.phone) {
+    redirect("/login");
+  }
+
+  // On revalide le mot de passe avant de toucher au numéro de connexion,
+  // pour éviter qu'une session laissée ouverte permette de le changer sans autorisation.
+  const { error: authError } = await supabase.auth.signInWithPassword({
+    phone: user.phone,
+    password: currentPassword,
+  });
+
+  if (authError) {
+    redirect(`/dashboard/settings?error=${encodeURIComponent("Mot de passe actuel incorrect.")}`);
+  }
+
+  const { error } = await supabase.auth.updateUser({
+    phone,
+    data: { full_name: fullName, whatsapp_number: whatsapp },
+  });
+
+  if (error) {
+    redirect(`/dashboard/settings?error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/dashboard/settings");
+  redirect(`/dashboard/settings?message=${encodeURIComponent("Profil mis à jour.")}`);
+}
+
 export async function logout() {
   const supabase = createClient();
   await supabase.auth.signOut();

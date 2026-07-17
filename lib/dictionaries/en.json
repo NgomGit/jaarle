@@ -124,5 +124,14 @@
     "hasAccount": "Already have an account?",
     "createOne": "Create one",
     "signIn": "Sign in"
+  },
+  "settings": {
+    "navLink": "Settings",
+    "back": "Back to dashboard",
+    "title": "Account settings",
+    "desc": "Update your details. Confirm with your current password to save.",
+    "currentPassword": "Current password",
+    "currentPasswordPlaceholder": "••••••••",
+    "save": "Save"
   }
 }

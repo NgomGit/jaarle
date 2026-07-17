@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { logout } from "@/app/auth/actions";
@@ -21,11 +22,16 @@ export default async function DashboardPage() {
       <nav className="border-b border-border">
         <div className="container flex h-[72px] items-center justify-between">
           <Logo />
-          <form action={logout}>
-            <Button variant="secondary" size="sm" type="submit">
-              Déconnexion
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/dashboard/settings">Paramètres</Link>
             </Button>
-          </form>
+            <form action={logout}>
+              <Button variant="secondary" size="sm" type="submit">
+                Déconnexion
+              </Button>
+            </form>
+          </div>
         </div>
       </nav>
       <div className="container flex flex-1 flex-col items-center justify-center gap-2 py-20 text-center">

@@ -124,5 +124,14 @@
     "hasAccount": "Déjà un compte ?",
     "createOne": "Crée-en un",
     "signIn": "Connecte-toi"
+  },
+  "settings": {
+    "navLink": "Paramètres",
+    "back": "Retour au tableau de bord",
+    "title": "Paramètres du compte",
+    "desc": "Modifie tes informations. Confirme avec ton mot de passe actuel pour valider.",
+    "currentPassword": "Mot de passe actuel",
+    "currentPasswordPlaceholder": "••••••••",
+    "save": "Enregistrer"
   }
 }

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Logo } from "@/components/logo";
+import { PhoneInput } from "@/components/phone-input";
 import { useLocale } from "@/lib/locale-context";
 
 export default function RegisterPage({
@@ -68,23 +69,14 @@ export default function RegisterPage({
                 <label htmlFor="phone-local" className="text-sm font-medium">
                   {t("auth.phone")}
                 </label>
-                <div className="flex items-center overflow-hidden rounded-lg border border-input bg-card focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
-                  <span className="flex h-10 items-center border-r border-input bg-muted px-3 text-sm font-medium text-muted-foreground">
-                    +221
-                  </span>
-                  <input
-                    id="phone-local"
-                    type="tel"
-                    inputMode="numeric"
-                    required
-                    maxLength={9}
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 9))}
-                    placeholder={t("auth.phonePlaceholder")}
-                    autoComplete="tel-national"
-                    className="h-10 w-full bg-transparent px-3.5 text-sm text-foreground placeholder:text-muted-foreground outline-none"
-                  />
-                </div>
+                <PhoneInput
+                  id="phone-local"
+                  value={phone}
+                  onChange={setPhone}
+                  placeholder={t("auth.phonePlaceholder")}
+                  autoComplete="tel-national"
+                  required
+                />
               </div>
 
               <div className="flex flex-col gap-1.5">
@@ -102,24 +94,15 @@ export default function RegisterPage({
                     {t("auth.sameAsPhone")}
                   </label>
                 </div>
-                <div className="flex items-center overflow-hidden rounded-lg border border-input bg-card focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
-                  <span className="flex h-10 items-center border-r border-input bg-muted px-3 text-sm font-medium text-muted-foreground">
-                    +221
-                  </span>
-                  <input
-                    id="whatsapp-local"
-                    type="tel"
-                    inputMode="numeric"
-                    required
-                    disabled={sameAsPhone}
-                    maxLength={9}
-                    value={whatsappValue}
-                    onChange={(e) => setWhatsapp(e.target.value.replace(/\D/g, "").slice(0, 9))}
-                    placeholder={t("auth.whatsappPlaceholder")}
-                    autoComplete="tel-national"
-                    className="h-10 w-full bg-transparent px-3.5 text-sm text-foreground placeholder:text-muted-foreground outline-none disabled:opacity-60"
-                  />
-                </div>
+                <PhoneInput
+                  id="whatsapp-local"
+                  value={whatsappValue}
+                  onChange={setWhatsapp}
+                  placeholder={t("auth.whatsappPlaceholder")}
+                  autoComplete="tel-national"
+                  required
+                  disabled={sameAsPhone}
+                />
                 <p className="text-xs text-muted-foreground">{t("auth.whatsappHint")}</p>
               </div>
 
