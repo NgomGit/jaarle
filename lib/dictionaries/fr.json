@@ -86,7 +86,12 @@
     "nav_new": "Nouvelle création",
     "nav_creations": "Mes créations",
     "nav_brands": "Marques",
-    "nav_settings": "Paramètres"
+    "nav_settings": "Paramètres",
+    "welcomeBack": "Bonjour",
+    "emptyTitle": "Aucune création pour le moment",
+    "emptyDesc": "Lance ta première campagne pour la voir apparaître ici.",
+    "emptyCta": "Créer ma première affiche",
+    "comingSoonDesc": "Cette fonctionnalité arrive très prochainement."
   },
   "voices": {
     "title": "Des commerçants qui l'utilisent déjà"
@@ -123,11 +128,11 @@
     "noAccount": "Pas encore de compte ?",
     "hasAccount": "Déjà un compte ?",
     "createOne": "Crée-en un",
-    "signIn": "Connecte-toi"
+    "signIn": "Connecte-toi",
+    "logout": "Déconnexion"
   },
   "settings": {
     "navLink": "Paramètres",
-    "back": "Retour au tableau de bord",
     "title": "Paramètres du compte",
     "desc": "Modifie tes informations. Confirme avec ton mot de passe actuel pour valider.",
     "currentPassword": "Mot de passe actuel",

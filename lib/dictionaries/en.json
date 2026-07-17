@@ -86,7 +86,12 @@
     "nav_new": "New creation",
     "nav_creations": "My creations",
     "nav_brands": "Brands",
-    "nav_settings": "Settings"
+    "nav_settings": "Settings",
+    "welcomeBack": "Hello",
+    "emptyTitle": "No creations yet",
+    "emptyDesc": "Launch your first campaign to see it appear here.",
+    "emptyCta": "Create my first poster",
+    "comingSoonDesc": "This feature is coming soon."
   },
   "voices": {
     "title": "Merchants already using it"
@@ -123,11 +128,11 @@
     "noAccount": "No account yet?",
     "hasAccount": "Already have an account?",
     "createOne": "Create one",
-    "signIn": "Sign in"
+    "signIn": "Sign in",
+    "logout": "Log out"
   },
   "settings": {
     "navLink": "Settings",
-    "back": "Back to dashboard",
     "title": "Account settings",
     "desc": "Update your details. Confirm with your current password to save.",
     "currentPassword": "Current password",

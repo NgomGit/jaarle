@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 
 export async function login(formData: FormData) {
@@ -63,9 +64,15 @@ export async function updateProfile(formData: FormData) {
     redirect("/login");
   }
 
-  // On revalide le mot de passe avant de toucher au numéro de connexion,
-  // pour éviter qu'une session laissée ouverte permette de le changer sans autorisation.
-  const { error: authError } = await supabase.auth.signInWithPassword({
+  // On revalide le mot de passe avant de toucher au numéro de connexion, pour éviter
+  // qu'une session laissée ouverte permette de le changer sans autorisation. On utilise un
+  // client Supabase isolé (sans persistance de session) : signInWithPassword sur le client
+  // lié aux cookies de la requête écrase la session active même en cas d'échec, ce qui
+  // déconnecterait l'utilisateur simplement parce qu'il a fait une faute de frappe.
+  const verifier = createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { error: authError } = await verifier.auth.signInWithPassword({
     phone: user.phone,
     password: currentPassword,
   });
