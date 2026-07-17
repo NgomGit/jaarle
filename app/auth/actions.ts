@@ -1,17 +1,16 @@
 "use server";
 
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
 export async function login(formData: FormData) {
-  const email = formData.get("email") as string;
+  const phone = formData.get("phone") as string;
   const password = formData.get("password") as string;
   const next = (formData.get("next") as string) || "/dashboard";
 
   const supabase = createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await supabase.auth.signInWithPassword({ phone, password });
 
   if (error) {
     redirect(`/login?error=${encodeURIComponent(error.message)}`);
@@ -23,17 +22,16 @@ export async function login(formData: FormData) {
 
 export async function signup(formData: FormData) {
   const fullName = formData.get("fullName") as string;
-  const email = formData.get("email") as string;
+  const phone = formData.get("phone") as string;
+  const whatsapp = (formData.get("whatsapp") as string) || phone;
   const password = formData.get("password") as string;
-  const origin = headers().get("origin");
 
   const supabase = createClient();
   const { data, error } = await supabase.auth.signUp({
-    email,
+    phone,
     password,
     options: {
-      data: { full_name: fullName },
-      emailRedirectTo: `${origin}/auth/callback`,
+      data: { full_name: fullName, whatsapp_number: whatsapp },
     },
   });
 
@@ -41,12 +39,13 @@ export async function signup(formData: FormData) {
     redirect(`/register?error=${encodeURIComponent(error.message)}`);
   }
 
-  if (data.session) {
-    revalidatePath("/", "layout");
-    redirect("/dashboard");
+  if (!data.session) {
+    // Le provider Phone a la confirmation SMS activée côté Supabase : pas de session immédiate.
+    redirect(`/login?message=${encodeURIComponent("Compte créé. Connecte-toi avec ton numéro et ton mot de passe.")}`);
   }
 
-  redirect(`/login?message=${encodeURIComponent("Vérifie ta boîte mail pour confirmer ton compte avant de te connecter.")}`);
+  revalidatePath("/", "layout");
+  redirect("/dashboard");
 }
 
 export async function logout() {

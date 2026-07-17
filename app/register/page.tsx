@@ -15,9 +15,14 @@ export default function RegisterPage({
   searchParams: { error?: string };
 }) {
   const { t } = useLocale();
+  const [phone, setPhone] = React.useState("");
+  const [whatsapp, setWhatsapp] = React.useState("");
+  const [sameAsPhone, setSameAsPhone] = React.useState(true);
   const [password, setPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
   const [mismatch, setMismatch] = React.useState(false);
+
+  const whatsappValue = sameAsPhone ? phone : whatsapp;
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     if (password !== confirmPassword) {
@@ -49,18 +54,75 @@ export default function RegisterPage({
               </p>
             )}
             <form action={signup} onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <input type="hidden" name="phone" value={`+221${phone}`} />
+              <input type="hidden" name="whatsapp" value={`+221${whatsappValue}`} />
+
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="fullName" className="text-sm font-medium">
                   {t("auth.fullName")}
                 </label>
                 <Input id="fullName" name="fullName" type="text" placeholder={t("auth.fullNamePlaceholder")} required autoComplete="name" />
               </div>
+
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="email" className="text-sm font-medium">
-                  {t("auth.email")}
+                <label htmlFor="phone-local" className="text-sm font-medium">
+                  {t("auth.phone")}
                 </label>
-                <Input id="email" name="email" type="email" placeholder={t("auth.emailPlaceholder")} required autoComplete="email" />
+                <div className="flex items-center overflow-hidden rounded-lg border border-input bg-card focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
+                  <span className="flex h-10 items-center border-r border-input bg-muted px-3 text-sm font-medium text-muted-foreground">
+                    +221
+                  </span>
+                  <input
+                    id="phone-local"
+                    type="tel"
+                    inputMode="numeric"
+                    required
+                    maxLength={9}
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 9))}
+                    placeholder={t("auth.phonePlaceholder")}
+                    autoComplete="tel-national"
+                    className="h-10 w-full bg-transparent px-3.5 text-sm text-foreground placeholder:text-muted-foreground outline-none"
+                  />
+                </div>
               </div>
+
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <label htmlFor="whatsapp-local" className="text-sm font-medium">
+                    {t("auth.whatsapp")}
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={sameAsPhone}
+                      onChange={(e) => setSameAsPhone(e.target.checked)}
+                      className="h-3.5 w-3.5 rounded border-input accent-primary"
+                    />
+                    {t("auth.sameAsPhone")}
+                  </label>
+                </div>
+                <div className="flex items-center overflow-hidden rounded-lg border border-input bg-card focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
+                  <span className="flex h-10 items-center border-r border-input bg-muted px-3 text-sm font-medium text-muted-foreground">
+                    +221
+                  </span>
+                  <input
+                    id="whatsapp-local"
+                    type="tel"
+                    inputMode="numeric"
+                    required
+                    disabled={sameAsPhone}
+                    maxLength={9}
+                    value={whatsappValue}
+                    onChange={(e) => setWhatsapp(e.target.value.replace(/\D/g, "").slice(0, 9))}
+                    placeholder={t("auth.whatsappPlaceholder")}
+                    autoComplete="tel-national"
+                    className="h-10 w-full bg-transparent px-3.5 text-sm text-foreground placeholder:text-muted-foreground outline-none disabled:opacity-60"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">{t("auth.whatsappHint")}</p>
+              </div>
+
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="password" className="text-sm font-medium">
                   {t("auth.password")}

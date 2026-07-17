@@ -14,7 +14,7 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const displayName = (user.user_metadata?.full_name as string | undefined) || user.email;
+  const displayName = (user.user_metadata?.full_name as string | undefined) || user.phone;
 
   return (
     <main className="flex min-h-screen flex-col">
