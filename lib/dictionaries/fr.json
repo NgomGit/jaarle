@@ -11,7 +11,7 @@
     "titleA": "Vends comme une",
     "titleAccent": "grande marque",
     "titleB": ", en 30 secondes.",
-    "lead": "Envoie la photo de ton produit. Affisse crée ton affiche, ta story et ton texte de vente — prêts pour Facebook, Instagram, TikTok et WhatsApp.",
+    "lead": "Envoie la photo de ton produit. Jaarle crée ton affiche, ta story et ton texte de vente — prêts pour Facebook, Instagram, TikTok et WhatsApp.",
     "ctaPrimary": "Créer ma première affiche",
     "ctaSecondary": "Voir les tarifs",
     "proof": "Déjà utilisé par des commerçants à Dakar, Thiès et Touba",
@@ -20,11 +20,11 @@
   },
   "how": {
     "title": "Trois étapes. Zéro compétence en design.",
-    "desc": "Pas besoin de Photoshop, pas besoin de graphiste. Affisse s'occupe de tout, du visuel au texte.",
+    "desc": "Pas besoin de Photoshop, pas besoin de graphiste. Jaarle s'occupe de tout, du visuel au texte.",
     "s1t": "Envoie ta photo",
-    "s1d": "Une photo prise avec ton téléphone suffit. Ajoute le nom du produit et le prix, ou parle simplement à Affisse.",
+    "s1d": "Une photo prise avec ton téléphone suffit. Ajoute le nom du produit et le prix, ou parle simplement à Jaarle.",
     "s2t": "Choisis ton style",
-    "s2d": "Premium, moderne, promo, luxe — Affisse propose plusieurs styles adaptés à ton produit et ton public.",
+    "s2d": "Premium, moderne, promo, luxe — Jaarle propose plusieurs styles adaptés à ton produit et ton public.",
     "s3t": "Publie partout",
     "s3d": "Reçois ton affiche, ta story et ton texte de vente en un clic. Télécharge ou partage directement."
   },
@@ -107,7 +107,7 @@
   "auth": {
     "login": "Connexion",
     "loginTitle": "Connexion",
-    "loginDesc": "Accède à ton espace Affisse.",
+    "loginDesc": "Accède à ton espace Jaarle.",
     "loginSubmit": "Se connecter",
     "registerTitle": "Créer un compte",
     "registerDesc": "Commence à créer tes campagnes en quelques minutes.",

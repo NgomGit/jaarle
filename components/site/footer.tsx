@@ -18,7 +18,7 @@ export function Footer() {
           <Link href="#pricing" className="hover:text-foreground">{t("nav.pricing")}</Link>
           <Link href="#">WhatsApp</Link>
         </div>
-        <div className="text-xs text-muted-foreground">© 2026 Affisse — Dakar, Sénégal</div>
+        <div className="text-xs text-muted-foreground">© 2026 Jaarle — Dakar, Sénégal</div>
       </div>
     </footer>
   );

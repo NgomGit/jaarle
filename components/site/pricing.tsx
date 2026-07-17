@@ -19,7 +19,7 @@ export function Pricing() {
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <PlanCard title={t("pricing.freeTitle")} amount="0" unit={t("pricing.freeUnit")}
-            items={["3 créations / mois", "Filigrane Affisse", "Format Facebook uniquement"]}
+            items={["3 créations / mois", "Filigrane Jaarle", "Format Facebook uniquement"]}
             ctaLabel={t("pricing.start")} variant="secondary" />
 
           <PlanCard title={t("pricing.simpleTitle")} amount="200" unit={t("pricing.simpleUnit")}

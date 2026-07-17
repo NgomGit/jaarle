@@ -11,7 +11,7 @@
     "titleA": "Sell like a",
     "titleAccent": "major brand",
     "titleB": ", in 30 seconds.",
-    "lead": "Send a photo of your product. Affisse creates your poster, your story and your sales copy — ready for Facebook, Instagram, TikTok and WhatsApp.",
+    "lead": "Send a photo of your product. Jaarle creates your poster, your story and your sales copy — ready for Facebook, Instagram, TikTok and WhatsApp.",
     "ctaPrimary": "Create my first poster",
     "ctaSecondary": "See pricing",
     "proof": "Already used by merchants in Dakar, Thiès and Touba",
@@ -20,11 +20,11 @@
   },
   "how": {
     "title": "Three steps. Zero design skills.",
-    "desc": "No Photoshop, no designer needed. Affisse handles everything, from visual to copy.",
+    "desc": "No Photoshop, no designer needed. Jaarle handles everything, from visual to copy.",
     "s1t": "Send your photo",
-    "s1d": "A photo taken with your phone is enough. Add the product name and price, or just talk to Affisse.",
+    "s1d": "A photo taken with your phone is enough. Add the product name and price, or just talk to Jaarle.",
     "s2t": "Pick your style",
-    "s2d": "Premium, modern, promo, luxury — Affisse suggests styles suited to your product and audience.",
+    "s2d": "Premium, modern, promo, luxury — Jaarle suggests styles suited to your product and audience.",
     "s3t": "Publish everywhere",
     "s3d": "Get your poster, story and sales copy in one click. Download or share directly."
   },
@@ -107,7 +107,7 @@
   "auth": {
     "login": "Log in",
     "loginTitle": "Log in",
-    "loginDesc": "Access your Affisse workspace.",
+    "loginDesc": "Access your Jaarle workspace.",
     "loginSubmit": "Log in",
     "registerTitle": "Create an account",
     "registerDesc": "Start creating your campaigns in minutes.",

@@ -1,4 +1,4 @@
-# Affisse — Frontend
+# Jaarle — Frontend
 
 Next.js 14 (App Router) + TypeScript + Tailwind + composants façon shadcn/ui, dans la direction visuelle "Linear/Notion" (fond clair, accent violet/bleu) validée pour le projet.
 
