@@ -44,10 +44,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-        <div className="mt-3.5 rounded-2xl border border-border bg-card p-3.5">
+        <div className="mt-3.5 rounded-2xl border border-border bg-card p-2">
           <div className="mb-1 text-[10.5px] text-muted-foreground">{t("dashboard.spent")}</div>
           <div className="mb-2.5 font-mono text-[15px] font-bold">0 FCFA</div>
-          <Button variant="accent" size="sm" className="w-full" asChild>
+          <Button variant="accent" size="sm" className="w-full p-2" asChild>
             <Link href="/dashboard/new">{t("dashboard.newCampaign")}</Link>
           </Button>
         </div>

@@ -12,7 +12,7 @@ export function Navbar() {
   return (
     <nav className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur-md">
       <div className="container flex h-[72px] items-center justify-between">
-        <Logo />
+        <Logo variant="image" />
         <div className="hidden items-center gap-8 text-sm font-medium text-muted-foreground md:flex">
           <Link href="#how" className="hover:text-foreground">{t("nav.how")}</Link>
           <Link href="#preview" className="hover:text-foreground">{t("nav.app")}</Link>

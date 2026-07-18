@@ -6,8 +6,17 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/lib/locale-context";
 import { cn } from "@/lib/utils";
+import type { Creation } from "@/lib/supabase/creations";
 
-export function DashboardHome({ displayName }: { displayName: string }) {
+export function DashboardHome({
+  displayName,
+  recentCreations,
+  createdThisMonth,
+}: {
+  displayName: string;
+  recentCreations: Creation[];
+  createdThisMonth: number;
+}) {
   const { t } = useLocale();
 
   return (
@@ -17,12 +26,12 @@ export function DashboardHome({ displayName }: { displayName: string }) {
           {t("dashboard.welcomeBack")}, {displayName}
         </h1>
         <Badge variant="accent">
-          0 · {t("dashboard.created")}
+          {createdThisMonth} · {t("dashboard.created")}
         </Badge>
       </div>
 
       <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <StatCard icon={Target} value="0" label={t("dashboard.created")} />
+        <StatCard icon={Target} value={String(createdThisMonth)} label={t("dashboard.created")} />
         <StatCard icon={Wallet} value="0" label={t("dashboard.spent")} mono />
         <StatCard icon={Gauge} value="—" label={t("dashboard.score")} />
       </div>
@@ -34,13 +43,31 @@ export function DashboardHome({ displayName }: { displayName: string }) {
       </div>
 
       <h2 className="mb-3 text-[13.5px] font-semibold text-muted-foreground">{t("dashboard.recent")}</h2>
-      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border p-12 text-center">
-        <p className="mb-1 text-sm font-semibold">{t("dashboard.emptyTitle")}</p>
-        <p className="mb-4 max-w-xs text-sm text-muted-foreground">{t("dashboard.emptyDesc")}</p>
-        <Button variant="accent" asChild>
-          <Link href="/dashboard/new">{t("dashboard.emptyCta")}</Link>
-        </Button>
-      </div>
+
+      {recentCreations.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border p-12 text-center">
+          <p className="mb-1 text-sm font-semibold">{t("dashboard.emptyTitle")}</p>
+          <p className="mb-4 max-w-xs text-sm text-muted-foreground">{t("dashboard.emptyDesc")}</p>
+          <Button variant="accent" asChild>
+            <Link href="/dashboard/new">{t("dashboard.emptyCta")}</Link>
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+          {recentCreations.map((c) => (
+            <Link
+              key={c.id}
+              href="/dashboard/creations"
+              className="relative aspect-[4/5] overflow-hidden rounded-xl border border-border bg-muted"
+            >
+              {c.photoUrl && <img src={c.photoUrl} alt={c.product_name} className="h-full w-full object-cover" />}
+              <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/60 to-transparent p-2">
+                <span className="text-[10px] font-semibold text-white">{c.product_name}</span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

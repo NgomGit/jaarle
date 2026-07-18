@@ -10,10 +10,14 @@ export function LogoMark({ className }: { className?: string }) {
   );
 }
 
-export function Logo({ className }: { className?: string }) {
+export function Logo({ className, variant = "mark" }: { className?: string; variant?: "mark" | "image" }) {
   return (
     <div className={cn("flex items-center gap-2 font-bold text-[15px]", className)}>
-      <LogoMark />
+      {variant === "image" ? (
+        <img src="/images/logo-icon.png" alt="Jaarle" className="h-6 w-6 shrink-0 object-contain" />
+      ) : (
+        <LogoMark />
+      )}
       Jaarle
     </div>
   );

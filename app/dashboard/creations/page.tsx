@@ -1,8 +1,19 @@
-"use client";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { listCreations } from "@/lib/supabase/creations";
+import { CreationsGallery } from "@/components/dashboard/creations-gallery";
 
-import { LayoutGrid } from "lucide-react";
-import { ComingSoon } from "@/components/dashboard/coming-soon";
+export default async function CreationsPage() {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-export default function CreationsPage() {
-  return <ComingSoon icon={LayoutGrid} titleKey="dashboard.nav_creations" />;
+  if (!user) {
+    redirect("/login");
+  }
+
+  const creations = await listCreations(supabase);
+
+  return <CreationsGallery creations={creations} />;
 }

@@ -10,7 +10,7 @@ export function Footer() {
     <footer className="border-t border-border py-11">
       <div className="container flex flex-wrap items-center justify-between gap-5">
         <div className="flex flex-col">
-          <Logo />
+          <Logo variant="image" />
           <span className="ml-8 mt-0.5 text-[11px] text-muted-foreground">{t("footer.tagline")}</span>
         </div>
         <div className="flex gap-5 text-[12.5px] text-muted-foreground">

@@ -1,8 +1,21 @@
-"use client";
+import { Suspense } from "react";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { NewCreationWizard } from "@/components/dashboard/new-creation-wizard";
 
-import { Sparkles } from "lucide-react";
-import { ComingSoon } from "@/components/dashboard/coming-soon";
+export default async function NewCreationPage() {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-export default function NewCreationPage() {
-  return <ComingSoon icon={Sparkles} titleKey="dashboard.nav_new" />;
+  if (!user) {
+    redirect("/login");
+  }
+
+  return (
+    <Suspense>
+      <NewCreationWizard userId={user.id} />
+    </Suspense>
+  );
 }
