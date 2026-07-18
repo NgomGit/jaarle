@@ -34,7 +34,7 @@ export async function requestPaytechPayment(params: PaytechRequestPaymentParams)
       currency: "XOF",
       ref_command: params.refCommand,
       command_name: params.commandName,
-      env: "test",
+      env: "prod",
       success_url: params.successUrl,
       cancel_url: params.cancelUrl,
       ipn_url: params.ipnUrl,
