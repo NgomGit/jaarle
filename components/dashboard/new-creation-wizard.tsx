@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useSearchParams } from "next/navigation";
-import { UploadCloud, Sparkles } from "lucide-react";
+import { UploadCloud, CheckCircle2, Circle, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
@@ -10,15 +10,16 @@ import { useLocale } from "@/lib/locale-context";
 import { creationStyles } from "@/lib/creation-styles";
 import { industries } from "@/lib/knowledge/industries";
 import { CreationStepIndicator } from "@/components/dashboard/creation-step-indicator";
-import { CAMPAIGN_PRICE_FCFA } from "@/lib/paytech";
+import { CreationResult } from "@/components/dashboard/creation-result";
 import { cn } from "@/lib/utils";
 
+type Step = 0 | 1 | 2 | 3;
 type Language = "fr" | "wo";
 
 export function NewCreationWizard({ userId }: { userId: string }) {
   const { t } = useLocale();
   const searchParams = useSearchParams();
-  const [step, setStep] = React.useState<0 | 1 | 2>(0);
+  const [step, setStep] = React.useState<Step>(0);
   const [file, setFile] = React.useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
   const [productName, setProductName] = React.useState("");
@@ -26,12 +27,23 @@ export function NewCreationWizard({ userId }: { userId: string }) {
   const [style, setStyle] = React.useState<string>(creationStyles[0].key);
   const [industry, setIndustry] = React.useState("");
   const [language, setLanguage] = React.useState<Language>("fr");
+  const [genStepIndex, setGenStepIndex] = React.useState(0);
   const [error, setError] = React.useState<string | null>(
     searchParams.get("canceled") ? t("creation.paymentCanceled") : null
   );
   const [submitting, setSubmitting] = React.useState(false);
+  const [unlocking, setUnlocking] = React.useState(false);
+
+  const [result, setResult] = React.useState<{
+    creationId: string;
+    imageUrl: string;
+    imageFallback: boolean;
+    salesCopy: string | null;
+    hashtags: string[];
+  } | null>(null);
 
   const canProceedStep0 = !!file && productName.trim() !== "" && price.trim() !== "";
+  const formattedPrice = price ? Number(price).toLocaleString("fr-FR") : "";
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -41,7 +53,7 @@ export function NewCreationWizard({ userId }: { userId: string }) {
     setError(null);
   }
 
-  async function goToPayment() {
+  async function runGeneration() {
     if (!canProceedStep0 || !file) {
       setError(t("creation.errorMissingFields"));
       return;
@@ -50,26 +62,78 @@ export function NewCreationWizard({ userId }: { userId: string }) {
     setSubmitting(true);
     setStep(2);
 
-    try {
+    const genLabels = [t("preview.step1"), t("preview.step2"), t("preview.step3"), t("preview.step4"), t("preview.step5")];
+
+    const generationPromise = (async () => {
       const supabase = createClient();
       const photoPath = `${userId}/${Date.now()}-${file.name}`;
       const { error: uploadError } = await supabase.storage.from("creations").upload(photoPath, file);
       if (uploadError) throw uploadError;
 
-      const res = await fetch("/api/paytech/checkout", {
+      const res = await fetch("/api/generate-creation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ photoPath, productName, price: Number(price), style, industry: industry || null, language }),
       });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "generation_failed");
+
+      return {
+        creationId: data.creationId,
+        imageUrl: data.imageUrl,
+        imageFallback: !!data.imageError,
+        salesCopy: data.salesCopy,
+        hashtags: data.hashtags ?? [],
+      };
+    })();
+
+    for (let i = 0; i < genLabels.length; i++) {
+      setGenStepIndex(i);
+      await new Promise((r) => setTimeout(r, 500));
+    }
+
+    try {
+      const generated = await generationPromise;
+      setResult(generated);
+      setStep(3);
+    } catch {
+      setError(t("creation.errorGeneric"));
+      setStep(1);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function unlockAndDownload() {
+    if (!result) return;
+    setUnlocking(true);
+    try {
+      const res = await fetch("/api/paytech/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ creationId: result.creationId }),
+      });
       const data = (await res.json()) as { redirectUrl?: string; error?: string };
       if (!res.ok || !data.redirectUrl) throw new Error(data.error || "checkout_failed");
-
       window.location.href = data.redirectUrl;
     } catch {
       setError(t("creation.errorGeneric"));
-      setSubmitting(false);
-      setStep(1);
+      setUnlocking(false);
     }
+  }
+
+  function reset() {
+    setStep(0);
+    setFile(null);
+    setPreviewUrl(null);
+    setProductName("");
+    setPrice("");
+    setStyle(creationStyles[0].key);
+    setIndustry("");
+    setLanguage("fr");
+    setGenStepIndex(0);
+    setError(null);
+    setResult(null);
   }
 
   return (
@@ -201,21 +265,56 @@ export function NewCreationWizard({ userId }: { userId: string }) {
               <Button variant="secondary" size="lg" onClick={() => setStep(0)}>
                 {t("creation.back")}
               </Button>
-              <Button variant="accent" size="lg" onClick={goToPayment} disabled={submitting}>
+              <Button variant="accent" size="lg" onClick={runGeneration} disabled={submitting}>
                 <Sparkles className="h-4 w-4" />
-                {t("creation.payAndGenerate").replace("{price}", String(CAMPAIGN_PRICE_FCFA))}
+                {t("creation.generate")}
               </Button>
             </div>
           </div>
         )}
 
         {step === 2 && (
-          <div className="flex flex-col items-center gap-3 py-10 text-center">
-            <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-secondary">
-              <span className="absolute inset-[-4px] animate-ping rounded-xl border border-primary/50" />
+          <div className="rounded-2xl border border-border bg-muted p-6">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-secondary">
+                <span className="absolute inset-[-4px] animate-ping rounded-xl border border-primary/50" />
+              </div>
+              <div>
+                <div className="text-sm font-bold">{t("preview.aiTitle")}</div>
+              </div>
             </div>
-            <p className="text-sm font-semibold">{t("creation.redirectingToPayment")}</p>
+            {[t("preview.step1"), t("preview.step2"), t("preview.step3"), t("preview.step4"), t("preview.step5")].map((label, i) => (
+              <div
+                key={label}
+                className={cn(
+                  "flex items-center gap-3 border-t border-border py-2.5 text-sm first:border-t-0",
+                  i < genStepIndex ? "text-foreground" : i === genStepIndex ? "font-semibold text-foreground" : "text-muted-foreground"
+                )}
+              >
+                {i < genStepIndex ? (
+                  <CheckCircle2 className="h-[18px] w-[18px] text-success" />
+                ) : (
+                  <Circle className={cn("h-[18px] w-[18px]", i === genStepIndex && "text-primary")} strokeWidth={1.75} />
+                )}
+                {label}
+              </div>
+            ))}
           </div>
+        )}
+
+        {step === 3 && result && (
+          <CreationResult
+            imageUrl={result.imageUrl}
+            imageFallback={result.imageFallback}
+            productName={productName}
+            formattedPrice={formattedPrice}
+            salesCopy={result.salesCopy}
+            hashtags={result.hashtags}
+            locked
+            unlocking={unlocking}
+            onUnlock={unlockAndDownload}
+            onNewCreation={reset}
+          />
         )}
       </div>
     </div>

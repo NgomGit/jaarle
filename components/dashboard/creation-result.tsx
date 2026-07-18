@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Download } from "lucide-react";
+import { Download, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/lib/locale-context";
+import { CAMPAIGN_PRICE_FCFA } from "@/lib/paytech";
 
 export function CreationResult({
   imageUrl,
@@ -13,6 +14,9 @@ export function CreationResult({
   salesCopy,
   hashtags,
   onNewCreation,
+  locked = false,
+  unlocking = false,
+  onUnlock,
 }: {
   imageUrl: string;
   imageFallback: boolean;
@@ -21,6 +25,9 @@ export function CreationResult({
   salesCopy: string | null;
   hashtags: string[];
   onNewCreation: () => void;
+  locked?: boolean;
+  unlocking?: boolean;
+  onUnlock?: () => void;
 }) {
   const { t } = useLocale();
 
@@ -50,18 +57,27 @@ export function CreationResult({
       </div>
 
       <div className="flex flex-wrap gap-2.5">
-        <Button variant="secondary" className="gap-1.5" asChild>
-          <a href={imageUrl} download="affiche.png">
-            <Download className="h-3.5 w-3.5" />
-            {t("creation.download")}
-          </a>
-        </Button>
+        {locked ? (
+          <Button variant="accent" className="flex-1 gap-1.5" onClick={onUnlock} disabled={unlocking}>
+            <Lock className="h-3.5 w-3.5" />
+            {t("creation.unlockDownload").replace("{price}", String(CAMPAIGN_PRICE_FCFA))}
+          </Button>
+        ) : (
+          <Button variant="secondary" className="gap-1.5" asChild>
+            <a href={imageUrl} download="affiche.png">
+              <Download className="h-3.5 w-3.5" />
+              {t("creation.download")}
+            </a>
+          </Button>
+        )}
         <Button variant="secondary" className="flex-1" asChild>
           <Link href="/dashboard/creations">{t("creation.viewCreations")}</Link>
         </Button>
-        <Button variant="accent" className="flex-1" onClick={onNewCreation}>
-          {t("creation.newOne")}
-        </Button>
+        {!locked && (
+          <Button variant="accent" className="flex-1" onClick={onNewCreation}>
+            {t("creation.newOne")}
+          </Button>
+        )}
       </div>
     </div>
   );

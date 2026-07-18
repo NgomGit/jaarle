@@ -63,14 +63,14 @@ export function AppPreview() {
                     key={s.key}
                     onClick={() => setSelectedStyle(s.key)}
                     className={cn(
-                      "relative aspect-[3/4] overflow-hidden rounded-xl border-2 bg-gradient-to-br transition-all",
-                      s.from, s.to,
+                      "relative aspect-[3/4] overflow-hidden rounded-xl border-2 transition-all",
                       selectedStyle === s.key ? "border-primary" : "border-transparent"
                     )}
                   >
-                    <span className="absolute bottom-2 left-2 right-2 text-left text-[10px] font-bold capitalize text-white">
-                      {s.key}
-                    </span>
+                    <img src={`/images/styles/${s.key}.png`} alt={s.key} className="h-full w-full object-cover" />
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent pb-2 pt-6">
+                      <span className="block px-2 text-left text-[10px] font-bold capitalize text-white">{s.key}</span>
+                    </div>
                   </button>
                 ))}
               </div>
@@ -105,7 +105,9 @@ export function AppPreview() {
               </div>
               <div className="mb-3.5 grid grid-cols-4 gap-2">
                 {styles.slice(0, 4).map((s) => (
-                  <div key={s.key} className={cn("aspect-square rounded-xl bg-gradient-to-br", s.from, s.to)} />
+                  <div key={s.key} className="aspect-square overflow-hidden rounded-xl">
+                    <img src={`/images/styles/${s.key}.png`} alt={s.key} className="h-full w-full object-cover" />
+                  </div>
                 ))}
               </div>
               <Field icon={Pencil} label={t("preview.resultText")} value="&ldquo;Élégance et fraîcheur — notre robe wax bleue, faite pour te sublimer. Livraison à Dakar.&rdquo;" small />

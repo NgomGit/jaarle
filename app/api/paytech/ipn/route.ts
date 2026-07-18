@@ -38,14 +38,20 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient();
-  const { error } = await admin
+  const { data: order, error } = await admin
     .from("orders")
     .update({ status: "paid", paid_at: new Date().toISOString(), payment_method: payment_method || null })
     .eq("ref_command", ref_command)
-    .eq("status", "pending");
+    .eq("status", "pending")
+    .select("creation_id")
+    .single();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (order?.creation_id) {
+    await admin.from("creations").update({ unlocked: true }).eq("id", order.creation_id);
   }
 
   return NextResponse.json({ ok: true });

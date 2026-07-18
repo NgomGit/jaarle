@@ -11,6 +11,7 @@ export interface Creation {
   language: string;
   generated_copy: string | null;
   generated_hashtags: string[] | null;
+  unlocked: boolean;
   created_at: string;
   photoUrl: string | null;
 }

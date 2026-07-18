@@ -102,7 +102,7 @@
     "button": "Commencer maintenant"
   },
   "footer": {
-    "tagline": "nako nepp yeg"
+    "tagline": "Sa produit dafay gawa jaar !!!"
   },
   "auth": {
     "login": "Connexion",
@@ -157,13 +157,11 @@
     "newOne": "Créer une nouvelle affiche",
     "errorGeneric": "Une erreur est survenue pendant l'envoi. Réessaie.",
     "errorMissingFields": "Ajoute une photo, un nom de produit et un prix pour continuer.",
-    "payAndGenerate": "Payer {price} FCFA et générer",
-    "redirectingToPayment": "Redirection vers le paiement…",
+    "unlockDownload": "Payer {price} FCFA pour télécharger",
     "paymentCanceled": "Paiement annulé. Tu peux réessayer.",
     "checkingPayment": "Vérification du paiement…",
     "paymentTimeout": "Le paiement n'a pas encore été confirmé. Si tu as bien payé, réessaie dans quelques instants.",
     "retry": "Réessayer",
-    "backToNew": "Retour à la création",
     "galleryTitle": "Mes créations",
     "galleryEmpty": "Aucune création pour le moment",
     "galleryEmptyDesc": "Lance ta première campagne pour la voir apparaître ici."

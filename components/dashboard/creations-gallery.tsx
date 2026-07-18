@@ -1,17 +1,41 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
-import { LayoutGrid } from "lucide-react";
+import { LayoutGrid, Lock, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/lib/locale-context";
 import type { Creation } from "@/lib/supabase/creations";
 
-export function CreationsGallery({ creations }: { creations: Creation[] }) {
+export function CreationsGallery({ creations, canceled }: { creations: Creation[]; canceled?: boolean }) {
   const { t } = useLocale();
+  const [unlockingId, setUnlockingId] = React.useState<string | null>(null);
+
+  async function unlock(creationId: string) {
+    setUnlockingId(creationId);
+    try {
+      const res = await fetch("/api/paytech/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ creationId }),
+      });
+      const data = (await res.json()) as { redirectUrl?: string; error?: string };
+      if (!res.ok || !data.redirectUrl) throw new Error(data.error);
+      window.location.href = data.redirectUrl;
+    } catch {
+      setUnlockingId(null);
+    }
+  }
 
   return (
     <div>
       <h1 className="mb-5 text-lg font-bold">{t("creation.galleryTitle")}</h1>
+
+      {canceled && (
+        <p className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">
+          {t("creation.paymentCanceled")}
+        </p>
+      )}
 
       {creations.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border p-16 text-center">
@@ -29,7 +53,28 @@ export function CreationsGallery({ creations }: { creations: Creation[] }) {
           {creations.map((c) => (
             <div key={c.id} className="relative aspect-[4/5] overflow-hidden rounded-xl border border-border bg-muted">
               {c.photoUrl && <img src={c.photoUrl} alt={c.product_name} className="h-full w-full object-cover" />}
-              <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/60 to-transparent p-2">
+              <div className="absolute inset-0 flex flex-col justify-between bg-gradient-to-t from-black/60 to-transparent p-2">
+                <div className="flex justify-end">
+                  {c.unlocked ? (
+                    <a
+                      href={c.photoUrl ?? "#"}
+                      download="affiche.png"
+                      className="flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-primary shadow-glow-sm"
+                      aria-label={t("creation.download")}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </a>
+                  ) : (
+                    <button
+                      onClick={() => unlock(c.id)}
+                      disabled={unlockingId === c.id}
+                      className="flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-primary shadow-glow-sm disabled:opacity-60"
+                      aria-label={t("creation.unlockDownload")}
+                    >
+                      <Lock className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
                 <div>
                   <span className="block text-[10px] font-semibold text-white">{c.product_name}</span>
                   <span className="block font-mono text-[10px] text-white/80">{c.price.toLocaleString("fr-FR")} FCFA</span>

@@ -12,18 +12,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
   }
 
-  const body = await request.json();
-  const { photoPath, productName, price, style, industry, language } = body as {
-    photoPath: string;
-    productName: string;
-    price: number;
-    style: string;
-    industry: string | null;
-    language: string;
-  };
+  const { creationId } = (await request.json()) as { creationId: string };
+  if (!creationId) {
+    return NextResponse.json({ error: "Création manquante." }, { status: 400 });
+  }
 
-  if (!photoPath || !productName || !price || !style) {
-    return NextResponse.json({ error: "Champs manquants." }, { status: 400 });
+  const { data: creation, error: creationError } = await supabase
+    .from("creations")
+    .select("id, product_name, unlocked")
+    .eq("id", creationId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (creationError || !creation) {
+    return NextResponse.json({ error: "Création introuvable." }, { status: 404 });
+  }
+
+  if (creation.unlocked) {
+    return NextResponse.json({ error: "Cette création est déjà débloquée." }, { status: 400 });
   }
 
   const refCommand = `JAARLE-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -33,12 +39,7 @@ export async function POST(request: Request) {
     ref_command: refCommand,
     amount: CAMPAIGN_PRICE_FCFA,
     status: "pending",
-    photo_path: photoPath,
-    product_name: productName,
-    price,
-    style,
-    industry: industry || null,
-    language: language || "fr",
+    creation_id: creation.id,
   });
 
   if (insertError) {
@@ -52,11 +53,11 @@ export async function POST(request: Request) {
       itemName: "Campagne complète Jaarle",
       itemPrice: CAMPAIGN_PRICE_FCFA,
       refCommand,
-      commandName: `Campagne pour "${productName}"`,
-      successUrl: `${origin}/dashboard/new/confirm?ref=${refCommand}`,
-      cancelUrl: `${origin}/dashboard/new?canceled=1`,
+      commandName: `Déblocage de "${creation.product_name}"`,
+      successUrl: `${origin}/dashboard/unlock?ref=${refCommand}`,
+      cancelUrl: `${origin}/dashboard/creations?canceled=1`,
       ipnUrl: `${origin}/api/paytech/ipn`,
-      customField: { userId: user.id, refCommand },
+      customField: { userId: user.id, refCommand, creationId: creation.id },
     });
 
     return NextResponse.json({ redirectUrl });

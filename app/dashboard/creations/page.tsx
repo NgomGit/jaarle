@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { listCreations } from "@/lib/supabase/creations";
 import { CreationsGallery } from "@/components/dashboard/creations-gallery";
 
-export default async function CreationsPage() {
+export default async function CreationsPage({ searchParams }: { searchParams: { canceled?: string } }) {
   const supabase = createClient();
   const {
     data: { user },
@@ -15,5 +15,5 @@ export default async function CreationsPage() {
 
   const creations = await listCreations(supabase);
 
-  return <CreationsGallery creations={creations} />;
+  return <CreationsGallery creations={creations} canceled={!!searchParams.canceled} />;
 }

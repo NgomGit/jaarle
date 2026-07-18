@@ -36,7 +36,7 @@ export function DashboardPreview() {
 
         <div className="grid grid-cols-1 overflow-hidden rounded-[26px] border border-border shadow-glow-lg md:grid-cols-[220px_1fr]">
           <aside className="hidden flex-col border-r border-border bg-muted p-4 md:flex">
-            <Logo className="mb-6 text-[14.5px]" />
+            <Logo variant="image" />
             <nav className="flex flex-1 flex-col gap-1">
               {navItems.map((item) => (
                 <div
@@ -47,7 +47,7 @@ export function DashboardPreview() {
                   )}
                 >
                   <item.icon className="h-4 w-4" strokeWidth={1.75} />
-                  {t(`dashboard.nav_${item.key}` )}
+                  {t(`dashboard.nav_${item.key}`)}
                 </div>
               ))}
             </nav>

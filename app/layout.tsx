@@ -8,6 +8,7 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://jaarle.com"),
   title: "Jaarle — Nako nepp yeg",
   description: "L'assistant marketing IA pour les commerçants africains. Crée ton affiche, ta story et ton texte de vente en 30 secondes.",
 };

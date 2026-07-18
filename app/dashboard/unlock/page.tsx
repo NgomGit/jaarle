@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { CreationConfirm } from "@/components/dashboard/creation-confirm";
+import { UnlockConfirm } from "@/components/dashboard/unlock-confirm";
 
-export default async function ConfirmPage({ searchParams }: { searchParams: { ref?: string } }) {
+export default async function UnlockPage({ searchParams }: { searchParams: { ref?: string } }) {
   const supabase = createClient();
   const {
     data: { user },
@@ -13,8 +13,8 @@ export default async function ConfirmPage({ searchParams }: { searchParams: { re
   }
 
   if (!searchParams.ref) {
-    redirect("/dashboard/new");
+    redirect("/dashboard/creations");
   }
 
-  return <CreationConfirm refCommand={searchParams.ref} />;
+  return <UnlockConfirm refCommand={searchParams.ref} />;
 }

@@ -25,8 +25,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="grid min-h-screen grid-cols-1 md:grid-cols-[220px_1fr]">
       <aside className="hidden flex-col border-r border-border bg-muted p-4 md:flex">
-        <Logo className="mb-6 text-[14.5px]" />
-        <nav className="flex flex-1 flex-col gap-1">
+        <Logo variant="image" className="mb-8"/>
+
+        <nav className="flex flex-1 flex-col gap-1 ">
           {navItems.map((item) => {
             const active = item.href === "/dashboard" ? pathname === item.href : pathname.startsWith(item.href);
             return (
@@ -64,7 +65,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
       <div className="flex flex-col">
         <header className="flex items-center justify-between border-b border-border p-4 md:hidden">
-          <Logo />
+          <Logo variant="image"/>
           <div className="flex items-center gap-1">
             <Button variant="ghost" size="icon" asChild>
               <Link href="/dashboard/settings" aria-label={t("dashboard.nav_settings")}>
