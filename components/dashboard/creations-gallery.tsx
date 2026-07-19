@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { LayoutGrid, Lock, Download, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/lib/locale-context";
@@ -9,6 +10,7 @@ import type { Creation } from "@/lib/supabase/creations";
 
 export function CreationsGallery({ creations: initialCreations, canceled }: { creations: Creation[]; canceled?: boolean }) {
   const { t } = useLocale();
+  const router = useRouter();
   const [creations, setCreations] = React.useState(initialCreations);
   const [unlockingId, setUnlockingId] = React.useState<string | null>(null);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
@@ -65,7 +67,14 @@ export function CreationsGallery({ creations: initialCreations, canceled }: { cr
       ) : (
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4">
           {creations.map((c) => (
-            <div key={c.id} className="relative aspect-[4/5] overflow-hidden rounded-xl border border-border bg-muted">
+            <div
+              key={c.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => router.push(`/dashboard/creations/${c.id}`)}
+              onKeyDown={(e) => e.key === "Enter" && router.push(`/dashboard/creations/${c.id}`)}
+              className="relative aspect-[4/5] cursor-pointer overflow-hidden rounded-xl border border-border bg-muted"
+            >
               {c.photoUrl && (
                 <img
                   src={c.photoUrl}
@@ -80,7 +89,10 @@ export function CreationsGallery({ creations: initialCreations, canceled }: { cr
               <div className="absolute inset-0 flex flex-col justify-between bg-gradient-to-t from-black/60 to-transparent p-2">
                 <div className="flex justify-between">
                   <button
-                    onClick={() => deleteCreation(c.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteCreation(c.id);
+                    }}
                     disabled={deletingId === c.id}
                     className="flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-destructive shadow-glow-sm disabled:opacity-60"
                     aria-label={t("creation.delete")}
@@ -91,6 +103,7 @@ export function CreationsGallery({ creations: initialCreations, canceled }: { cr
                     <a
                       href={c.photoUrl ?? "#"}
                       download="affiche.jpg"
+                      onClick={(e) => e.stopPropagation()}
                       className="flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-primary shadow-glow-sm"
                       aria-label={t("creation.download")}
                     >
@@ -98,7 +111,10 @@ export function CreationsGallery({ creations: initialCreations, canceled }: { cr
                     </a>
                   ) : (
                     <button
-                      onClick={() => unlock(c.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        unlock(c.id);
+                      }}
                       disabled={unlockingId === c.id}
                       className="flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-primary shadow-glow-sm disabled:opacity-60"
                       aria-label={t("creation.unlockDownload")}

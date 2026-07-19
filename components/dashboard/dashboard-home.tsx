@@ -57,7 +57,7 @@ export function DashboardHome({
           {recentCreations.map((c) => (
             <Link
               key={c.id}
-              href="/dashboard/creations"
+              href={`/dashboard/creations/${c.id}`}
               className="relative aspect-[4/5] overflow-hidden rounded-xl border border-border bg-muted"
             >
               {c.photoUrl && <img src={c.photoUrl} alt={c.product_name} className="h-full w-full object-cover" />}

@@ -5,6 +5,7 @@ export interface Creation {
   product_name: string;
   price: number;
   style: string;
+  tier: string;
   photo_path: string;
   poster_path: string | null;
   industry: string | null;
@@ -24,6 +25,12 @@ export async function listCreations(supabase: SupabaseClient, limit?: number): P
   if (error || !data) return [];
 
   return data.map((row) => ({ ...row, photoUrl: `/api/creations/${row.id}/preview` }) as Creation);
+}
+
+export async function getCreation(supabase: SupabaseClient, id: string, userId: string): Promise<Creation | null> {
+  const { data, error } = await supabase.from("creations").select("*").eq("id", id).eq("user_id", userId).single();
+  if (error || !data) return null;
+  return { ...data, photoUrl: `/api/creations/${data.id}/preview` } as Creation;
 }
 
 export async function countCreationsSince(supabase: SupabaseClient, since: Date): Promise<number> {

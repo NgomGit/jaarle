@@ -2,61 +2,25 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useLocale } from "@/lib/locale-context";
 import { CreationStepIndicator } from "@/components/dashboard/creation-step-indicator";
-import { CreationResult } from "@/components/dashboard/creation-result";
 import { Button } from "@/components/ui/button";
-import { getTierConfig } from "@/lib/pricing";
 
-type Phase = "checking" | "ready" | "timeout" | "error";
+type Phase = "checking" | "timeout" | "error";
 
 const POLL_INTERVAL_MS = 1500;
 const MAX_ATTEMPTS = 20; // ~30s
 
 export function UnlockConfirm({ refCommand }: { refCommand: string }) {
   const { t } = useLocale();
+  const router = useRouter();
   const [phase, setPhase] = React.useState<Phase>("checking");
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
-  const [result, setResult] = React.useState<{
-    imageUrl: string;
-    productName: string;
-    price: number;
-    salesCopy: string | null;
-    hashtags: string[];
-    tierPrice: number;
-  } | null>(null);
 
   const attemptsRef = React.useRef(0);
   const cancelledRef = React.useRef(false);
-
-  const loadCreation = React.useCallback(
-    async (creationId: string) => {
-      const supabase = createClient();
-      const { data: creation } = await supabase
-        .from("creations")
-        .select("*")
-        .eq("id", creationId)
-        .single();
-
-      if (!creation) {
-        setErrorMessage(t("creation.errorGeneric"));
-        setPhase("error");
-        return;
-      }
-
-      setResult({
-        imageUrl: `/api/creations/${creationId}/preview?v=${Date.now()}`,
-        productName: creation.product_name,
-        price: creation.price,
-        salesCopy: creation.generated_copy,
-        hashtags: creation.generated_hashtags ?? [],
-        tierPrice: getTierConfig(creation.tier).price,
-      });
-      setPhase("ready");
-    },
-    [t]
-  );
 
   const poll = React.useCallback(async () => {
     if (cancelledRef.current) return;
@@ -74,7 +38,7 @@ export function UnlockConfirm({ refCommand }: { refCommand: string }) {
     }
 
     if (order.status === "paid" && order.creation_id) {
-      loadCreation(order.creation_id);
+      router.replace(`/dashboard/creations/${order.creation_id}`);
       return;
     }
 
@@ -91,7 +55,7 @@ export function UnlockConfirm({ refCommand }: { refCommand: string }) {
     }
 
     setTimeout(poll, POLL_INTERVAL_MS);
-  }, [refCommand, loadCreation, t]);
+  }, [refCommand, router, t]);
 
   React.useEffect(() => {
     cancelledRef.current = false;
@@ -138,19 +102,6 @@ export function UnlockConfirm({ refCommand }: { refCommand: string }) {
               <Link href="/dashboard/creations">{t("creation.viewCreations")}</Link>
             </Button>
           </div>
-        )}
-
-        {phase === "ready" && result && (
-          <CreationResult
-            imageUrl={result.imageUrl}
-            imageFallback={false}
-            productName={result.productName}
-            formattedPrice={result.price.toLocaleString("fr-FR")}
-            salesCopy={result.salesCopy}
-            hashtags={result.hashtags}
-            tierPrice={result.tierPrice}
-            onNewCreation={() => {}}
-          />
         )}
       </div>
     </div>
