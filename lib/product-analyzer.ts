@@ -55,3 +55,41 @@ export async function analyzeProduct(
     return null;
   }
 }
+
+const LogoColorsSchema = z.object({
+  from: HEX_COLOR,
+  to: HEX_COLOR,
+});
+
+/**
+ * Extrait un dégradé de 2 couleurs hex depuis le logo du marchand (palier Premium uniquement,
+ * quand un logo est fourni), pour que l'affiche reprenne l'identité visuelle réelle de la
+ * marque au lieu d'une couleur d'accent générique déconnectée du logo.
+ */
+export async function analyzeLogoColors(logoBase64: string): Promise<{ from: string; to: string } | null> {
+  try {
+    const anthropic = new Anthropic();
+    const message = await anthropic.messages.parse({
+      model: "claude-sonnet-5",
+      max_tokens: 200,
+      thinking: { type: "disabled" },
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: "image/png", data: logoBase64 } },
+            {
+              type: "text",
+              text: `Ce logo de marque : extrais un dégradé de 2 couleurs hex (from / to) qui capture fidèlement son identité visuelle, pour les réutiliser comme accent sur une affiche marketing (badges, boutons) — doit rester lisible avec du texte blanc par-dessus, jamais de blanc/noir pur.`,
+            },
+          ],
+        },
+      ],
+      output_config: { format: zodOutputFormat(LogoColorsSchema) },
+    });
+
+    return message.parsed_output ?? null;
+  } catch {
+    return null;
+  }
+}

@@ -9,6 +9,7 @@ import {
   ALLOWED_MEDIA_TYPES,
   type AllowedMediaType,
   buildPosterBackground,
+  buildServiceBackground,
   renderFinalPoster,
 } from "@/lib/poster-pipeline";
 
@@ -21,12 +22,21 @@ const CopySchema = z.object({
   hashtags: z.array(z.string()).max(8),
 });
 
-async function generateSalesCopy(photoBase64: string, mediaType: AllowedMediaType, params: {
-  productName: string;
-  price: number | null;
-  industry: string | null;
-  language: string;
-}) {
+type ContentPart =
+  | { type: "image"; source: { type: "base64"; media_type: AllowedMediaType; data: string } }
+  | { type: "text"; text: string };
+
+async function generateSalesCopy(
+  photo: { base64: string; mediaType: AllowedMediaType } | null,
+  params: {
+    productName: string;
+    price: number | null;
+    industry: string | null;
+    language: string;
+    serviceDescription?: string | null;
+    serviceItems?: string[];
+  }
+) {
   const culturalContext = buildCulturalContext({ industryKey: params.industry ?? undefined });
   const languageLabel =
     params.language === "wo"
@@ -36,26 +46,30 @@ async function generateSalesCopy(photoBase64: string, mediaType: AllowedMediaTyp
     params.price != null
       ? `prix : ${params.price} FCFA.`
       : "prix sur devis (aucun prix fixe — n'invente surtout pas de montant, invite plutôt naturellement le client à contacter le commerçant pour connaître le prix).";
+  const serviceContextLine =
+    params.serviceDescription || (params.serviceItems && params.serviceItems.length > 0)
+      ? ` ${params.serviceDescription ? `Description du service : ${params.serviceDescription}.` : ""}${
+          params.serviceItems && params.serviceItems.length > 0 ? ` Ce qui est inclus : ${params.serviceItems.join(", ")}.` : ""
+        }`
+      : "";
 
   try {
     const anthropic = new Anthropic();
+    const content: ContentPart[] = [];
+    if (photo) {
+      content.push({ type: "image", source: { type: "base64", media_type: photo.mediaType, data: photo.base64 } });
+    }
+    content.push({
+      type: "text",
+      text: `Produit ou service : "${params.productName}", ${priceLine}${serviceContextLine} Écris en ${languageLabel}. Rédige un texte de vente court (2-3 phrases, prêt à publier sur Facebook/Instagram/WhatsApp) et une liste de 4 à 6 hashtags pertinents pour le Sénégal.`,
+    });
+
     const message = await anthropic.messages.parse({
       model: "claude-sonnet-5",
       max_tokens: 1024,
       thinking: { type: "disabled" },
       system: culturalContext,
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "image", source: { type: "base64", media_type: mediaType, data: photoBase64 } },
-            {
-              type: "text",
-              text: `Produit ou service : "${params.productName}", ${priceLine} Écris en ${languageLabel}. Rédige un texte de vente court (2-3 phrases, prêt à publier sur Facebook/Instagram/WhatsApp) et une liste de 4 à 6 hashtags pertinents pour le Sénégal.`,
-            },
-          ],
-        },
-      ],
+      messages: [{ role: "user", content }],
       output_config: { format: zodOutputFormat(CopySchema) },
     });
 
@@ -78,8 +92,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
   }
 
-  const { photoPath, productName, price, industry, language, tier, logoPath, businessName, contactPhone } = (await request.json()) as {
-    photoPath: string;
+  const {
+    photoPath,
+    productName,
+    price,
+    industry,
+    language,
+    tier,
+    logoPath,
+    businessName,
+    contactPhone,
+    subjectType,
+    serviceDescription,
+    serviceItems,
+  } = (await request.json()) as {
+    photoPath: string | null;
     productName: string;
     price: number | null;
     industry: string | null;
@@ -88,23 +115,19 @@ export async function POST(request: Request) {
     logoPath: string | null;
     businessName: string | null;
     contactPhone: string | null;
+    subjectType: "product" | "service";
+    serviceDescription: string | null;
+    serviceItems: string[] | null;
   };
 
-  if (!photoPath || !productName) {
+  const normalizedSubjectType: "product" | "service" = subjectType === "service" ? "service" : "product";
+  const normalizedItems = (serviceItems ?? []).map((i) => i.trim()).filter(Boolean).slice(0, 10);
+
+  if (!productName || (normalizedSubjectType === "product" && !photoPath)) {
     return NextResponse.json({ error: "Champs manquants." }, { status: 400 });
   }
 
-  const { data: photoBlob, error: downloadError } = await supabase.storage.from("creations").download(photoPath);
-  if (downloadError || !photoBlob) {
-    return NextResponse.json({ error: "Photo introuvable." }, { status: 500 });
-  }
-
   const normalizedTier: Tier = (tier as Tier) || "basic";
-  const photoBuffer = Buffer.from(await photoBlob.arrayBuffer());
-  const photoBase64 = photoBuffer.toString("base64");
-  const mediaType: AllowedMediaType = ALLOWED_MEDIA_TYPES.includes(photoBlob.type as AllowedMediaType)
-    ? (photoBlob.type as AllowedMediaType)
-    : "image/jpeg";
 
   let logoBuffer: Buffer | null = null;
   if (normalizedTier === "premium" && logoPath) {
@@ -112,10 +135,35 @@ export async function POST(request: Request) {
     if (logoBlob) logoBuffer = Buffer.from(await logoBlob.arrayBuffer());
   }
 
-  const [{ salesCopy, hashtags, copyError }, { backgroundBuffer, imageError, layout, accentGradient }] = await Promise.all([
-    generateSalesCopy(photoBase64, mediaType, { productName, price, industry, language }),
-    buildPosterBackground(photoBuffer, photoBase64, mediaType, productName, industry, normalizedTier),
+  let photoBuffer: Buffer | null = null;
+  let photoBase64: string | null = null;
+  let mediaType: AllowedMediaType = "image/jpeg";
+
+  if (photoPath) {
+    const { data: photoBlob, error: downloadError } = await supabase.storage.from("creations").download(photoPath);
+    if (downloadError || !photoBlob) {
+      return NextResponse.json({ error: "Photo introuvable." }, { status: 500 });
+    }
+    photoBuffer = Buffer.from(await photoBlob.arrayBuffer());
+    photoBase64 = photoBuffer.toString("base64");
+    mediaType = ALLOWED_MEDIA_TYPES.includes(photoBlob.type as AllowedMediaType) ? (photoBlob.type as AllowedMediaType) : "image/jpeg";
+  }
+
+  const [{ salesCopy, hashtags, copyError }, backgroundResult] = await Promise.all([
+    generateSalesCopy(photoBase64 ? { base64: photoBase64, mediaType } : null, {
+      productName,
+      price,
+      industry,
+      language,
+      serviceDescription,
+      serviceItems: normalizedItems,
+    }),
+    photoBuffer && photoBase64
+      ? buildPosterBackground(photoBuffer, photoBase64, mediaType, productName, industry, normalizedTier)
+      : buildServiceBackground(productName, serviceDescription, normalizedItems, industry, normalizedTier),
   ]);
+
+  const { backgroundBuffer, imageError, layout, accentGradient } = backgroundResult;
 
   const phone =
     contactPhone?.trim() || (user.user_metadata?.whatsapp_number as string | undefined) || user.phone || "";
@@ -133,6 +181,7 @@ export async function POST(request: Request) {
       accentGradient,
       businessName,
       logoBuffer,
+      serviceItems: normalizedItems,
     });
 
     posterPath = `${user.id}/${Date.now()}-poster.jpg`;
@@ -163,6 +212,9 @@ export async function POST(request: Request) {
       logo_path: normalizedTier === "premium" ? logoPath : null,
       business_name: normalizedTier === "premium" ? businessName : null,
       contact_phone: phone || null,
+      subject_type: normalizedSubjectType,
+      service_description: normalizedSubjectType === "service" ? serviceDescription : null,
+      service_items: normalizedItems.length > 0 ? normalizedItems : null,
     })
     .select()
     .single();

@@ -6,6 +6,28 @@ const JAARLE_LOGO_PATH = path.join(process.cwd(), "public/images/logo-icon.png")
 const PREVIEW_SIZE = 640;
 
 /**
+ * Fond de secours en dégradé uni — utilisé quand une création "service" sans photo échoue
+ * totalement à générer une image (aucune photo d'origine vers laquelle se replier dans ce
+ * cas, contrairement au flux produit). Garantit que le bandeau satori a toujours un fond.
+ */
+export async function buildPlainBackground(accent?: { from: string; to: string } | null): Promise<Buffer> {
+  const from = accent?.from ?? "#6D5EF5";
+  const to = accent?.to ?? "#3B82F6";
+  const svg = Buffer.from(
+    `<svg width="1024" height="1024" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="${from}" />
+          <stop offset="1" stop-color="${to}" />
+        </linearGradient>
+      </defs>
+      <rect width="1024" height="1024" fill="url(#g)" />
+    </svg>`
+  );
+  return sharp(svg).png().toBuffer();
+}
+
+/**
  * Petit chip arrondi (fond blanc) contenant un logo marchand, pour le coin bas-droit du
  * bandeau satori — la zone restée libre dans les deux gabarits (bottom-bar et side-panel).
  */

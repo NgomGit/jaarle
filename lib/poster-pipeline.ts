@@ -1,8 +1,8 @@
 import { readFileSync } from "fs";
 import path from "path";
-import { compositeOverlay, finalizeJpeg } from "@/lib/image-compose";
+import { compositeOverlay, finalizeJpeg, buildPlainBackground } from "@/lib/image-compose";
 import { removeBackground } from "@/lib/background-removal";
-import { analyzeProduct, type ProductAnalysis } from "@/lib/product-analyzer";
+import { analyzeProduct, analyzeLogoColors, type ProductAnalysis } from "@/lib/product-analyzer";
 import { checkPosterQuality, checkTextAccuracy } from "@/lib/quality-checker";
 import { getIndustry } from "@/lib/knowledge/industries";
 import { getRelevantEvents } from "@/lib/knowledge/events";
@@ -38,6 +38,31 @@ function chooseImageModel(industryKey: string | null, tier: Tier): string {
   if (tier !== "premium") return DEFAULT_IMAGE_MODEL;
   if (!industryKey) return DEFAULT_IMAGE_MODEL;
   return MODEL_BY_INDUSTRY[industryKey] ?? DEFAULT_IMAGE_MODEL;
+}
+
+/**
+ * Palette de secours par secteur, utilisée dès qu'aucune couleur d'accent plus spécifique
+ * n'est disponible (analyse produit en échec, ou création "service" sans photo). Évite de
+ * retomber systématiquement sur la même teinte neutre/beige — chaque secteur a sa propre
+ * identité chromatique, cohérente avec son ambiance (visualDirection/toneHint).
+ */
+const INDUSTRY_ACCENTS: Record<string, { from: string; to: string }> = {
+  fashion: { from: "#C2185B", to: "#6D28D9" },
+  beauty: { from: "#DB2777", to: "#D97706" },
+  restaurant: { from: "#DC2626", to: "#EA580C" },
+  electronics: { from: "#1E3A8A", to: "#0891B2" },
+  furniture: { from: "#92400E", to: "#166534" },
+  "real-estate": { from: "#1E3A5F", to: "#B45309" },
+  automotive: { from: "#7F1D1D", to: "#1F2937" },
+  grocery: { from: "#15803D", to: "#65A30D" },
+  pharmacy: { from: "#0F766E", to: "#1D4ED8" },
+  events: { from: "#7C3AED", to: "#B45309" },
+  hotel: { from: "#0E7490", to: "#2563EB" },
+  travel: { from: "#0D9488", to: "#EA580C" },
+};
+
+function getIndustryAccent(industryKey: string | null): { from: string; to: string } {
+  return (industryKey && INDUSTRY_ACCENTS[industryKey]) || { from: "#6D5EF5", to: "#3B82F6" };
 }
 
 export type LayoutVariant = "bottom-bar" | "side-panel";
@@ -270,8 +295,123 @@ export async function buildPosterBackground(
     usedCutout: isCutout,
     qualityRetried,
     layout,
-    accentGradient: analysis?.accentGradient ?? null,
+    accentGradient: analysis?.accentGradient ?? getIndustryAccent(industry),
   };
+}
+
+/**
+ * Brief orchestrator pour un service SANS photo de référence : au lieu de composer autour
+ * d'une photo, l'IA imagine une scène entière à partir du nom, de la description et des
+ * items proposés — text-to-image plutôt qu'édition d'image. Utilisé quand la photo est
+ * facultative (création de type service) et que le marchand n'en fournit pas.
+ */
+function buildServicePosterPrompt(params: {
+  industryKey: string | null;
+  tier: Tier;
+  layout: LayoutVariant;
+  serviceName: string;
+  serviceDescription: string | null;
+  serviceItems: string[];
+  customInstructions?: string | null;
+}): string {
+  const industry = getIndustry(params.industryKey ?? undefined);
+  const seasonalNote = getSeasonalVisualNote(new Date());
+  const itemsLine = params.serviceItems.length
+    ? `Items/offerings included in this service: ${params.serviceItems.join(", ")}.`
+    : "";
+
+  return `You are an award-winning advertising creative director specialized in premium marketing visuals for local services in Senegal / West Africa (e.g. car rental, cleaning services, car detailing).
+
+There is no reference photo for this brief — imagine and compose an entirely original, professional advertising visual from scratch that convincingly represents this exact service.
+
+Service: "${params.serviceName}"
+${params.serviceDescription ? `Description: ${params.serviceDescription}` : ""}
+${itemsLine}
+
+Rules:
+- Depict a realistic, specific, professional scene that genuinely evokes this exact service being performed or its result — never a generic stock-photo cliché. Draw inspiration from the category and the details given above.
+- Always aim for: elegant, modern, attractive and very clean — never cluttered, never gimmicky.
+- Adapt the visual to the Senegalese / West African market while remaining internationally premium.
+- Do NOT include: text, logos, prices, numbers, watermarks, QR codes, buttons or UI elements — those are added separately.
+
+Category: ${industry ? `${industry.labelFr} — typical scene elements to draw inspiration from: ${industry.visualDirection}.` : "General local service."}
+
+Distribution channels: Facebook, Instagram and WhatsApp — the visual must read clearly even as a small thumbnail.
+${seasonalNote ? `\n${seasonalNote}` : ""}
+${getNegativeSpaceInstruction(params.tier, params.layout)}
+${params.customInstructions ? `\nThe merchant asked for these specific changes compared to the previous version: "${params.customInstructions}"` : ""}`;
+}
+
+async function generateServiceImage(params: {
+  serviceName: string;
+  serviceDescription: string | null;
+  serviceItems: string[];
+  industryKey: string | null;
+  tier: Tier;
+  layout: LayoutVariant;
+  customInstructions?: string | null;
+}) {
+  try {
+    const prompt = buildServicePosterPrompt(params);
+
+    const res = await fetch("https://openrouter.ai/api/v1/images", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: chooseImageModel(params.industryKey, params.tier),
+        prompt,
+        resolution: "2K",
+        aspect_ratio: "1:1",
+      }),
+    });
+
+    if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+    const data = (await res.json()) as { data?: { b64_json?: string }[] };
+    const b64 = data.data?.[0]?.b64_json;
+    if (!b64) throw new Error("Aucune image générée.");
+    return { imageBase64: b64, imageError: null as string | null };
+  } catch (err) {
+    return { imageBase64: null, imageError: err instanceof Error ? err.message : "Erreur lors de la génération de l'image." };
+  }
+}
+
+/**
+ * Pipeline pour un service sans photo : pas de détourage, pas d'analyse vision (rien à
+ * comparer), pas de contrôle qualité (rien dont vérifier la fidélité) — juste une génération
+ * text-to-image à partir du brief (nom, description, items). Repli sur un fond en dégradé uni
+ * si la génération échoue totalement : contrairement au flux produit, il n'y a pas de photo
+ * d'origine vers laquelle se replier, donc le bandeau satori doit toujours avoir un fond.
+ */
+export async function buildServiceBackground(
+  serviceName: string,
+  serviceDescription: string | null,
+  serviceItems: string[],
+  industry: string | null,
+  tier: Tier,
+  customInstructions?: string | null
+): Promise<{
+  backgroundBuffer: Buffer;
+  imageError: string | null;
+  layout: LayoutVariant;
+  accentGradient: { from: string; to: string } | null;
+}> {
+  const layout = pickLayoutVariant(tier);
+  const genResult = await generateServiceImage({
+    serviceName,
+    serviceDescription,
+    serviceItems,
+    industryKey: industry,
+    tier,
+    layout,
+    customInstructions,
+  });
+
+  const accentGradient = getIndustryAccent(industry);
+  const backgroundBuffer = genResult.imageBase64
+    ? Buffer.from(genResult.imageBase64, "base64")
+    : await buildPlainBackground(accentGradient);
+
+  return { backgroundBuffer, imageError: genResult.imageError, layout, accentGradient };
 }
 
 interface FinalPosterParams {
@@ -285,6 +425,7 @@ interface FinalPosterParams {
   businessName?: string | null;
   logoBuffer?: Buffer | null;
   customInstructions?: string | null;
+  serviceItems?: string[] | null;
 }
 
 /**
@@ -301,7 +442,9 @@ async function renderSatoriOverlay(origin: string, backgroundBuffer: Buffer, par
   overlayUrl.searchParams.set("phone", params.phone);
   overlayUrl.searchParams.set("badge", tierConfig.labelFr === "Basique" ? "" : tierConfig.labelFr);
   if (params.tier === "premium") {
-    overlayUrl.searchParams.set("benefits", getBenefitTags(params.industry).join("|"));
+    const benefits =
+      params.serviceItems && params.serviceItems.length > 0 ? params.serviceItems.slice(0, 3) : getBenefitTags(params.industry);
+    overlayUrl.searchParams.set("benefits", benefits.join("|"));
   }
   if (params.accentGradient) {
     overlayUrl.searchParams.set("accentFrom", params.accentGradient.from);
@@ -347,7 +490,11 @@ async function generateTemplatedPoster(backgroundBuffer: Buffer, params: FinalPo
     requirements.push(`A small badge/tag reading "Premium"`);
     requirements.push(`A short call-to-action, e.g. "Commander sur WhatsApp"`);
 
-    const creativeBenefitsInstruction = `\n\nBenefit tags: choose up to 3 short, compelling benefit or selling-point tags yourself — whatever best fits THIS specific product and would genuinely attract customers in Senegal (delivery, guarantee, payment options, exclusivity, craftsmanship, style appeal...). You decide the exact wording and how many (1 to 3) — don't default to generic filler.${industry ? ` For inspiration only, not mandatory — typical angles for "${industry.labelFr}": ${industry.ctaExamples.join(", ")}.` : ""}`;
+    const hasServiceItems = !!params.serviceItems && params.serviceItems.length > 0;
+
+    const creativeBenefitsInstruction = hasServiceItems
+      ? `\n\nBenefit tags: the merchant specifically listed these as what this service includes — use them (pick the best 3 if there are more) as the benefit tags on the poster: ${params.serviceItems!.join(", ")}. You may lightly polish the wording for a clean, professional look (capitalize, tighten phrasing, remove redundancy) but do NOT invent different tags or change their meaning — these are the merchant's real offerings, not generic filler.`
+      : `\n\nBenefit tags: choose up to 3 short, compelling benefit or selling-point tags yourself — whatever best fits THIS specific product and would genuinely attract customers in Senegal (delivery, guarantee, payment options, exclusivity, craftsmanship, style appeal...). You decide the exact wording and how many (1 to 3) — don't default to generic filler.${industry ? ` For inspiration only, not mandatory — typical angles for "${industry.labelFr}": ${industry.ctaExamples.join(", ")}.` : ""}`;
 
     const hasMerchantLogo = !!params.logoBuffer;
 
@@ -359,11 +506,36 @@ async function generateTemplatedPoster(backgroundBuffer: Buffer, params: FinalPo
       ? `\n\nThe merchant asked for these specific changes compared to the previous version — prioritize honoring this request while still respecting the accuracy rules below: "${params.customInstructions}"`
       : "";
 
+    // Le placement n'est PAS laissé au libre choix du modèle : sans contrainte explicite, GPT
+    // Image 2 converge presque toujours vers la même composition (texte à gauche/en bas). On
+    // impose le gabarit déjà tiré au hasard en amont pour garantir une vraie variété 50/50.
+    const layoutInstruction =
+      params.layout === "side-panel"
+        ? `Layout (mandatory, this is a deliberate art-direction choice — follow it exactly): place the product name, price, contact and CTA in a solid or dark panel occupying roughly the LEFT THIRD of the frame, vertically stacked. Compose and frame the product within the RIGHT two-thirds of the image, not centered.`
+        : `Layout (mandatory, this is a deliberate art-direction choice — follow it exactly): place the product name, price, contact and CTA in a horizontal band along the BOTTOM of the frame (roughly the bottom quarter). Keep the product the main focus of the upper two-thirds.`;
+
+    // Sans direction de couleur explicite, le modèle retombe souvent sur une teinte neutre/beige
+    // par défaut. On lui impose la palette déjà calculée (logo du marchand si disponible, sinon
+    // l'analyse du produit, sinon une teinte propre au secteur) pour une vraie diversité visuelle.
+    let accent = params.accentGradient ?? null;
+    if (hasMerchantLogo && params.logoBuffer) {
+      const logoAccent = await analyzeLogoColors(params.logoBuffer.toString("base64"));
+      if (logoAccent) accent = logoAccent;
+    }
+    const colorInstruction = accent
+      ? `\n\nColor palette (mandatory): use this exact 2-color accent for badges, the CTA button and typography highlights — ${accent.from} to ${accent.to}. This was chosen specifically for this ${hasMerchantLogo ? "merchant's brand" : "product/service"} — do NOT default to a generic neutral, beige or pastel scheme instead.`
+      : "";
+
+    const toneInstruction = industry ? `\n\nOverall tone to match this category: ${industry.toneHint}` : "";
+
     const prompt = `You are an award-winning advertising creative director designing the flagship, top-of-the-line tier of this product — the client paid a premium price specifically for a breathtaking result, and expects it to look like it came from a top international ad agency, not a template. You are given a professional, already-composed product photo${hasMerchantLogo ? " as the first reference image" : ""}.
 
 Add a complete, professional marketing poster layout on top of this exact image — do not alter the photo itself, only add design elements around/over it (badges, price tag, contact info, typography).
 
 This must be genuinely stunning — the kind of visual that stops someone mid-scroll on Instagram, not a safe or generic composition. Take a bold, memorable creative risk: striking typography, a considered color story, confident use of space. Never settle for "good enough."
+${layoutInstruction}
+${colorInstruction}
+${toneInstruction}
 
 Text that MUST appear, spelled and written EXACTLY as given below (this is real business information — accuracy is critical, never invent, alter or truncate any digit or character):
 ${requirements.map((r) => `- ${r}`).join("\n")}
@@ -372,8 +544,7 @@ ${merchantLogoInstruction}
 ${customInstructionsBlock}
 
 Design rules:
-- Choose typography, color accents and layout that genuinely complement this specific image — elegant, modern, magazine-cover quality, like a real advertising agency poster.
-- Vary your layout choices creatively — don't default to a generic template.
+- Choose typography and finer layout details that genuinely complement this specific image — elegant, modern, magazine-cover quality, like a real advertising agency poster — while strictly respecting the mandatory layout and color palette above.
 - All the text listed above as "MUST appear" must be 100% accurate and fully legible.
 - Do not add any other invented text, numbers or logos beyond what's explicitly requested above.
 - Keep the product itself fully visible, not obstructed by text or UI elements.`;

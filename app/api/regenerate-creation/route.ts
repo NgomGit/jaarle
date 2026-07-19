@@ -5,6 +5,7 @@ import {
   ALLOWED_MEDIA_TYPES,
   type AllowedMediaType,
   buildPosterBackground,
+  buildServiceBackground,
   renderFinalPoster,
 } from "@/lib/poster-pipeline";
 
@@ -29,7 +30,9 @@ export async function POST(request: Request) {
 
   const { data: creation, error: creationError } = await supabase
     .from("creations")
-    .select("id, product_name, price, photo_path, industry, tier, regenerations_used, logo_path, business_name, contact_phone")
+    .select(
+      "id, product_name, price, photo_path, industry, tier, regenerations_used, logo_path, business_name, contact_phone, service_description, service_items"
+    )
     .eq("id", creationId)
     .eq("user_id", user.id)
     .single();
@@ -43,26 +46,40 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Limite de régénérations atteinte." }, { status: 400 });
   }
 
-  const { data: photoBlob, error: downloadError } = await supabase.storage.from("creations").download(creation.photo_path);
-  if (downloadError || !photoBlob) {
-    return NextResponse.json({ error: "Photo introuvable." }, { status: 500 });
+  let backgroundResult: Awaited<ReturnType<typeof buildPosterBackground>> | Awaited<ReturnType<typeof buildServiceBackground>>;
+
+  if (creation.photo_path) {
+    const { data: photoBlob, error: downloadError } = await supabase.storage.from("creations").download(creation.photo_path);
+    if (downloadError || !photoBlob) {
+      return NextResponse.json({ error: "Photo introuvable." }, { status: 500 });
+    }
+    const photoBuffer = Buffer.from(await photoBlob.arrayBuffer());
+    const photoBase64 = photoBuffer.toString("base64");
+    const mediaType: AllowedMediaType = ALLOWED_MEDIA_TYPES.includes(photoBlob.type as AllowedMediaType)
+      ? (photoBlob.type as AllowedMediaType)
+      : "image/jpeg";
+
+    backgroundResult = await buildPosterBackground(
+      photoBuffer,
+      photoBase64,
+      mediaType,
+      creation.product_name,
+      creation.industry,
+      creation.tier as Tier,
+      trimmedInstructions
+    );
+  } else {
+    backgroundResult = await buildServiceBackground(
+      creation.product_name,
+      creation.service_description,
+      creation.service_items ?? [],
+      creation.industry,
+      creation.tier as Tier,
+      trimmedInstructions
+    );
   }
 
-  const photoBuffer = Buffer.from(await photoBlob.arrayBuffer());
-  const photoBase64 = photoBuffer.toString("base64");
-  const mediaType: AllowedMediaType = ALLOWED_MEDIA_TYPES.includes(photoBlob.type as AllowedMediaType)
-    ? (photoBlob.type as AllowedMediaType)
-    : "image/jpeg";
-
-  const { backgroundBuffer, imageError, layout, accentGradient } = await buildPosterBackground(
-    photoBuffer,
-    photoBase64,
-    mediaType,
-    creation.product_name,
-    creation.industry,
-    creation.tier as Tier,
-    trimmedInstructions
-  );
+  const { backgroundBuffer, imageError, layout, accentGradient } = backgroundResult;
   const phone = creation.contact_phone || (user.user_metadata?.whatsapp_number as string | undefined) || user.phone || "";
 
   let logoBuffer: Buffer | null = null;
@@ -85,6 +102,7 @@ export async function POST(request: Request) {
       businessName: creation.business_name,
       logoBuffer,
       customInstructions: trimmedInstructions,
+      serviceItems: creation.service_items,
     });
 
     posterPath = `${user.id}/${Date.now()}-poster.jpg`;
