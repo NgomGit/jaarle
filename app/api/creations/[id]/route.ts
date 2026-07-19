@@ -13,7 +13,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
 
   const { data: creation, error } = await supabase
     .from("creations")
-    .select("id, photo_path, poster_path")
+    .select("id, photo_path, poster_path, poster_path_2, extra_photo_paths")
     .eq("id", params.id)
     .eq("user_id", user.id)
     .single();
@@ -22,7 +22,9 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     return NextResponse.json({ error: "Création introuvable." }, { status: 404 });
   }
 
-  const paths = [creation.photo_path, creation.poster_path].filter((p): p is string => !!p);
+  const paths = [creation.photo_path, creation.poster_path, creation.poster_path_2, ...(creation.extra_photo_paths ?? [])].filter(
+    (p): p is string => !!p
+  );
   if (paths.length > 0) {
     await supabase.storage.from("creations").remove(paths);
   }

@@ -106,7 +106,8 @@ export async function GET(request: NextRequest) {
       : DEFAULT_ACCENT;
   const accentGradient = `linear-gradient(135deg, ${accent.from}, ${accent.to})`;
 
-  const showBadge = (tier === "medium" || tier === "premium") && !!badge;
+  const isRichTier = tier === "premium" || tier === "gold";
+  const showBadge = (tier === "medium" || isRichTier) && !!badge;
   const showContact = !!phone;
 
   const badgePill = (
@@ -124,7 +125,7 @@ export async function GET(request: NextRequest) {
         alignSelf: "flex-start",
       }}
     >
-      {tier === "premium" && <SparkleIcon size={16} />}
+      {isRichTier && <SparkleIcon size={16} />}
       {badge}
     </div>
   );
@@ -217,7 +218,7 @@ export async function GET(request: NextRequest) {
                 </div>
                 <span style={{ display: "flex", color: COLORS.white, fontSize: 26, fontWeight: 800 }}>{price}</span>
               </div>
-              {tier === "premium" &&
+              {isRichTier &&
                 benefits.map((b) => (
                   <div key={b} style={{ display: "flex", alignItems: "center", gap: 8, color: COLORS.white, fontSize: 14, fontWeight: 600 }}>
                     <CheckIcon size={14} color={accent.from} />
@@ -229,7 +230,7 @@ export async function GET(request: NextRequest) {
             {showContact && (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {contactPill}
-                {tier === "premium" && ctaButton}
+                {isRichTier && ctaButton}
               </div>
             )}
           </div>
@@ -239,7 +240,7 @@ export async function GET(request: NextRequest) {
               <div style={{ display: "flex", position: "absolute", top: 28, left: 28 }}>{badgePill}</div>
             )}
 
-            {tier === "premium" && benefits.length > 0 && (
+            {isRichTier && benefits.length > 0 && (
               <div style={{ position: "absolute", top: 28, right: 28, display: "flex", flexDirection: "column", gap: 10 }}>
                 {benefits.map((b) => (
                   <div
@@ -278,7 +279,7 @@ export async function GET(request: NextRequest) {
             >
               <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", width: "100%" }}>
                 <div style={{ display: "flex", flexDirection: "column" }}>
-                  <div style={{ display: "flex", color: COLORS.white, fontSize: tier === "premium" ? 36 : 26, fontWeight: 800 }}>
+                  <div style={{ display: "flex", color: COLORS.white, fontSize: isRichTier ? 36 : 26, fontWeight: 800 }}>
                     {productName}
                   </div>
                   {businessName && (
@@ -286,8 +287,8 @@ export async function GET(request: NextRequest) {
                   )}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  {tier === "premium" && <TagIcon size={20} color={COLORS.white} />}
-                  <div style={{ display: "flex", color: COLORS.white, fontSize: tier === "premium" ? 32 : 24, fontWeight: 700 }}>
+                  {isRichTier && <TagIcon size={20} color={COLORS.white} />}
+                  <div style={{ display: "flex", color: COLORS.white, fontSize: isRichTier ? 32 : 24, fontWeight: 700 }}>
                     {price}
                   </div>
                 </div>
@@ -296,7 +297,7 @@ export async function GET(request: NextRequest) {
               {showContact && (
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 18 }}>
                   {contactPill}
-                  {tier === "premium" && ctaButton}
+                  {isRichTier && ctaButton}
                 </div>
               )}
             </div>

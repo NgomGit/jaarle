@@ -21,9 +21,10 @@ const DEFAULT_IMAGE_MODEL = "black-forest-labs/flux.2-pro";
  * - FLUX.2 Pro : édition d'image forte, fidélité du produit de référence — défaut sûr, et
  *   nettement moins cher que GPT Image 2 (~$0.55 vs ~$0.886 par appel, coûts observés).
  * - GPT Image 2 : très bon en mise en scène/ambiance narrative — vérifié sur "restaurant",
- *   résultat net (scène de cuisine chaleureuse, produit fidèle). Activé, mais réservé au
- *   palier Premium : Basique et Medium doivent rester les plus accessibles possible, donc
- *   toujours sur FLUX.2 Pro quel que soit le secteur, pour un coût plancher prévisible.
+ *   résultat net (scène de cuisine chaleureuse, produit fidèle). Activé pour le palier Premium
+ *   selon le secteur, et systématiquement pour le palier Gold (zéro compromis, c'est le palier
+ *   le plus cher). Basique et Medium doivent rester les plus accessibles possible, donc toujours
+ *   sur FLUX.2 Pro quel que soit le secteur, pour un coût plancher prévisible.
  * - Recraft V4.1 Pro : testé sur "furniture" — résultat raté (fond quasi blanc, flou, probable
  *   mésentente sur le paramètre resolution). PAS activé tant que ce n'est pas corrigé.
  */
@@ -35,6 +36,7 @@ const MODEL_BY_INDUSTRY: Record<string, string> = {
 };
 
 function chooseImageModel(industryKey: string | null, tier: Tier): string {
+  if (tier === "gold") return "openai/gpt-image-2";
   if (tier !== "premium") return DEFAULT_IMAGE_MODEL;
   if (!industryKey) return DEFAULT_IMAGE_MODEL;
   return MODEL_BY_INDUSTRY[industryKey] ?? DEFAULT_IMAGE_MODEL;
@@ -104,7 +106,7 @@ function getNegativeSpaceInstruction(tier: Tier, layout: LayoutVariant): string 
   if (layout === "side-panel") {
     return "Composition constraint: keep the left third of the frame visually calm and uncluttered — a dark text panel with the name, price and contact will be added there programmatically. Compose and frame the product mainly within the right two-thirds of the image.";
   }
-  if (tier === "premium") {
+  if (tier === "premium" || tier === "gold") {
     return "Composition constraint: keep the top-left corner (small badge), the top-right corner (two short benefit tags) and a generous strip along the bottom ~25% of the frame visually calm and uncluttered — marketing text, price and contact info will be added programmatically in those zones afterward.";
   }
   if (tier === "medium") {
@@ -126,13 +128,17 @@ function buildComposedPosterPrompt(params: {
   isCutout: boolean;
   analysis: ProductAnalysis | null;
   customInstructions?: string | null;
+  photoCount?: number;
 }): string {
   const industry = getIndustry(params.industryKey ?? undefined);
   const seasonalNote = getSeasonalVisualNote(new Date());
+  const multiPhoto = (params.photoCount ?? 1) > 1;
 
   const subjectLine = params.isCutout
     ? "You are given the subject (a product, or something representing a service being offered — e.g. a vehicle, equipment, a person at work) completely isolated on a transparent background — no original scene, no props, no distracting context. Everything visible in the reference image is the subject itself."
-    : "You are given a photo of the subject — a product, or something representing a service being offered (e.g. a vehicle, equipment, a person at work) — in its original setting.";
+    : multiPhoto
+      ? "You are given several reference photos of the same subject from different angles/contexts — use them together to understand it fully (all its sides, details, textures) and compose a single richer, more faithful visual."
+      : "You are given a photo of the subject — a product, or something representing a service being offered (e.g. a vehicle, equipment, a person at work) — in its original setting.";
 
   const analysisBlock = params.analysis
     ? `Subject analysis (from a vision pass on the original photo):
@@ -177,8 +183,7 @@ ${params.customInstructions ? `\nThe merchant asked for these specific changes c
  * génération, plutôt qu'un service de post-traitement séparé).
  */
 async function generateComposedPoster(
-  imageBase64: string,
-  mediaType: AllowedMediaType,
+  images: { base64: string; mediaType: AllowedMediaType }[],
   industryKey: string | null,
   tier: Tier,
   layout: LayoutVariant,
@@ -187,7 +192,15 @@ async function generateComposedPoster(
   customInstructions?: string | null
 ) {
   try {
-    const prompt = buildComposedPosterPrompt({ industryKey, tier, layout, isCutout, analysis, customInstructions });
+    const prompt = buildComposedPosterPrompt({
+      industryKey,
+      tier,
+      layout,
+      isCutout,
+      analysis,
+      customInstructions,
+      photoCount: images.length,
+    });
 
     const res = await fetch("https://openrouter.ai/api/v1/images", {
       method: "POST",
@@ -195,7 +208,7 @@ async function generateComposedPoster(
       body: JSON.stringify({
         model: chooseImageModel(industryKey, tier),
         prompt,
-        input_references: [{ type: "image_url", image_url: { url: `data:${mediaType};base64,${imageBase64}` } }],
+        input_references: images.map((img) => ({ type: "image_url", image_url: { url: `data:${img.mediaType};base64,${img.base64}` } })),
         resolution: "2K",
         aspect_ratio: "1:1",
       }),
@@ -217,8 +230,13 @@ async function generateComposedPoster(
  * Le détourage (pixels du produit intacts, aucun décor d'origine) tourne en parallèle de
  * l'analyse produit puisque les deux partent de la même photo brute.
  *
- * Le contrôle qualité + la reprise (max 1) sont réservés au palier Premium : Basique et
- * Medium acceptent toujours la première génération, pour un coût prévisible et accessible.
+ * Le contrôle qualité + la reprise (max 1) sont réservés aux paliers Premium et Gold : Basique
+ * et Medium acceptent toujours la première génération, pour un coût prévisible et accessible.
+ *
+ * `extraPhotos` (palier Gold) : jusqu'à 2 photos supplémentaires du même produit, fournies en
+ * référence en plus de la photo principale, pour une composition plus riche et plus fidèle.
+ * `forcedLayout` (palier Gold) : impose le gabarit plutôt que de le tirer au hasard, pour
+ * générer 2 déclinaisons structurellement différentes (une side-panel, une bottom-bar).
  */
 export async function buildPosterBackground(
   photoBuffer: Buffer,
@@ -227,7 +245,9 @@ export async function buildPosterBackground(
   productName: string,
   industry: string | null,
   tier: Tier,
-  customInstructions?: string | null
+  customInstructions?: string | null,
+  extraPhotos?: { base64: string; mediaType: AllowedMediaType }[],
+  forcedLayout?: LayoutVariant
 ): Promise<{
   backgroundBuffer: Buffer;
   imageError: string | null;
@@ -236,7 +256,8 @@ export async function buildPosterBackground(
   layout: LayoutVariant;
   accentGradient: { from: string; to: string } | null;
 }> {
-  const layout = pickLayoutVariant(tier);
+  const layout = forcedLayout ?? pickLayoutVariant(tier);
+  const extras = extraPhotos ?? [];
 
   const [analysis, cutoutOutcome] = await Promise.all([
     analyzeProduct(photoBase64, mediaType, productName),
@@ -248,39 +269,23 @@ export async function buildPosterBackground(
   const isCutout = cutoutOutcome.ok;
   const primaryImageBase64 = isCutout ? cutoutOutcome.buf.toString("base64") : photoBase64;
   const primaryMediaType: AllowedMediaType = isCutout ? "image/png" : mediaType;
+  const primaryImages = [{ base64: primaryImageBase64, mediaType: primaryMediaType }, ...extras];
 
-  let genResult = await generateComposedPoster(
-    primaryImageBase64,
-    primaryMediaType,
-    industry,
-    tier,
-    layout,
-    isCutout,
-    analysis,
-    customInstructions
-  );
+  let genResult = await generateComposedPoster(primaryImages, industry, tier, layout, isCutout, analysis, customInstructions);
 
   // Repli si le détourage a réussi mais que la composition IA échoue quand même : retente avec la photo brute.
   if (!genResult.imageBase64 && isCutout) {
-    genResult = await generateComposedPoster(photoBase64, mediaType, industry, tier, layout, false, analysis, customInstructions);
+    const fallbackImages = [{ base64: photoBase64, mediaType }, ...extras];
+    genResult = await generateComposedPoster(fallbackImages, industry, tier, layout, false, analysis, customInstructions);
   }
 
   let finalImageBase64 = genResult.imageBase64;
   let qualityRetried = false;
 
-  if (finalImageBase64 && tier === "premium") {
+  if (finalImageBase64 && (tier === "premium" || tier === "gold")) {
     const { passed } = await checkPosterQuality(photoBase64, mediaType, finalImageBase64);
     if (!passed) {
-      const retry = await generateComposedPoster(
-        primaryImageBase64,
-        primaryMediaType,
-        industry,
-        tier,
-        layout,
-        isCutout,
-        analysis,
-        customInstructions
-      );
+      const retry = await generateComposedPoster(primaryImages, industry, tier, layout, isCutout, analysis, customInstructions);
       if (retry.imageBase64) {
         finalImageBase64 = retry.imageBase64;
         qualityRetried = true;
@@ -441,7 +446,7 @@ async function renderSatoriOverlay(origin: string, backgroundBuffer: Buffer, par
   overlayUrl.searchParams.set("price", params.price != null ? `${params.price.toLocaleString("fr-FR")} FCFA` : "Sur devis");
   overlayUrl.searchParams.set("phone", params.phone);
   overlayUrl.searchParams.set("badge", tierConfig.labelFr === "Basique" ? "" : tierConfig.labelFr);
-  if (params.tier === "premium") {
+  if (params.tier === "premium" || params.tier === "gold") {
     const benefits =
       params.serviceItems && params.serviceItems.length > 0 ? params.serviceItems.slice(0, 3) : getBenefitTags(params.industry);
     overlayUrl.searchParams.set("benefits", benefits.join("|"));
@@ -487,7 +492,7 @@ async function generateTemplatedPoster(backgroundBuffer: Buffer, params: FinalPo
     }
     if (showContact) requirements.push(`WhatsApp contact: "${params.phone}"`);
     if (params.businessName) requirements.push(`Business name: "${params.businessName}"`);
-    requirements.push(`A small badge/tag reading "Premium"`);
+    requirements.push(`A small badge/tag reading "${getTierConfig(params.tier).labelFr}"`);
     requirements.push(`A short call-to-action, e.g. "Commander sur WhatsApp"`);
 
     const hasServiceItems = !!params.serviceItems && params.serviceItems.length > 0;

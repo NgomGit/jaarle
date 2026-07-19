@@ -25,7 +25,7 @@
     "s1t": "Envoie ta photo",
     "s1d": "Une photo prise avec ton téléphone suffit. Ajoute le nom du produit et le prix, ou parle simplement à Jaarle.",
     "s2t": "Choisis ton palier",
-    "s2d": "Basique, Medium ou Premium — l'IA analyse ton produit et choisit elle-même le style, le décor et les couleurs. Le palier détermine juste la richesse du résultat.",
+    "s2d": "Basique, Medium, Premium ou Gold — l'IA analyse ton produit et choisit elle-même le style, le décor et les couleurs. Le palier détermine juste la richesse du résultat.",
     "s3t": "Publie partout",
     "s3d": "Reçois ton affiche, ta story et ton texte de vente en un clic. Télécharge ou partage directement."
   },
@@ -35,7 +35,7 @@
     "tab1": "Importer",
     "tab1s": "Photo, nom, prix",
     "tab2": "Palier",
-    "tab2s": "3 formules",
+    "tab2s": "4 formules",
     "tab3": "Génération",
     "tab3s": "L'IA travaille",
     "tab4": "Résultat",
@@ -71,6 +71,8 @@
     "campaignTag": "Le plus choisi",
     "packTitle": "Premium",
     "packUnit": "l'effet waouh, sans compromis",
+    "goldTitle": "Gold",
+    "goldUnit": "2 déclinaisons, jusqu'à 3 photos",
     "choose": "Choisir",
     "start": "Commencer"
   },
@@ -155,6 +157,9 @@
     "back": "Précédent",
     "generate": "Générer",
     "chooseFile": "Choisir une photo",
+    "goldExtraPhotosTitle": "Photos supplémentaires (jusqu'à 2 de plus)",
+    "goldExtraPhotosHint": "Différents angles ou contextes du même produit pour un résultat plus riche et plus fidèle.",
+    "goldExtraPhotoSlot": "Ajouter une photo",
     "subjectTypeLabel": "Que veux-tu mettre en avant ?",
     "subjectTypeProduct": "Un produit",
     "subjectTypeService": "Un service",
@@ -185,6 +190,8 @@
     "imageFallbackNote": "La stylisation IA de l'image n'a pas pu être générée pour cette création. Voici ta photo originale — le texte ci-dessous est bien généré par l'IA.",
     "aiLabel": "Généré par l'IA",
     "download": "Télécharger la photo",
+    "variation": "Variante {n}",
+    "downloadVariation": "Télécharger la variante {n}",
     "delete": "Supprimer",
     "deleteConfirm": "Supprimer définitivement cette création ? Cette action est irréversible.",
     "viewCreations": "Voir mes créations",
@@ -221,6 +228,10 @@
       "premium": {
         "name": "Premium",
         "desc": "Design le plus abouti, pensé pour l'effet waouh."
+      },
+      "gold": {
+        "name": "Gold",
+        "desc": "Jusqu'à 3 photos et 2 déclinaisons de design au choix."
       }
     },
     "regenerate": "Régénérer le design ({count} restantes)",

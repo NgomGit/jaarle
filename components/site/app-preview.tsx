@@ -11,7 +11,7 @@ import { useLocale } from "@/lib/locale-context";
 import { TIERS, type Tier } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 
-const TIER_ORDER: Tier[] = ["basic", "medium", "premium"];
+const TIER_ORDER: Tier[] = ["basic", "medium", "premium", "gold"];
 
 export function AppPreview() {
   const { t } = useLocale();
@@ -59,7 +59,7 @@ export function AppPreview() {
             </TabsContent>
 
             <TabsContent value="tier">
-              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-2.5">
                 {TIER_ORDER.map((key) => {
                   const cfg = TIERS[key];
                   return (

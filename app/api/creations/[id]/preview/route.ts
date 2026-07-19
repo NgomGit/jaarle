@@ -19,7 +19,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   const { data: creation, error } = await supabase
     .from("creations")
-    .select("poster_path, photo_path, unlocked")
+    .select("poster_path, poster_path_2, photo_path, unlocked")
     .eq("id", params.id)
     .eq("user_id", user.id)
     .single();
@@ -28,7 +28,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
     return new NextResponse("Introuvable.", { status: 404 });
   }
 
-  const displayPath = creation.poster_path || creation.photo_path;
+  const variant = new URL(request.url).searchParams.get("variant");
+  const displayPath = (variant === "2" ? creation.poster_path_2 : creation.poster_path) || creation.photo_path;
   if (!displayPath) {
     return new NextResponse("Image introuvable.", { status: 404 });
   }

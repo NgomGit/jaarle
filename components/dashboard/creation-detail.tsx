@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Copy, Check, Download, Lock, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/lib/locale-context";
+import { cn } from "@/lib/utils";
 import type { Creation } from "@/lib/supabase/creations";
 
 function formatHashtags(hashtags: string[]): string {
@@ -82,17 +83,24 @@ export function CreationDetail({ creation, tierPrice }: { creation: Creation; ti
       </Link>
 
       <div className="rounded-[20px] border border-border bg-card p-6">
-        <div className="relative mb-4 overflow-hidden rounded-2xl border border-border">
-          {creation.photoUrl && (
-            <img
-              src={creation.photoUrl}
-              alt={creation.product_name}
-              className="max-h-[420px] w-full select-none object-contain bg-muted [-webkit-touch-callout:none]"
-              draggable={creation.unlocked ? undefined : false}
-              onContextMenu={creation.unlocked ? undefined : (e) => e.preventDefault()}
-              onDragStart={creation.unlocked ? undefined : (e) => e.preventDefault()}
-            />
-          )}
+        <div className={cn("mb-4 grid gap-3", creation.photoUrl2 ? "grid-cols-2" : "grid-cols-1")}>
+          {[creation.photoUrl, creation.photoUrl2].filter(Boolean).map((url, i) => (
+            <div key={url} className="relative overflow-hidden rounded-2xl border border-border">
+              <img
+                src={url!}
+                alt={creation.product_name}
+                className="max-h-[420px] w-full select-none object-contain bg-muted [-webkit-touch-callout:none]"
+                draggable={creation.unlocked ? undefined : false}
+                onContextMenu={creation.unlocked ? undefined : (e) => e.preventDefault()}
+                onDragStart={creation.unlocked ? undefined : (e) => e.preventDefault()}
+              />
+              {creation.photoUrl2 && (
+                <span className="absolute left-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white">
+                  {t("creation.variation").replace("{n}", String(i + 1))}
+                </span>
+              )}
+            </div>
+          ))}
         </div>
 
         <div className="mb-4 flex items-center justify-between">
@@ -152,11 +160,19 @@ export function CreationDetail({ creation, tierPrice }: { creation: Creation; ti
                 </a>
               </Button>
               <Button variant="secondary" className="gap-1.5" asChild>
-                <a href={creation.photoUrl ?? "#"} download="affiche.jpg">
+                <a href={creation.photoUrl ?? "#"} download={creation.photoUrl2 ? "affiche-1.jpg" : "affiche.jpg"}>
                   <Download className="h-3.5 w-3.5" />
-                  {t("creation.download")}
+                  {creation.photoUrl2 ? t("creation.downloadVariation").replace("{n}", "1") : t("creation.download")}
                 </a>
               </Button>
+              {creation.photoUrl2 && (
+                <Button variant="secondary" className="gap-1.5" asChild>
+                  <a href={creation.photoUrl2} download="affiche-2.jpg">
+                    <Download className="h-3.5 w-3.5" />
+                    {t("creation.downloadVariation").replace("{n}", "2")}
+                  </a>
+                </Button>
+              )}
             </div>
             <p className="mt-2.5 text-[11px] text-muted-foreground">{t("creation.shareWhatsappHint")}</p>
           </>

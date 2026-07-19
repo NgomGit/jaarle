@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 type Step = 0 | 1 | 2 | 3;
 type Language = "fr" | "wo";
 type SubjectType = "product" | "service";
-const TIER_ORDER: Tier[] = ["basic", "medium", "premium"];
+const TIER_ORDER: Tier[] = ["basic", "medium", "premium", "gold"];
 
 export function NewCreationWizard({ userId, defaultPhone }: { userId: string; defaultPhone: string }) {
   const { t } = useLocale();
@@ -26,6 +26,10 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
   const [subjectType, setSubjectType] = React.useState<SubjectType>("product");
   const [file, setFile] = React.useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
+  const [extraFile2, setExtraFile2] = React.useState<File | null>(null);
+  const [extraPreview2, setExtraPreview2] = React.useState<string | null>(null);
+  const [extraFile3, setExtraFile3] = React.useState<File | null>(null);
+  const [extraPreview3, setExtraPreview3] = React.useState<string | null>(null);
   const [productName, setProductName] = React.useState("");
   const [serviceDescription, setServiceDescription] = React.useState("");
   const [serviceItems, setServiceItems] = React.useState<string[]>([]);
@@ -50,6 +54,7 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
   const [result, setResult] = React.useState<{
     creationId: string;
     imageUrl: string;
+    imageUrl2: string | null;
     imageFallback: boolean;
     posterReady: boolean;
     salesCopy: string | null;
@@ -88,6 +93,18 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
     setLogoPreviewUrl(URL.createObjectURL(f));
   }
 
+  function handleExtraFileChange(slot: 2 | 3, e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (slot === 2) {
+      setExtraFile2(f);
+      setExtraPreview2(URL.createObjectURL(f));
+    } else {
+      setExtraFile3(f);
+      setExtraPreview3(URL.createObjectURL(f));
+    }
+  }
+
   async function runGeneration() {
     if (!canProceedStep0) {
       setError(t("creation.errorMissingFields"));
@@ -109,11 +126,22 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
         if (uploadError) throw uploadError;
       }
 
+      const hasBranding = tier === "premium" || tier === "gold";
       let logoPath: string | null = null;
-      if (tier === "premium" && logoFile) {
+      if (hasBranding && logoFile) {
         logoPath = `${userId}/${Date.now()}-logo-${logoFile.name}`;
         const { error: logoUploadError } = await supabase.storage.from("creations").upload(logoPath, logoFile);
         if (logoUploadError) logoPath = null;
+      }
+
+      const extraPhotoPaths: string[] = [];
+      if (tier === "gold") {
+        for (const extraFile of [extraFile2, extraFile3]) {
+          if (!extraFile) continue;
+          const extraPath = `${userId}/${Date.now()}-${extraFile.name}`;
+          const { error: extraUploadError } = await supabase.storage.from("creations").upload(extraPath, extraFile);
+          if (!extraUploadError) extraPhotoPaths.push(extraPath);
+        }
       }
 
       const res = await fetch("/api/generate-creation", {
@@ -121,13 +149,14 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           photoPath,
+          extraPhotoPaths,
           productName,
           price: priceOnRequest ? null : Number(price),
           industry: industry || null,
           language,
           tier,
           logoPath,
-          businessName: tier === "premium" && businessName.trim() ? businessName.trim() : null,
+          businessName: hasBranding && businessName.trim() ? businessName.trim() : null,
           contactPhone: contactPhone.trim() || null,
           subjectType,
           serviceDescription: subjectType === "service" && serviceDescription.trim() ? serviceDescription.trim() : null,
@@ -140,6 +169,7 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
       return {
         creationId: data.creationId,
         imageUrl: data.imageUrl,
+        imageUrl2: data.imageUrl2 ?? null,
         imageFallback: !!data.imageError,
         posterReady: !!data.posterReady,
         salesCopy: data.salesCopy,
@@ -226,6 +256,10 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
     setBusinessName("");
     setLogoFile(null);
     setLogoPreviewUrl(null);
+    setExtraFile2(null);
+    setExtraPreview2(null);
+    setExtraFile3(null);
+    setExtraPreview3(null);
     setGenStepIndex(0);
     setError(null);
     setResult(null);
@@ -398,7 +432,7 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <span className="text-sm font-medium">{t("creation.tierLabel")}</span>
-              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
                 {TIER_ORDER.map((key) => {
                   const cfg = TIERS[key];
                   return (
@@ -432,7 +466,43 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
               <span className="text-[11px] text-muted-foreground">{t("creation.contactPhoneHint")}</span>
             </div>
 
-            {tier === "premium" && (
+            {tier === "gold" && (
+              <div className="flex flex-col gap-2.5 rounded-xl border border-dashed border-border p-3.5">
+                <span className="text-sm font-medium">{t("creation.goldExtraPhotosTitle")}</span>
+                <span className="-mt-2 text-[11px] text-muted-foreground">{t("creation.goldExtraPhotosHint")}</span>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {([2, 3] as const).map((slot) => {
+                    const preview = slot === 2 ? extraPreview2 : extraPreview3;
+                    const inputId = `extra-photo-${slot}`;
+                    return (
+                      <label
+                        key={slot}
+                        htmlFor={inputId}
+                        className="flex aspect-square cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-input bg-card text-center transition-colors hover:border-primary"
+                      >
+                        {preview ? (
+                          <img src={preview} alt="" className="h-full w-full rounded-xl object-cover" />
+                        ) : (
+                          <>
+                            <UploadCloud className="mb-1 h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
+                            <span className="text-[11px] text-muted-foreground">{t("creation.goldExtraPhotoSlot")}</span>
+                          </>
+                        )}
+                        <input
+                          id={inputId}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handleExtraFileChange(slot, e)}
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {(tier === "premium" || tier === "gold") && (
               <div className="flex flex-col gap-3 rounded-xl border border-dashed border-border p-3.5">
                 <span className="text-sm font-medium">{t("creation.brandingTitle")}</span>
                 <span className="-mt-2 text-[11px] text-muted-foreground">{t("creation.brandingHint")}</span>
@@ -543,6 +613,7 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
         {step === 3 && result && (
           <CreationResult
             imageUrl={result.imageUrl}
+            imageUrl2={result.imageUrl2}
             imageFallback={result.imageFallback}
             posterReady={result.posterReady}
             productName={productName}

@@ -6,9 +6,11 @@ import { Download, Lock, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useLocale } from "@/lib/locale-context";
+import { cn } from "@/lib/utils";
 
 export function CreationResult({
   imageUrl,
+  imageUrl2,
   imageFallback,
   posterReady = true,
   productName,
@@ -25,6 +27,7 @@ export function CreationResult({
   onRegenerate,
 }: {
   imageUrl: string;
+  imageUrl2?: string | null;
   imageFallback: boolean;
   posterReady?: boolean;
   productName: string;
@@ -42,31 +45,36 @@ export function CreationResult({
 }) {
   const { t } = useLocale();
   const [instructions, setInstructions] = React.useState("");
+  const images = [imageUrl, imageUrl2].filter((u): u is string => !!u);
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="relative overflow-hidden rounded-2xl border border-border">
-        <img
-          src={imageUrl}
-          alt={productName}
-          className="max-h-[360px] w-full select-none object-contain bg-muted [-webkit-touch-callout:none]"
-          draggable={locked ? false : undefined}
-          onContextMenu={locked ? (e) => e.preventDefault() : undefined}
-          onDragStart={locked ? (e) => e.preventDefault() : undefined}
-        />
-        <span className="absolute left-3 top-3 rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-primary shadow-glow-sm">
-          {imageFallback ? t("creation.imageFallbackLabel") : t("creation.aiLabel")}
-        </span>
-        {!posterReady && (
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
-            <div className="flex items-end justify-between">
-              <span className="text-sm font-bold text-white">{productName}</span>
-              <span className="font-mono text-sm font-bold text-white">
-                {formattedPrice ? `${formattedPrice} FCFA` : t("creation.priceOnRequestLabel")}
-              </span>
-            </div>
+      <div className={cn("grid gap-3", images.length > 1 ? "grid-cols-2" : "grid-cols-1")}>
+        {images.map((url, i) => (
+          <div key={url} className="relative overflow-hidden rounded-2xl border border-border">
+            <img
+              src={url}
+              alt={productName}
+              className="max-h-[360px] w-full select-none object-contain bg-muted [-webkit-touch-callout:none]"
+              draggable={locked ? false : undefined}
+              onContextMenu={locked ? (e) => e.preventDefault() : undefined}
+              onDragStart={locked ? (e) => e.preventDefault() : undefined}
+            />
+            <span className="absolute left-3 top-3 rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-primary shadow-glow-sm">
+              {images.length > 1 ? t("creation.variation").replace("{n}", String(i + 1)) : imageFallback ? t("creation.imageFallbackLabel") : t("creation.aiLabel")}
+            </span>
+            {!posterReady && i === 0 && (
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+                <div className="flex items-end justify-between">
+                  <span className="text-sm font-bold text-white">{productName}</span>
+                  <span className="font-mono text-sm font-bold text-white">
+                    {formattedPrice ? `${formattedPrice} FCFA` : t("creation.priceOnRequestLabel")}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        ))}
       </div>
 
       {imageFallback && <p className="text-xs text-muted-foreground">{t("creation.imageFallbackNote")}</p>}
@@ -117,12 +125,22 @@ export function CreationResult({
             {t("creation.unlockDownload").replace("{price}", String(tierPrice))}
           </Button>
         ) : (
-          <Button variant="secondary" className="gap-1.5" asChild>
-            <a href={imageUrl} download="affiche.jpg">
-              <Download className="h-3.5 w-3.5" />
-              {t("creation.download")}
-            </a>
-          </Button>
+          <>
+            <Button variant="secondary" className="gap-1.5" asChild>
+              <a href={imageUrl} download={images.length > 1 ? "affiche-1.jpg" : "affiche.jpg"}>
+                <Download className="h-3.5 w-3.5" />
+                {images.length > 1 ? t("creation.downloadVariation").replace("{n}", "1") : t("creation.download")}
+              </a>
+            </Button>
+            {imageUrl2 && (
+              <Button variant="secondary" className="gap-1.5" asChild>
+                <a href={imageUrl2} download="affiche-2.jpg">
+                  <Download className="h-3.5 w-3.5" />
+                  {t("creation.downloadVariation").replace("{n}", "2")}
+                </a>
+              </Button>
+            )}
+          </>
         )}
         <Button variant="secondary" className="flex-1" asChild>
           <Link href="/dashboard/creations">{t("creation.viewCreations")}</Link>

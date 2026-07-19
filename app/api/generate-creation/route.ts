@@ -8,6 +8,7 @@ import { type Tier } from "@/lib/pricing";
 import {
   ALLOWED_MEDIA_TYPES,
   type AllowedMediaType,
+  type LayoutVariant,
   buildPosterBackground,
   buildServiceBackground,
   renderFinalPoster,
@@ -94,6 +95,7 @@ export async function POST(request: Request) {
 
   const {
     photoPath,
+    extraPhotoPaths,
     productName,
     price,
     industry,
@@ -107,6 +109,7 @@ export async function POST(request: Request) {
     serviceItems,
   } = (await request.json()) as {
     photoPath: string | null;
+    extraPhotoPaths: string[] | null;
     productName: string;
     price: number | null;
     industry: string | null;
@@ -128,9 +131,11 @@ export async function POST(request: Request) {
   }
 
   const normalizedTier: Tier = (tier as Tier) || "basic";
+  const isGold = normalizedTier === "gold";
+  const hasBranding = normalizedTier === "premium" || isGold;
 
   let logoBuffer: Buffer | null = null;
-  if (normalizedTier === "premium" && logoPath) {
+  if (hasBranding && logoPath) {
     const { data: logoBlob } = await supabase.storage.from("creations").download(logoPath);
     if (logoBlob) logoBuffer = Buffer.from(await logoBlob.arrayBuffer());
   }
@@ -149,29 +154,43 @@ export async function POST(request: Request) {
     mediaType = ALLOWED_MEDIA_TYPES.includes(photoBlob.type as AllowedMediaType) ? (photoBlob.type as AllowedMediaType) : "image/jpeg";
   }
 
-  const [{ salesCopy, hashtags, copyError }, backgroundResult] = await Promise.all([
-    generateSalesCopy(photoBase64 ? { base64: photoBase64, mediaType } : null, {
-      productName,
-      price,
-      industry,
-      language,
-      serviceDescription,
-      serviceItems: normalizedItems,
-    }),
-    photoBuffer && photoBase64
-      ? buildPosterBackground(photoBuffer, photoBase64, mediaType, productName, industry, normalizedTier)
-      : buildServiceBackground(productName, serviceDescription, normalizedItems, industry, normalizedTier),
-  ]);
+  // Palier Gold uniquement : jusqu'à 2 photos supplémentaires du même produit, données en
+  // référence en plus de la principale pour une composition plus riche et plus fidèle.
+  const extraPhotos: { base64: string; mediaType: AllowedMediaType }[] = [];
+  if (isGold && extraPhotoPaths?.length) {
+    for (const extraPath of extraPhotoPaths.slice(0, 2)) {
+      const { data: extraBlob } = await supabase.storage.from("creations").download(extraPath);
+      if (extraBlob) {
+        const buf = Buffer.from(await extraBlob.arrayBuffer());
+        const extraMediaType: AllowedMediaType = ALLOWED_MEDIA_TYPES.includes(extraBlob.type as AllowedMediaType)
+          ? (extraBlob.type as AllowedMediaType)
+          : "image/jpeg";
+        extraPhotos.push({ base64: buf.toString("base64"), mediaType: extraMediaType });
+      }
+    }
+  }
 
-  const { backgroundBuffer, imageError, layout, accentGradient } = backgroundResult;
+  const phone = contactPhone?.trim() || (user.user_metadata?.whatsapp_number as string | undefined) || user.phone || "";
 
-  const phone =
-    contactPhone?.trim() || (user.user_metadata?.whatsapp_number as string | undefined) || user.phone || "";
+  async function renderVariation(forcedLayout?: LayoutVariant) {
+    const backgroundResult =
+      photoBuffer && photoBase64
+        ? await buildPosterBackground(
+            photoBuffer,
+            photoBase64,
+            mediaType,
+            productName,
+            industry,
+            normalizedTier,
+            null,
+            extraPhotos,
+            forcedLayout
+          )
+        : await buildServiceBackground(productName, serviceDescription, normalizedItems, industry, normalizedTier);
 
-  let posterPath: string | null = null;
-  try {
-    const origin = new URL(request.url).origin;
-    const { finalBuffer } = await renderFinalPoster(origin, backgroundBuffer, {
+    const { backgroundBuffer, imageError, layout, accentGradient } = backgroundResult;
+
+    const { finalBuffer } = await renderFinalPoster(new URL(request.url).origin, backgroundBuffer, {
       tier: normalizedTier,
       layout,
       productName,
@@ -184,13 +203,72 @@ export async function POST(request: Request) {
       serviceItems: normalizedItems,
     });
 
-    posterPath = `${user.id}/${Date.now()}-poster.jpg`;
-    const { error: posterUploadError } = await supabase.storage
-      .from("creations")
-      .upload(posterPath, finalBuffer, { contentType: "image/jpeg" });
-    if (posterUploadError) posterPath = null;
+    return { finalBuffer, imageError };
+  }
+
+  let posterPath: string | null = null;
+  let posterPath2: string | null = null;
+  let imageError: string | null = null;
+  let salesCopy: string | null = null;
+  let hashtags: string[] = [];
+  let copyError: string | null = null;
+
+  try {
+    if (isGold) {
+      const [copyResult, variation1, variation2] = await Promise.all([
+        generateSalesCopy(photoBase64 ? { base64: photoBase64, mediaType } : null, {
+          productName,
+          price,
+          industry,
+          language,
+          serviceDescription,
+          serviceItems: normalizedItems,
+        }),
+        renderVariation("side-panel"),
+        renderVariation("bottom-bar"),
+      ]);
+      salesCopy = copyResult.salesCopy;
+      hashtags = copyResult.hashtags;
+      copyError = copyResult.copyError;
+      imageError = variation1.imageError || variation2.imageError;
+
+      posterPath = `${user.id}/${Date.now()}-poster-1.jpg`;
+      const { error: upload1Error } = await supabase.storage
+        .from("creations")
+        .upload(posterPath, variation1.finalBuffer, { contentType: "image/jpeg" });
+      if (upload1Error) posterPath = null;
+
+      posterPath2 = `${user.id}/${Date.now()}-poster-2.jpg`;
+      const { error: upload2Error } = await supabase.storage
+        .from("creations")
+        .upload(posterPath2, variation2.finalBuffer, { contentType: "image/jpeg" });
+      if (upload2Error) posterPath2 = null;
+    } else {
+      const [copyResult, variation] = await Promise.all([
+        generateSalesCopy(photoBase64 ? { base64: photoBase64, mediaType } : null, {
+          productName,
+          price,
+          industry,
+          language,
+          serviceDescription,
+          serviceItems: normalizedItems,
+        }),
+        renderVariation(),
+      ]);
+      salesCopy = copyResult.salesCopy;
+      hashtags = copyResult.hashtags;
+      copyError = copyResult.copyError;
+      imageError = variation.imageError;
+
+      posterPath = `${user.id}/${Date.now()}-poster.jpg`;
+      const { error: posterUploadError } = await supabase.storage
+        .from("creations")
+        .upload(posterPath, variation.finalBuffer, { contentType: "image/jpeg" });
+      if (posterUploadError) posterPath = null;
+    }
   } catch {
     posterPath = null;
+    posterPath2 = null;
   }
 
   const { data: creation, error: insertError } = await supabase
@@ -201,7 +279,9 @@ export async function POST(request: Request) {
       price,
       style: AUTO_STYLE,
       photo_path: photoPath,
+      extra_photo_paths: isGold && extraPhotoPaths?.length ? extraPhotoPaths.slice(0, 2) : null,
       poster_path: posterPath,
+      poster_path_2: posterPath2,
       industry,
       language,
       generated_copy: salesCopy,
@@ -209,8 +289,8 @@ export async function POST(request: Request) {
       unlocked: false,
       tier: normalizedTier,
       regenerations_used: 0,
-      logo_path: normalizedTier === "premium" ? logoPath : null,
-      business_name: normalizedTier === "premium" ? businessName : null,
+      logo_path: hasBranding ? logoPath : null,
+      business_name: hasBranding ? businessName : null,
       contact_phone: phone || null,
       subject_type: normalizedSubjectType,
       service_description: normalizedSubjectType === "service" ? serviceDescription : null,
@@ -228,6 +308,7 @@ export async function POST(request: Request) {
     hashtags,
     copyError,
     imageUrl: `/api/creations/${creation.id}/preview?v=${Date.now()}`,
+    imageUrl2: posterPath2 ? `/api/creations/${creation.id}/preview?variant=2&v=${Date.now()}` : null,
     imageError,
     posterReady: !!posterPath,
     creationId: creation.id,
