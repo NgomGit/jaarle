@@ -69,13 +69,16 @@ const TextAccuracySchema = z.object({
  */
 export async function checkTextAccuracy(
   imageBase64: string,
-  expected: { price: string; phone?: string; productName?: string; businessName?: string }
+  expected: { price?: string; phone?: string; productName?: string; businessName?: string }
 ): Promise<{ passed: boolean; issues: string[] }> {
   try {
-    const requirements = [`le prix "${expected.price} FCFA"`];
+    const requirements: string[] = [];
+    if (expected.price) requirements.push(`le prix "${expected.price} FCFA"`);
     if (expected.phone) requirements.push(`le contact WhatsApp "${expected.phone}"`);
     if (expected.productName) requirements.push(`le nom du produit "${expected.productName}"`);
     if (expected.businessName) requirements.push(`le nom d'entreprise "${expected.businessName}"`);
+
+    if (requirements.length === 0) return { passed: true, issues: [] };
 
     const anthropic = new Anthropic();
     const message = await anthropic.messages.parse({
@@ -89,7 +92,7 @@ export async function checkTextAccuracy(
             { type: "image", source: { type: "base64", media_type: "image/png", data: imageBase64 } },
             {
               type: "text",
-              text: `Cette affiche doit afficher exactement : ${requirements.join(", ")}. Vérifie que ce texte apparaît bien sur l'image, correctement orthographié/chiffré et parfaitement lisible — aucun chiffre inventé, tronqué ou déformé. ${expected.phone ? "" : "Aucun numéro de contact n'est requis sur ce palier."} Liste les problèmes concrets s'il y en a.`,
+              text: `Cette affiche doit afficher exactement : ${requirements.join(", ")}. Vérifie que ce texte apparaît bien sur l'image, correctement orthographié/chiffré et parfaitement lisible — aucun chiffre inventé, tronqué ou déformé. ${expected.phone ? "" : "Aucun numéro de contact n'est requis sur ce palier."} ${expected.price ? "" : "Aucun prix fixe n'est requis sur cette affiche (prix sur devis) — ne signale pas son absence comme un problème."} Liste les problèmes concrets s'il y en a.`,
             },
           ],
         },
@@ -99,9 +102,10 @@ export async function checkTextAccuracy(
 
     const result = message.parsed_output;
     if (!result) return { passed: false, issues: ["Vérification impossible."] };
+    const priceOk = expected.price ? result.priceCorrect : true;
     const contactOk = expected.phone ? result.contactCorrect : true;
     const businessNameOk = expected.businessName ? result.businessNameCorrect : true;
-    return { passed: result.priceCorrect && result.textLegible && contactOk && businessNameOk, issues: result.issues };
+    return { passed: priceOk && result.textLegible && contactOk && businessNameOk, issues: result.issues };
   } catch {
     return { passed: false, issues: ["Erreur lors de la vérification du texte."] };
   }

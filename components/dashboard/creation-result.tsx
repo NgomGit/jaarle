@@ -30,7 +30,7 @@ export function CreationResult({
   imageFallback: boolean;
   posterReady?: boolean;
   productName: string;
-  formattedPrice: string;
+  formattedPrice: string | null;
   salesCopy: string | null;
   hashtags: string[];
   onNewCreation: () => void;
@@ -64,7 +64,9 @@ export function CreationResult({
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
             <div className="flex items-end justify-between">
               <span className="text-sm font-bold text-white">{productName}</span>
-              <span className="font-mono text-sm font-bold text-white">{formattedPrice} FCFA</span>
+              <span className="font-mono text-sm font-bold text-white">
+                {formattedPrice ? `${formattedPrice} FCFA` : t("creation.priceOnRequestLabel")}
+              </span>
             </div>
           </div>
         )}

@@ -25,6 +25,7 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
   const [productName, setProductName] = React.useState("");
   const [price, setPrice] = React.useState("");
+  const [priceOnRequest, setPriceOnRequest] = React.useState(false);
   const [industry, setIndustry] = React.useState("");
   const [language, setLanguage] = React.useState<Language>("fr");
   const [tier, setTier] = React.useState<Tier>("basic");
@@ -51,8 +52,8 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
     regenerationsRemaining: number;
   } | null>(null);
 
-  const canProceedStep0 = !!file && productName.trim() !== "" && price.trim() !== "";
-  const formattedPrice = price ? Number(price).toLocaleString("fr-FR") : "";
+  const canProceedStep0 = !!file && productName.trim() !== "" && (priceOnRequest || price.trim() !== "");
+  const formattedPrice = priceOnRequest ? null : price ? Number(price).toLocaleString("fr-FR") : "";
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -99,7 +100,7 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
         body: JSON.stringify({
           photoPath,
           productName,
-          price: Number(price),
+          price: priceOnRequest ? null : Number(price),
           industry: industry || null,
           language,
           tier,
@@ -188,6 +189,7 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
     setPreviewUrl(null);
     setProductName("");
     setPrice("");
+    setPriceOnRequest(false);
     setIndustry("");
     setLanguage("fr");
     setTier("basic");
@@ -246,14 +248,28 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
               <label htmlFor="price" className="text-sm font-medium">
                 {t("preview.fieldPrice")}
               </label>
-              <Input
-                id="price"
-                type="number"
-                inputMode="numeric"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                placeholder="25000"
-              />
+              {!priceOnRequest && (
+                <Input
+                  id="price"
+                  type="number"
+                  inputMode="numeric"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  placeholder="25000"
+                />
+              )}
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={priceOnRequest}
+                  onChange={(e) => {
+                    setPriceOnRequest(e.target.checked);
+                    if (e.target.checked) setPrice("");
+                  }}
+                  className="h-3.5 w-3.5 rounded border-input"
+                />
+                {t("creation.priceOnRequest")}
+              </label>
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium">{t("creation.industry")}</label>

@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export interface Creation {
   id: string;
   product_name: string;
-  price: number;
+  price: number | null;
   style: string;
   tier: string;
   photo_path: string;

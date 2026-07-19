@@ -4,6 +4,7 @@ import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useLocale } from "@/lib/locale-context";
+import { TIERS } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 
 export function Pricing() {
@@ -22,15 +23,15 @@ export function Pricing() {
             items={["Autant d'essais que tu veux", "Aperçu HD avant de payer", "Tu ne payes qu'au téléchargement"]}
             ctaLabel={t("pricing.start")} variant="secondary" />
 
-          <PlanCard title={t("pricing.simpleTitle")} amount="100" unit={t("pricing.simpleUnit")}
+          <PlanCard title={t("pricing.simpleTitle")} amount={TIERS.basic.price.toLocaleString("fr-FR")} unit={t("pricing.simpleUnit")}
             items={["Fond stylisé par IA", "Nom et prix inclus", "Téléchargement HD"]}
             ctaLabel={t("pricing.choose")} variant="secondary" mono />
 
-          <PlanCard title={t("pricing.campaignTitle")} amount="250" unit={t("pricing.campaignUnit")}
+          <PlanCard title={t("pricing.campaignTitle")} amount={TIERS.medium.price.toLocaleString("fr-FR")} unit={t("pricing.campaignUnit")}
             items={["Badge de style et contact inclus", "Texte + hashtags Facebook, TikTok, Instagram, WhatsApp", "Téléchargement HD"]}
             ctaLabel={t("pricing.choose")} variant="accent" mono featured tag={t("pricing.campaignTag")} />
 
-          <PlanCard title={t("pricing.packTitle")} amount="350" unit={t("pricing.packUnit")}
+          <PlanCard title={t("pricing.packTitle")} amount={TIERS.premium.price.toLocaleString("fr-FR")} unit={t("pricing.packUnit")}
             items={["Design pensé pour convertir", "Mise en avant premium", "Jusqu'à 3 régénérations incluses"]}
             ctaLabel={t("pricing.choose")} variant="secondary" mono />
         </div>

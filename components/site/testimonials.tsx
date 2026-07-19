@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 
 const people = [
   { initial: "A", name: "Awa Diallo", role: "Vend des vêtements, Dakar", fr: "Avant je passais une heure à essayer de faire une affiche sur mon téléphone. Maintenant c'est fait en une minute, et ça a l'air pro.", en: "I used to spend an hour trying to make a poster on my phone. Now it's done in a minute, and it looks professional." },
-  { initial: "M", name: "Moussa Fall", role: "Boutique de chaussures, Thiès", fr: "Je paie 250 FCFA seulement quand je publie, pas d'abonnement qui tourne dans le vide. Ça change tout pour mon budget.", en: "I only pay 250 FCFA when I publish, no subscription running in the background. It changes everything for my budget." },
+  { initial: "M", name: "Moussa Fall", role: "Boutique de chaussures, Thiès", fr: "Je paie seulement quand je publie, pas d'abonnement qui tourne dans le vide. Ça change tout pour mon budget.", en: "I only pay when I publish, no subscription running in the background. It changes everything for my budget." },
   { initial: "F", name: "Fatou Sow", role: "Cosmétiques, Touba", fr: "J'envoie juste la photo et le prix par la voix, Jaarle fait le reste. Mes publications ont plus de réactions qu'avant.", en: "I just send the photo and price by voice, Jaarle does the rest. My posts get more reactions than before." },
 ];
 

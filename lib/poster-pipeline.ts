@@ -18,9 +18,12 @@ const DEFAULT_IMAGE_MODEL = "black-forest-labs/flux.2-pro";
  * "chooseBestModel()" : route vers le modèle le plus adapté au secteur. Choix de départ basé
  * sur le positionnement documenté de chaque modèle, vérifié par un test direct avant activation
  * (pas une comparaison A/B exhaustive, mais pas non plus une pure hypothèse) :
- * - FLUX.2 Pro : édition d'image forte, fidélité du produit de référence — défaut sûr.
+ * - FLUX.2 Pro : édition d'image forte, fidélité du produit de référence — défaut sûr, et
+ *   nettement moins cher que GPT Image 2 (~$0.55 vs ~$0.886 par appel, coûts observés).
  * - GPT Image 2 : très bon en mise en scène/ambiance narrative — vérifié sur "restaurant",
- *   résultat net (scène de cuisine chaleureuse, produit fidèle). Activé.
+ *   résultat net (scène de cuisine chaleureuse, produit fidèle). Activé, mais réservé aux
+ *   paliers Medium/Premium pour des raisons de coût : le palier Basique reste toujours sur
+ *   FLUX.2 Pro, quel que soit le secteur, pour garder un coût plancher prévisible.
  * - Recraft V4.1 Pro : testé sur "furniture" — résultat raté (fond quasi blanc, flou, probable
  *   mésentente sur le paramètre resolution). PAS activé tant que ce n'est pas corrigé.
  */
@@ -31,7 +34,8 @@ const MODEL_BY_INDUSTRY: Record<string, string> = {
   events: "openai/gpt-image-2",
 };
 
-function chooseImageModel(industryKey: string | null): string {
+function chooseImageModel(industryKey: string | null, tier: Tier): string {
+  if (tier === "basic") return DEFAULT_IMAGE_MODEL;
   if (!industryKey) return DEFAULT_IMAGE_MODEL;
   return MODEL_BY_INDUSTRY[industryKey] ?? DEFAULT_IMAGE_MODEL;
 }
@@ -164,7 +168,7 @@ async function generateComposedPoster(
       method: "POST",
       headers: { Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: chooseImageModel(industryKey),
+        model: chooseImageModel(industryKey, tier),
         prompt,
         input_references: [{ type: "image_url", image_url: { url: `data:${mediaType};base64,${imageBase64}` } }],
         resolution: "2K",
@@ -271,7 +275,7 @@ interface FinalPosterParams {
   tier: Tier;
   layout: LayoutVariant;
   productName: string;
-  price: number;
+  price: number | null;
   phone: string;
   industry: string | null;
   accentGradient?: { from: string; to: string } | null;
@@ -290,7 +294,7 @@ async function renderSatoriOverlay(origin: string, backgroundBuffer: Buffer, par
   overlayUrl.searchParams.set("tier", params.tier);
   overlayUrl.searchParams.set("layout", params.layout);
   overlayUrl.searchParams.set("productName", params.productName);
-  overlayUrl.searchParams.set("price", params.price.toLocaleString("fr-FR"));
+  overlayUrl.searchParams.set("price", params.price != null ? `${params.price.toLocaleString("fr-FR")} FCFA` : "Sur devis");
   overlayUrl.searchParams.set("phone", params.phone);
   overlayUrl.searchParams.set("badge", tierConfig.labelFr === "Basique" ? "" : tierConfig.labelFr);
   if (params.tier === "premium") {
@@ -316,18 +320,25 @@ async function renderSatoriOverlay(origin: string, backgroundBuffer: Buffer, par
  * badges, CTA) sur l'image déjà composée — au lieu d'un gabarit fixe qu'on superpose nous-mêmes.
  * Plus créatif et varié, mais le texte est produit par un modèle génératif, donc jamais garanti
  * exact : c'est à `checkTextAccuracy` de trancher si le résultat est fiable.
+ *
+ * Jamais appelée pour le palier Basique (coût GPT Image 2 trop élevé face au prix du palier) —
+ * `renderFinalPoster` court-circuite Basique directement vers le bandeau satori.
  */
 const JAARLE_LOGO_PATH = path.join(process.cwd(), "public/images/logo-icon.png");
 
 async function generateTemplatedPoster(backgroundBuffer: Buffer, params: FinalPosterParams) {
   try {
     const tierConfig = getTierConfig(params.tier);
-    const priceLabel = params.price.toLocaleString("fr-FR");
+    const priceLabel = params.price != null ? `${params.price.toLocaleString("fr-FR")} FCFA` : null;
     const showContact = !!params.phone;
-    const isBasic = params.tier === "basic";
     const industry = getIndustry(params.industry ?? undefined);
 
-    const requirements = [`Product name: "${params.productName}"`, `Price: "${priceLabel} FCFA"`];
+    const requirements = [`Product name: "${params.productName}"`];
+    if (priceLabel) {
+      requirements.push(`Price: "${priceLabel}"`);
+    } else {
+      requirements.push(`No fixed price — instead include a short "Prix sur devis" / "Contactez-nous pour le prix" call-to-action in place of a price`);
+    }
     if (showContact) requirements.push(`WhatsApp contact: "${params.phone}"`);
     if (params.businessName) requirements.push(`Business name: "${params.businessName}"`);
     if (tierConfig.labelFr !== "Basique") requirements.push(`A small badge/tag reading "${tierConfig.labelFr}"`);
@@ -340,10 +351,6 @@ async function generateTemplatedPoster(backgroundBuffer: Buffer, params: FinalPo
 
     const hasMerchantLogo = params.tier === "premium" && !!params.logoBuffer;
 
-    const watermarkInstruction = isBasic
-      ? `\n\nWatermark: a second reference image is provided — the Jaarle logo mark. Place it small and subtle as a watermark in a bottom corner of the poster (low visual weight, must not obscure the product, the price or the product name).`
-      : "";
-
     const merchantLogoInstruction = hasMerchantLogo
       ? `\n\nBrand logo: a second reference image is provided — the merchant's own business logo. Place it tastefully as a real brand mark on the poster (e.g. a corner, near the CTA, or integrated into the layout) — clearly visible and legible, but not dominating the product.`
       : "";
@@ -352,14 +359,13 @@ async function generateTemplatedPoster(backgroundBuffer: Buffer, params: FinalPo
       ? `\n\nThe merchant asked for these specific changes compared to the previous version — prioritize honoring this request while still respecting the accuracy rules below: "${params.customInstructions}"`
       : "";
 
-    const prompt = `You are an award-winning advertising creative director. You are given a professional, already-composed product photo${isBasic || hasMerchantLogo ? " as the first reference image" : ""}.
+    const prompt = `You are an award-winning advertising creative director. You are given a professional, already-composed product photo${hasMerchantLogo ? " as the first reference image" : ""}.
 
 Add a complete, professional marketing poster layout on top of this exact image — do not alter the photo itself, only add design elements around/over it (badges, price tag, contact info, typography).
 
 Text that MUST appear, spelled and written EXACTLY as given below (this is real business information — accuracy is critical, never invent, alter or truncate any digit or character):
 ${requirements.map((r) => `- ${r}`).join("\n")}
 ${creativeBenefitsInstruction}
-${watermarkInstruction}
 ${merchantLogoInstruction}
 ${customInstructionsBlock}
 
@@ -374,10 +380,7 @@ Design rules:
     const inputReferences: { type: "image_url"; image_url: { url: string } }[] = [
       { type: "image_url", image_url: { url: `data:image/png;base64,${backgroundBase64}` } },
     ];
-    if (isBasic) {
-      const logoBase64 = readFileSync(JAARLE_LOGO_PATH).toString("base64");
-      inputReferences.push({ type: "image_url", image_url: { url: `data:image/png;base64,${logoBase64}` } });
-    } else if (hasMerchantLogo && params.logoBuffer) {
+    if (hasMerchantLogo && params.logoBuffer) {
       inputReferences.push({ type: "image_url", image_url: { url: `data:image/png;base64,${params.logoBuffer.toString("base64")}` } });
     }
 
@@ -407,17 +410,27 @@ Design rules:
  * Étape "Export" / mise en page finale : GPT Image 2 dessine la mise en page en priorité
  * (créative, varie à chaque génération). Si le texte généré (prix, contact) n'est pas
  * vérifié exact, repli automatique sur le bandeau satori fiable.
+ *
+ * Le palier Basique n'appelle jamais GPT Image 2 pour cette étape (coût trop élevé face au
+ * prix du palier) : il va directement sur le bandeau satori, avec le logo Jaarle en filigrane
+ * à la place du logo marchand (réservé au Premium).
  */
 export async function renderFinalPoster(
   origin: string,
   backgroundBuffer: Buffer,
   params: FinalPosterParams
 ): Promise<{ finalBuffer: Buffer; usedAiTemplate: boolean }> {
+  if (params.tier === "basic") {
+    const jaarleLogo = readFileSync(JAARLE_LOGO_PATH);
+    const finalBuffer = await renderSatoriOverlay(origin, backgroundBuffer, { ...params, logoBuffer: jaarleLogo });
+    return { finalBuffer, usedAiTemplate: false };
+  }
+
   const { imageBase64 } = await generateTemplatedPoster(backgroundBuffer, params);
 
   if (imageBase64) {
     const check = await checkTextAccuracy(imageBase64, {
-      price: params.price.toLocaleString("fr-FR"),
+      price: params.price != null ? params.price.toLocaleString("fr-FR") : undefined,
       phone: params.phone || undefined,
       productName: params.productName,
       businessName: params.businessName ?? undefined,

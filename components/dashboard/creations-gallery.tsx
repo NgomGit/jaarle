@@ -125,7 +125,9 @@ export function CreationsGallery({ creations: initialCreations, canceled }: { cr
                 </div>
                 <div>
                   <span className="block text-[10px] font-semibold text-white">{c.product_name}</span>
-                  <span className="block font-mono text-[10px] text-white/80">{c.price.toLocaleString("fr-FR")} FCFA</span>
+                  <span className="block font-mono text-[10px] text-white/80">
+                    {c.price != null ? `${c.price.toLocaleString("fr-FR")} FCFA` : t("creation.priceOnRequestLabel")}
+                  </span>
                 </div>
               </div>
             </div>

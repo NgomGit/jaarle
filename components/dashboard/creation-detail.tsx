@@ -97,7 +97,9 @@ export function CreationDetail({ creation, tierPrice }: { creation: Creation; ti
 
         <div className="mb-4 flex items-center justify-between">
           <h1 className="text-lg font-bold">{creation.product_name}</h1>
-          <span className="font-mono text-sm font-bold text-primary">{creation.price.toLocaleString("fr-FR")} FCFA</span>
+          <span className="font-mono text-sm font-bold text-primary">
+            {creation.price != null ? `${creation.price.toLocaleString("fr-FR")} FCFA` : t("creation.priceOnRequestLabel")}
+          </span>
         </div>
 
         {!creation.unlocked ? (

@@ -17,7 +17,7 @@
     "ctaSecondary": "Voir les tarifs",
     "proof": "Déjà utilisé par des commerçants à Dakar, Thiès et Touba",
     "badgeScore": "Score IA 91/100",
-    "badgePrice": "À partir de 100 FCFA"
+    "badgePrice": "À partir de {price} FCFA"
   },
   "how": {
     "title": "Trois étapes. Zéro compétence en design.",
@@ -154,6 +154,8 @@
     "back": "Précédent",
     "generate": "Générer",
     "chooseFile": "Choisir une photo",
+    "priceOnRequest": "Prix sur devis (le client te contactera pour le prix)",
+    "priceOnRequestLabel": "Sur devis",
     "industry": "Secteur d'activité",
     "industryPlaceholder": "Choisis un secteur (optionnel)",
     "industrySearchPlaceholder": "Rechercher un secteur...",

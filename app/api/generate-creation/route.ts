@@ -23,7 +23,7 @@ const CopySchema = z.object({
 
 async function generateSalesCopy(photoBase64: string, mediaType: AllowedMediaType, params: {
   productName: string;
-  price: number;
+  price: number | null;
   industry: string | null;
   language: string;
 }) {
@@ -32,6 +32,10 @@ async function generateSalesCopy(photoBase64: string, mediaType: AllowedMediaTyp
     params.language === "wo"
       ? "wolof (mélangé naturellement avec du français si besoin, comme parlent vraiment les commerçants à Dakar — pas une traduction littérale)"
       : "français";
+  const priceLine =
+    params.price != null
+      ? `prix : ${params.price} FCFA.`
+      : "prix sur devis (aucun prix fixe — n'invente surtout pas de montant, invite plutôt naturellement le client à contacter le commerçant pour connaître le prix).";
 
   try {
     const anthropic = new Anthropic();
@@ -47,7 +51,7 @@ async function generateSalesCopy(photoBase64: string, mediaType: AllowedMediaTyp
             { type: "image", source: { type: "base64", media_type: mediaType, data: photoBase64 } },
             {
               type: "text",
-              text: `Produit : "${params.productName}", prix : ${params.price} FCFA. Écris en ${languageLabel}. Rédige un texte de vente court (2-3 phrases, prêt à publier sur Facebook/Instagram/WhatsApp) et une liste de 4 à 6 hashtags pertinents pour le Sénégal.`,
+              text: `Produit : "${params.productName}", ${priceLine} Écris en ${languageLabel}. Rédige un texte de vente court (2-3 phrases, prêt à publier sur Facebook/Instagram/WhatsApp) et une liste de 4 à 6 hashtags pertinents pour le Sénégal.`,
             },
           ],
         },
@@ -77,7 +81,7 @@ export async function POST(request: Request) {
   const { photoPath, productName, price, industry, language, tier, logoPath, businessName, contactPhone } = (await request.json()) as {
     photoPath: string;
     productName: string;
-    price: number;
+    price: number | null;
     industry: string | null;
     language: string;
     tier: Tier;
@@ -86,7 +90,7 @@ export async function POST(request: Request) {
     contactPhone: string | null;
   };
 
-  if (!photoPath || !productName || !price) {
+  if (!photoPath || !productName) {
     return NextResponse.json({ error: "Champs manquants." }, { status: 400 });
   }
 

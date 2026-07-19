@@ -17,7 +17,7 @@
     "ctaSecondary": "See pricing",
     "proof": "Already used by merchants in Dakar, Thiès and Touba",
     "badgeScore": "AI score 91/100",
-    "badgePrice": "Starting at 100 FCFA"
+    "badgePrice": "Starting at {price} FCFA"
   },
   "how": {
     "title": "Three steps. Zero design skills.",
@@ -154,6 +154,8 @@
     "back": "Back",
     "generate": "Generate",
     "chooseFile": "Choose a photo",
+    "priceOnRequest": "Price on request (the client will contact you for pricing)",
+    "priceOnRequestLabel": "On request",
     "industry": "Business category",
     "industryPlaceholder": "Choose a category (optional)",
     "industrySearchPlaceholder": "Search for a category...",

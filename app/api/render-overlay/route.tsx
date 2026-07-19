@@ -215,7 +215,7 @@ export async function GET(request: NextRequest) {
                   <TagIcon size={12} color="rgba(255,255,255,0.6)" />
                   <span style={{ display: "flex", color: "rgba(255,255,255,0.6)", fontSize: 13, fontWeight: 600 }}>PRIX</span>
                 </div>
-                <span style={{ display: "flex", color: COLORS.white, fontSize: 26, fontWeight: 800 }}>{price} FCFA</span>
+                <span style={{ display: "flex", color: COLORS.white, fontSize: 26, fontWeight: 800 }}>{price}</span>
               </div>
               {tier === "premium" &&
                 benefits.map((b) => (
@@ -288,7 +288,7 @@ export async function GET(request: NextRequest) {
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   {tier === "premium" && <TagIcon size={20} color={COLORS.white} />}
                   <div style={{ display: "flex", color: COLORS.white, fontSize: tier === "premium" ? 32 : 24, fontWeight: 700 }}>
-                    {price} FCFA
+                    {price}
                   </div>
                 </div>
               </div>
