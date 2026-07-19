@@ -51,7 +51,7 @@ async function generateSalesCopy(photoBase64: string, mediaType: AllowedMediaTyp
             { type: "image", source: { type: "base64", media_type: mediaType, data: photoBase64 } },
             {
               type: "text",
-              text: `Produit : "${params.productName}", ${priceLine} Écris en ${languageLabel}. Rédige un texte de vente court (2-3 phrases, prêt à publier sur Facebook/Instagram/WhatsApp) et une liste de 4 à 6 hashtags pertinents pour le Sénégal.`,
+              text: `Produit ou service : "${params.productName}", ${priceLine} Écris en ${languageLabel}. Rédige un texte de vente court (2-3 phrases, prêt à publier sur Facebook/Instagram/WhatsApp) et une liste de 4 à 6 hashtags pertinents pour le Sénégal.`,
             },
           ],
         },

@@ -32,7 +32,7 @@ export function Pricing() {
             ctaLabel={t("pricing.choose")} variant="accent" mono featured tag={t("pricing.campaignTag")} />
 
           <PlanCard title={t("pricing.packTitle")} amount={TIERS.premium.price.toLocaleString("fr-FR")} unit={t("pricing.packUnit")}
-            items={["Design pensé pour convertir", "Mise en avant premium", "Jusqu'à 3 régénérations incluses"]}
+            items={["Design pensé pour convertir", "Mise en avant premium", "Un rendu pensé pour l'effet waouh"]}
             ctaLabel={t("pricing.choose")} variant="secondary" mono />
         </div>
       </div>

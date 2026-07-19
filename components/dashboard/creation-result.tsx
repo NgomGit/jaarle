@@ -6,7 +6,6 @@ import { Download, Lock, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useLocale } from "@/lib/locale-context";
-import type { Tier } from "@/lib/pricing";
 
 export function CreationResult({
   imageUrl,
@@ -21,7 +20,6 @@ export function CreationResult({
   unlocking = false,
   onUnlock,
   tierPrice,
-  tier,
   regenerationsRemaining = 0,
   regenerating = false,
   onRegenerate,
@@ -38,7 +36,6 @@ export function CreationResult({
   unlocking?: boolean;
   onUnlock?: () => void;
   tierPrice: number;
-  tier?: Tier;
   regenerationsRemaining?: number;
   regenerating?: boolean;
   onRegenerate?: (instructions: string) => void;
@@ -74,7 +71,7 @@ export function CreationResult({
 
       {imageFallback && <p className="text-xs text-muted-foreground">{t("creation.imageFallbackNote")}</p>}
 
-      {locked && tier === "premium" && onRegenerate && (
+      {locked && onRegenerate && (
         <div className="flex flex-col gap-2">
           {regenerationsRemaining > 0 && (
             <div className="flex flex-col gap-1">

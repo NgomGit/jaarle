@@ -243,6 +243,7 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
                 onChange={(e) => setProductName(e.target.value)}
                 placeholder="Robe wax bleue"
               />
+              <span className="text-[11px] text-muted-foreground">{t("creation.productOrServiceHint")}</span>
             </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor="price" className="text-sm font-medium">
@@ -442,10 +443,9 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
             onUnlock={unlockAndDownload}
             onNewCreation={reset}
             tierPrice={TIERS[result.tier].price}
-            tier={result.tier}
             regenerationsRemaining={result.regenerationsRemaining}
             regenerating={regenerating}
-            onRegenerate={handleRegenerate}
+            onRegenerate={TIERS[result.tier].maxRegenerations > 0 ? handleRegenerate : undefined}
           />
         )}
       </div>

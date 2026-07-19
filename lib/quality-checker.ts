@@ -30,13 +30,13 @@ export async function checkPosterQuality(
         {
           role: "user",
           content: [
-            { type: "text", text: "Photo produit d'origine :" },
+            { type: "text", text: "Photo d'origine (produit ou service à mettre en valeur) :" },
             { type: "image", source: { type: "base64", media_type: originalMediaType, data: originalPhotoBase64 } },
-            { type: "text", text: "Affiche générée à partir de ce produit :" },
+            { type: "text", text: "Affiche générée à partir de ce sujet :" },
             { type: "image", source: { type: "base64", media_type: "image/png", data: generatedImageBase64 } },
             {
               type: "text",
-              text: `Vérifie deux choses : (1) le produit sur l'affiche est-il bien le MÊME produit que la photo d'origine — mêmes couleurs, forme, motif, logo — sans avoir été redessiné ou réinterprété ? (2) la composition est-elle propre et professionnelle, sans artefact visuel ni texte parasite généré par erreur ? Liste les problèmes concrets s'il y en a.`,
+              text: `Vérifie deux choses : (1) le sujet sur l'affiche est-il bien le MÊME que sur la photo d'origine — mêmes couleurs, forme, motif, logo — sans avoir été redessiné ou réinterprété ? (2) la composition est-elle propre et professionnelle, sans artefact visuel ni texte parasite généré par erreur ? Liste les problèmes concrets s'il y en a.`,
             },
           ],
         },
@@ -75,7 +75,7 @@ export async function checkTextAccuracy(
     const requirements: string[] = [];
     if (expected.price) requirements.push(`le prix "${expected.price} FCFA"`);
     if (expected.phone) requirements.push(`le contact WhatsApp "${expected.phone}"`);
-    if (expected.productName) requirements.push(`le nom du produit "${expected.productName}"`);
+    if (expected.productName) requirements.push(`le nom "${expected.productName}"`);
     if (expected.businessName) requirements.push(`le nom d'entreprise "${expected.businessName}"`);
 
     if (requirements.length === 0) return { passed: true, issues: [] };

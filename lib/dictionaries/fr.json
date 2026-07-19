@@ -42,7 +42,7 @@
     "tab4s": "Campagne prête",
     "uploadTitle": "Glisse la photo de ton produit ici",
     "uploadHint": "JPG, PNG — ou prends une photo directement",
-    "fieldProduct": "Produit",
+    "fieldProduct": "Produit ou service",
     "fieldPrice": "Prix",
     "aiTitle": "Génération en cours",
     "aiSub": "Environ 40 secondes",
@@ -69,7 +69,7 @@
     "campaignUnit": "image + textes tout inclus",
     "campaignTag": "Le plus choisi",
     "packTitle": "Premium",
-    "packUnit": "jusqu'à 3 régénérations",
+    "packUnit": "l'effet waouh, sans compromis",
     "choose": "Choisir",
     "start": "Commencer"
   },
@@ -154,6 +154,7 @@
     "back": "Précédent",
     "generate": "Générer",
     "chooseFile": "Choisir une photo",
+    "productOrServiceHint": "Vends-tu un produit ou un service ? Marche aussi pour : location de voiture, femme de ménage, nettoyage auto...",
     "priceOnRequest": "Prix sur devis (le client te contactera pour le prix)",
     "priceOnRequestLabel": "Sur devis",
     "industry": "Secteur d'activité",
@@ -204,7 +205,7 @@
       },
       "premium": {
         "name": "Premium",
-        "desc": "+ mise en avant et jusqu'à 3 régénérations."
+        "desc": "Design le plus abouti, pensé pour l'effet waouh."
       }
     },
     "regenerate": "Régénérer le design ({count} restantes)",

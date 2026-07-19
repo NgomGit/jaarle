@@ -42,7 +42,7 @@
     "tab4s": "Campaign ready",
     "uploadTitle": "Drop your product photo here",
     "uploadHint": "JPG, PNG — or take a photo directly",
-    "fieldProduct": "Product",
+    "fieldProduct": "Product or service",
     "fieldPrice": "Price",
     "aiTitle": "Generating",
     "aiSub": "About 40 seconds",
@@ -69,7 +69,7 @@
     "campaignUnit": "image + copy, all included",
     "campaignTag": "Most popular",
     "packTitle": "Premium",
-    "packUnit": "up to 3 regenerations",
+    "packUnit": "the wow effect, no compromise",
     "choose": "Choose",
     "start": "Get started"
   },
@@ -154,6 +154,7 @@
     "back": "Back",
     "generate": "Generate",
     "chooseFile": "Choose a photo",
+    "productOrServiceHint": "Selling a product or a service? Works too for: car rental, cleaning services, car detailing...",
     "priceOnRequest": "Price on request (the client will contact you for pricing)",
     "priceOnRequestLabel": "On request",
     "industry": "Business category",
@@ -204,7 +205,7 @@
       },
       "premium": {
         "name": "Premium",
-        "desc": "+ highlights and up to 3 regenerations."
+        "desc": "Our most polished design, built for the wow effect."
       }
     },
     "regenerate": "Regenerate design ({count} left)",

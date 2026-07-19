@@ -21,9 +21,9 @@ const DEFAULT_IMAGE_MODEL = "black-forest-labs/flux.2-pro";
  * - FLUX.2 Pro : édition d'image forte, fidélité du produit de référence — défaut sûr, et
  *   nettement moins cher que GPT Image 2 (~$0.55 vs ~$0.886 par appel, coûts observés).
  * - GPT Image 2 : très bon en mise en scène/ambiance narrative — vérifié sur "restaurant",
- *   résultat net (scène de cuisine chaleureuse, produit fidèle). Activé, mais réservé aux
- *   paliers Medium/Premium pour des raisons de coût : le palier Basique reste toujours sur
- *   FLUX.2 Pro, quel que soit le secteur, pour garder un coût plancher prévisible.
+ *   résultat net (scène de cuisine chaleureuse, produit fidèle). Activé, mais réservé au
+ *   palier Premium : Basique et Medium doivent rester les plus accessibles possible, donc
+ *   toujours sur FLUX.2 Pro quel que soit le secteur, pour un coût plancher prévisible.
  * - Recraft V4.1 Pro : testé sur "furniture" — résultat raté (fond quasi blanc, flou, probable
  *   mésentente sur le paramètre resolution). PAS activé tant que ce n'est pas corrigé.
  */
@@ -35,7 +35,7 @@ const MODEL_BY_INDUSTRY: Record<string, string> = {
 };
 
 function chooseImageModel(industryKey: string | null, tier: Tier): string {
-  if (tier === "basic") return DEFAULT_IMAGE_MODEL;
+  if (tier !== "premium") return DEFAULT_IMAGE_MODEL;
   if (!industryKey) return DEFAULT_IMAGE_MODEL;
   return MODEL_BY_INDUSTRY[industryKey] ?? DEFAULT_IMAGE_MODEL;
 }
@@ -106,11 +106,11 @@ function buildComposedPosterPrompt(params: {
   const seasonalNote = getSeasonalVisualNote(new Date());
 
   const subjectLine = params.isCutout
-    ? "You are given the product completely isolated on a transparent background — no original scene, no props, no distracting context. Everything visible in the reference image is the product itself."
-    : "You are given a photo of the product in its original setting.";
+    ? "You are given the subject (a product, or something representing a service being offered — e.g. a vehicle, equipment, a person at work) completely isolated on a transparent background — no original scene, no props, no distracting context. Everything visible in the reference image is the subject itself."
+    : "You are given a photo of the subject — a product, or something representing a service being offered (e.g. a vehicle, equipment, a person at work) — in its original setting.";
 
   const analysisBlock = params.analysis
-    ? `Product analysis (from a vision pass on the original photo):
+    ? `Subject analysis (from a vision pass on the original photo):
 - Category: ${params.analysis.category}
 - Dominant colors: ${params.analysis.colors.join(", ")}
 - Material / texture: ${params.analysis.material}
@@ -120,22 +120,22 @@ function buildComposedPosterPrompt(params: {
 Use this analysis to choose a background, palette and mood that genuinely complement these specific colors and materials — not a generic look.`
     : "";
 
-  return `You are an award-winning advertising creative director specialized in premium commercial product photography and social media marketing for African markets.
+  return `You are an award-winning advertising creative director specialized in premium commercial photography and social media marketing for African markets — for physical products as well as local services (e.g. car rental, cleaning services, car detailing).
 
 ${subjectLine}
 
-Your task: design a complete, professional advertising visual around this exact product to sell it — as if shot and art-directed by a top-tier advertising agency.
+Your task: design a complete, professional advertising visual around this exact subject to sell it — as if shot and art-directed by a top-tier advertising agency.
 
 Rules:
-- The product shown is the absolute hero of the composition — preserve its exact colors, proportions, textures, and any text or logo already printed on it. Never redesign, restyle or reinterpret the product itself — no exceptions.
-- Analyze the product's own colors, materials and character, and choose the visual style, mood, lighting and color palette that fits it best yourself. Don't default to one generic look — every product deserves a scene designed specifically for it.
+- The subject shown is the absolute hero of the composition — preserve its exact colors, proportions, textures, and any text or logo already visible on it. Never redesign, restyle or reinterpret the subject itself — no exceptions.
+- Analyze the subject's own colors, materials and character, and choose the visual style, mood, lighting and color palette that fits it best yourself. Don't default to one generic look — every subject deserves a scene designed specifically for it.
 - Always aim for: elegant, modern, attractive and very clean — never cluttered, never gimmicky, never a generic AI stock-photo look.
-- Build a coherent, realistic professional environment around the product — proper lighting, depth, shadows and composition, using colors and materials that genuinely complement the product's own palette.
+- Build a coherent, realistic professional environment around the subject — proper lighting, depth, shadows and composition, using colors and materials that genuinely complement its own palette.
 - Adapt the visual to the Senegalese / West African market while remaining internationally premium.
 
-Avoid generic AI-background clichés: no draped fabric, no bedsheets or cloth backdrops, no floating pedestal wrapped in cloth, no plain pastel gradient with a soft cast shadow and nothing else. Build a genuine, specific scene appropriate to this product's category.
+Avoid generic AI-background clichés: no draped fabric, no bedsheets or cloth backdrops, no floating pedestal wrapped in cloth, no plain pastel gradient with a soft cast shadow and nothing else. Build a genuine, specific scene appropriate to this subject's category.
 
-Do NOT include: text, logos other than what's already printed on the product, prices, numbers, watermarks, QR codes, buttons or UI elements.
+Do NOT include: text, logos other than what's already visible on the subject, prices, numbers, watermarks, QR codes, buttons or UI elements.
 
 ${analysisBlock}
 
@@ -144,7 +144,7 @@ Category: ${industry ? `${industry.labelFr} — typical scene elements to draw i
 Distribution channels: Facebook, Instagram and WhatsApp — the visual must read clearly even as a small thumbnail.
 ${seasonalNote ? `\n${seasonalNote}` : ""}
 ${getNegativeSpaceInstruction(params.tier, params.layout)}
-${params.customInstructions ? `\nThe merchant asked for these specific changes compared to the previous version — prioritize honoring this request while still respecting the rules above (product fidelity, no text/logos): "${params.customInstructions}"` : ""}`;
+${params.customInstructions ? `\nThe merchant asked for these specific changes compared to the previous version — prioritize honoring this request while still respecting the rules above (subject fidelity, no text/logos): "${params.customInstructions}"` : ""}`;
 }
 
 /**
@@ -191,6 +191,9 @@ async function generateComposedPoster(
  * Image Generator -> Quality Checker (avec une reprise bornée si le contrôle échoue).
  * Le détourage (pixels du produit intacts, aucun décor d'origine) tourne en parallèle de
  * l'analyse produit puisque les deux partent de la même photo brute.
+ *
+ * Le contrôle qualité + la reprise (max 1) sont réservés au palier Premium : Basique et
+ * Medium acceptent toujours la première génération, pour un coût prévisible et accessible.
  */
 export async function buildPosterBackground(
   photoBuffer: Buffer,
@@ -240,7 +243,7 @@ export async function buildPosterBackground(
   let finalImageBase64 = genResult.imageBase64;
   let qualityRetried = false;
 
-  if (finalImageBase64) {
+  if (finalImageBase64 && tier === "premium") {
     const { passed } = await checkPosterQuality(photoBase64, mediaType, finalImageBase64);
     if (!passed) {
       const retry = await generateComposedPoster(
@@ -321,14 +324,14 @@ async function renderSatoriOverlay(origin: string, backgroundBuffer: Buffer, par
  * Plus créatif et varié, mais le texte est produit par un modèle génératif, donc jamais garanti
  * exact : c'est à `checkTextAccuracy` de trancher si le résultat est fiable.
  *
- * Jamais appelée pour le palier Basique (coût GPT Image 2 trop élevé face au prix du palier) —
- * `renderFinalPoster` court-circuite Basique directement vers le bandeau satori.
+ * Exclusivement réservée au palier Premium (`renderFinalPoster` court-circuite Basique et
+ * Medium vers le bandeau satori) — c'est le palier "effet waouh", celui où l'investissement
+ * GPT Image 2 se justifie et où le design doit vraiment impressionner.
  */
 const JAARLE_LOGO_PATH = path.join(process.cwd(), "public/images/logo-icon.png");
 
 async function generateTemplatedPoster(backgroundBuffer: Buffer, params: FinalPosterParams) {
   try {
-    const tierConfig = getTierConfig(params.tier);
     const priceLabel = params.price != null ? `${params.price.toLocaleString("fr-FR")} FCFA` : null;
     const showContact = !!params.phone;
     const industry = getIndustry(params.industry ?? undefined);
@@ -341,15 +344,12 @@ async function generateTemplatedPoster(backgroundBuffer: Buffer, params: FinalPo
     }
     if (showContact) requirements.push(`WhatsApp contact: "${params.phone}"`);
     if (params.businessName) requirements.push(`Business name: "${params.businessName}"`);
-    if (tierConfig.labelFr !== "Basique") requirements.push(`A small badge/tag reading "${tierConfig.labelFr}"`);
-    if (params.tier === "premium") requirements.push(`A short call-to-action, e.g. "Commander sur WhatsApp"`);
+    requirements.push(`A small badge/tag reading "Premium"`);
+    requirements.push(`A short call-to-action, e.g. "Commander sur WhatsApp"`);
 
-    const creativeBenefitsInstruction =
-      params.tier === "premium"
-        ? `\n\nBenefit tags: choose up to 3 short, compelling benefit or selling-point tags yourself — whatever best fits THIS specific product and would genuinely attract customers in Senegal (delivery, guarantee, payment options, exclusivity, craftsmanship, style appeal...). You decide the exact wording and how many (1 to 3) — don't default to generic filler.${industry ? ` For inspiration only, not mandatory — typical angles for "${industry.labelFr}": ${industry.ctaExamples.join(", ")}.` : ""}`
-        : "";
+    const creativeBenefitsInstruction = `\n\nBenefit tags: choose up to 3 short, compelling benefit or selling-point tags yourself — whatever best fits THIS specific product and would genuinely attract customers in Senegal (delivery, guarantee, payment options, exclusivity, craftsmanship, style appeal...). You decide the exact wording and how many (1 to 3) — don't default to generic filler.${industry ? ` For inspiration only, not mandatory — typical angles for "${industry.labelFr}": ${industry.ctaExamples.join(", ")}.` : ""}`;
 
-    const hasMerchantLogo = params.tier === "premium" && !!params.logoBuffer;
+    const hasMerchantLogo = !!params.logoBuffer;
 
     const merchantLogoInstruction = hasMerchantLogo
       ? `\n\nBrand logo: a second reference image is provided — the merchant's own business logo. Place it tastefully as a real brand mark on the poster (e.g. a corner, near the CTA, or integrated into the layout) — clearly visible and legible, but not dominating the product.`
@@ -359,9 +359,11 @@ async function generateTemplatedPoster(backgroundBuffer: Buffer, params: FinalPo
       ? `\n\nThe merchant asked for these specific changes compared to the previous version — prioritize honoring this request while still respecting the accuracy rules below: "${params.customInstructions}"`
       : "";
 
-    const prompt = `You are an award-winning advertising creative director. You are given a professional, already-composed product photo${hasMerchantLogo ? " as the first reference image" : ""}.
+    const prompt = `You are an award-winning advertising creative director designing the flagship, top-of-the-line tier of this product — the client paid a premium price specifically for a breathtaking result, and expects it to look like it came from a top international ad agency, not a template. You are given a professional, already-composed product photo${hasMerchantLogo ? " as the first reference image" : ""}.
 
 Add a complete, professional marketing poster layout on top of this exact image — do not alter the photo itself, only add design elements around/over it (badges, price tag, contact info, typography).
+
+This must be genuinely stunning — the kind of visual that stops someone mid-scroll on Instagram, not a safe or generic composition. Take a bold, memorable creative risk: striking typography, a considered color story, confident use of space. Never settle for "good enough."
 
 Text that MUST appear, spelled and written EXACTLY as given below (this is real business information — accuracy is critical, never invent, alter or truncate any digit or character):
 ${requirements.map((r) => `- ${r}`).join("\n")}
@@ -370,7 +372,7 @@ ${merchantLogoInstruction}
 ${customInstructionsBlock}
 
 Design rules:
-- Choose typography, color accents and layout that genuinely complement this specific image — elegant, modern, very clean, like a real advertising agency poster.
+- Choose typography, color accents and layout that genuinely complement this specific image — elegant, modern, magazine-cover quality, like a real advertising agency poster.
 - Vary your layout choices creatively — don't default to a generic template.
 - All the text listed above as "MUST appear" must be 100% accurate and fully legible.
 - Do not add any other invented text, numbers or logos beyond what's explicitly requested above.
@@ -411,9 +413,10 @@ Design rules:
  * (créative, varie à chaque génération). Si le texte généré (prix, contact) n'est pas
  * vérifié exact, repli automatique sur le bandeau satori fiable.
  *
- * Le palier Basique n'appelle jamais GPT Image 2 pour cette étape (coût trop élevé face au
- * prix du palier) : il va directement sur le bandeau satori, avec le logo Jaarle en filigrane
- * à la place du logo marchand (réservé au Premium).
+ * Seul le palier Premium appelle GPT Image 2 pour cette étape — c'est le palier "effet waouh",
+ * celui où l'investissement se justifie. Basique et Medium restent tous les deux sur le bandeau
+ * satori (fiable, gratuit à générer) pour rester les plus accessibles possible : Basique avec
+ * le logo Jaarle en filigrane, Medium sans logo (pas de marque à afficher à ce palier).
  */
 export async function renderFinalPoster(
   origin: string,
@@ -423,6 +426,11 @@ export async function renderFinalPoster(
   if (params.tier === "basic") {
     const jaarleLogo = readFileSync(JAARLE_LOGO_PATH);
     const finalBuffer = await renderSatoriOverlay(origin, backgroundBuffer, { ...params, logoBuffer: jaarleLogo });
+    return { finalBuffer, usedAiTemplate: false };
+  }
+
+  if (params.tier === "medium") {
+    const finalBuffer = await renderSatoriOverlay(origin, backgroundBuffer, params);
     return { finalBuffer, usedAiTemplate: false };
   }
 
