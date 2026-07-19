@@ -17,7 +17,7 @@ type Step = 0 | 1 | 2 | 3;
 type Language = "fr" | "wo";
 const TIER_ORDER: Tier[] = ["basic", "medium", "premium"];
 
-export function NewCreationWizard({ userId }: { userId: string }) {
+export function NewCreationWizard({ userId, defaultPhone }: { userId: string; defaultPhone: string }) {
   const { t } = useLocale();
   const searchParams = useSearchParams();
   const [step, setStep] = React.useState<Step>(0);
@@ -28,6 +28,7 @@ export function NewCreationWizard({ userId }: { userId: string }) {
   const [industry, setIndustry] = React.useState("");
   const [language, setLanguage] = React.useState<Language>("fr");
   const [tier, setTier] = React.useState<Tier>("basic");
+  const [contactPhone, setContactPhone] = React.useState(defaultPhone);
   const [businessName, setBusinessName] = React.useState("");
   const [logoFile, setLogoFile] = React.useState<File | null>(null);
   const [logoPreviewUrl, setLogoPreviewUrl] = React.useState<string | null>(null);
@@ -104,6 +105,7 @@ export function NewCreationWizard({ userId }: { userId: string }) {
           tier,
           logoPath,
           businessName: tier === "premium" && businessName.trim() ? businessName.trim() : null,
+          contactPhone: contactPhone.trim() || null,
         }),
       });
       const data = await res.json();
@@ -156,14 +158,14 @@ export function NewCreationWizard({ userId }: { userId: string }) {
     }
   }
 
-  async function handleRegenerate() {
+  async function handleRegenerate(customInstructions: string) {
     if (!result) return;
     setRegenerating(true);
     try {
       const res = await fetch("/api/regenerate-creation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ creationId: result.creationId }),
+        body: JSON.stringify({ creationId: result.creationId, customInstructions: customInstructions || null }),
       });
       const data = (await res.json()) as { imageUrl?: string; regenerationsRemaining?: number; error?: string };
       if (!res.ok || !data.imageUrl) throw new Error(data.error || "regenerate_failed");
@@ -189,6 +191,7 @@ export function NewCreationWizard({ userId }: { userId: string }) {
     setIndustry("");
     setLanguage("fr");
     setTier("basic");
+    setContactPhone(defaultPhone);
     setBusinessName("");
     setLogoFile(null);
     setLogoPreviewUrl(null);
@@ -286,6 +289,19 @@ export function NewCreationWizard({ userId }: { userId: string }) {
                   );
                 })}
               </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="contactPhone" className="text-sm font-medium">
+                {t("creation.contactPhone")}
+              </label>
+              <Input
+                id="contactPhone"
+                value={contactPhone}
+                onChange={(e) => setContactPhone(e.target.value)}
+                placeholder="77 123 45 67"
+              />
+              <span className="text-[11px] text-muted-foreground">{t("creation.contactPhoneHint")}</span>
             </div>
 
             {tier === "premium" && (

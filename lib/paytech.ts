@@ -1,5 +1,18 @@
 import crypto from "crypto";
 
+// PayTech ajoute ~2% de frais visibles par le client par-dessus le item_price envoyé (confirmé
+// empiriquement : envoyer 100 fait apparaître "102" côté client dans son appli mobile money).
+// Aucun paramètre API ni réglage de compte trouvé pour changer ce comportement (vérifié dans la
+// doc officielle). On envoie donc un montant légèrement réduit qui, une fois les ~2% de PayTech
+// ajoutés, retombe exactement sur le prix affiché sur Jaarle — le FCFA n'a pas de sous-unité,
+// donc l'arrondi retombe pile. Jaarle absorbe la différence plutôt que de surprendre le client
+// avec un montant plus élevé que celui annoncé.
+const PAYTECH_FEE_RATE = 0.02;
+
+export function withoutPaytechFee(targetAmount: number): number {
+  return Math.floor(targetAmount / (1 + PAYTECH_FEE_RATE));
+}
+
 export interface PaytechRequestPaymentParams {
   itemName: string;
   itemPrice: number;

@@ -18,14 +18,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
   }
 
-  const { creationId } = (await request.json()) as { creationId: string };
+  const { creationId, customInstructions } = (await request.json()) as {
+    creationId: string;
+    customInstructions?: string | null;
+  };
   if (!creationId) {
     return NextResponse.json({ error: "Création manquante." }, { status: 400 });
   }
+  const trimmedInstructions = customInstructions?.trim().slice(0, 300) || null;
 
   const { data: creation, error: creationError } = await supabase
     .from("creations")
-    .select("id, product_name, price, photo_path, industry, tier, regenerations_used, logo_path, business_name")
+    .select("id, product_name, price, photo_path, industry, tier, regenerations_used, logo_path, business_name, contact_phone")
     .eq("id", creationId)
     .eq("user_id", user.id)
     .single();
@@ -56,9 +60,10 @@ export async function POST(request: Request) {
     mediaType,
     creation.product_name,
     creation.industry,
-    creation.tier as Tier
+    creation.tier as Tier,
+    trimmedInstructions
   );
-  const phone = (user.user_metadata?.whatsapp_number as string | undefined) || user.phone || "";
+  const phone = creation.contact_phone || (user.user_metadata?.whatsapp_number as string | undefined) || user.phone || "";
 
   let logoBuffer: Buffer | null = null;
   if (creation.tier === "premium" && creation.logo_path) {
@@ -79,6 +84,7 @@ export async function POST(request: Request) {
       accentGradient,
       businessName: creation.business_name,
       logoBuffer,
+      customInstructions: trimmedInstructions,
     });
 
     posterPath = `${user.id}/${Date.now()}-poster.jpg`;

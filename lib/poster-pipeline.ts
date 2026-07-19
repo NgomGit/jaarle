@@ -96,6 +96,7 @@ function buildComposedPosterPrompt(params: {
   layout: LayoutVariant;
   isCutout: boolean;
   analysis: ProductAnalysis | null;
+  customInstructions?: string | null;
 }): string {
   const industry = getIndustry(params.industryKey ?? undefined);
   const seasonalNote = getSeasonalVisualNote(new Date());
@@ -138,7 +139,8 @@ Category: ${industry ? `${industry.labelFr} — typical scene elements to draw i
 
 Distribution channels: Facebook, Instagram and WhatsApp — the visual must read clearly even as a small thumbnail.
 ${seasonalNote ? `\n${seasonalNote}` : ""}
-${getNegativeSpaceInstruction(params.tier, params.layout)}`;
+${getNegativeSpaceInstruction(params.tier, params.layout)}
+${params.customInstructions ? `\nThe merchant asked for these specific changes compared to the previous version — prioritize honoring this request while still respecting the rules above (product fidelity, no text/logos): "${params.customInstructions}"` : ""}`;
 }
 
 /**
@@ -152,10 +154,11 @@ async function generateComposedPoster(
   tier: Tier,
   layout: LayoutVariant,
   isCutout: boolean,
-  analysis: ProductAnalysis | null
+  analysis: ProductAnalysis | null,
+  customInstructions?: string | null
 ) {
   try {
-    const prompt = buildComposedPosterPrompt({ industryKey, tier, layout, isCutout, analysis });
+    const prompt = buildComposedPosterPrompt({ industryKey, tier, layout, isCutout, analysis, customInstructions });
 
     const res = await fetch("https://openrouter.ai/api/v1/images", {
       method: "POST",
@@ -191,7 +194,8 @@ export async function buildPosterBackground(
   mediaType: AllowedMediaType,
   productName: string,
   industry: string | null,
-  tier: Tier
+  tier: Tier,
+  customInstructions?: string | null
 ): Promise<{
   backgroundBuffer: Buffer;
   imageError: string | null;
@@ -213,11 +217,20 @@ export async function buildPosterBackground(
   const primaryImageBase64 = isCutout ? cutoutOutcome.buf.toString("base64") : photoBase64;
   const primaryMediaType: AllowedMediaType = isCutout ? "image/png" : mediaType;
 
-  let genResult = await generateComposedPoster(primaryImageBase64, primaryMediaType, industry, tier, layout, isCutout, analysis);
+  let genResult = await generateComposedPoster(
+    primaryImageBase64,
+    primaryMediaType,
+    industry,
+    tier,
+    layout,
+    isCutout,
+    analysis,
+    customInstructions
+  );
 
   // Repli si le détourage a réussi mais que la composition IA échoue quand même : retente avec la photo brute.
   if (!genResult.imageBase64 && isCutout) {
-    genResult = await generateComposedPoster(photoBase64, mediaType, industry, tier, layout, false, analysis);
+    genResult = await generateComposedPoster(photoBase64, mediaType, industry, tier, layout, false, analysis, customInstructions);
   }
 
   let finalImageBase64 = genResult.imageBase64;
@@ -226,7 +239,16 @@ export async function buildPosterBackground(
   if (finalImageBase64) {
     const { passed } = await checkPosterQuality(photoBase64, mediaType, finalImageBase64);
     if (!passed) {
-      const retry = await generateComposedPoster(primaryImageBase64, primaryMediaType, industry, tier, layout, isCutout, analysis);
+      const retry = await generateComposedPoster(
+        primaryImageBase64,
+        primaryMediaType,
+        industry,
+        tier,
+        layout,
+        isCutout,
+        analysis,
+        customInstructions
+      );
       if (retry.imageBase64) {
         finalImageBase64 = retry.imageBase64;
         qualityRetried = true;
@@ -255,6 +277,7 @@ interface FinalPosterParams {
   accentGradient?: { from: string; to: string } | null;
   businessName?: string | null;
   logoBuffer?: Buffer | null;
+  customInstructions?: string | null;
 }
 
 /**
@@ -300,7 +323,7 @@ async function generateTemplatedPoster(backgroundBuffer: Buffer, params: FinalPo
   try {
     const tierConfig = getTierConfig(params.tier);
     const priceLabel = params.price.toLocaleString("fr-FR");
-    const showContact = params.tier !== "basic" && !!params.phone;
+    const showContact = !!params.phone;
     const isBasic = params.tier === "basic";
     const industry = getIndustry(params.industry ?? undefined);
 
@@ -325,6 +348,10 @@ async function generateTemplatedPoster(backgroundBuffer: Buffer, params: FinalPo
       ? `\n\nBrand logo: a second reference image is provided — the merchant's own business logo. Place it tastefully as a real brand mark on the poster (e.g. a corner, near the CTA, or integrated into the layout) — clearly visible and legible, but not dominating the product.`
       : "";
 
+    const customInstructionsBlock = params.customInstructions
+      ? `\n\nThe merchant asked for these specific changes compared to the previous version — prioritize honoring this request while still respecting the accuracy rules below: "${params.customInstructions}"`
+      : "";
+
     const prompt = `You are an award-winning advertising creative director. You are given a professional, already-composed product photo${isBasic || hasMerchantLogo ? " as the first reference image" : ""}.
 
 Add a complete, professional marketing poster layout on top of this exact image — do not alter the photo itself, only add design elements around/over it (badges, price tag, contact info, typography).
@@ -334,6 +361,7 @@ ${requirements.map((r) => `- ${r}`).join("\n")}
 ${creativeBenefitsInstruction}
 ${watermarkInstruction}
 ${merchantLogoInstruction}
+${customInstructionsBlock}
 
 Design rules:
 - Choose typography, color accents and layout that genuinely complement this specific image — elegant, modern, very clean, like a real advertising agency poster.
@@ -390,7 +418,7 @@ export async function renderFinalPoster(
   if (imageBase64) {
     const check = await checkTextAccuracy(imageBase64, {
       price: params.price.toLocaleString("fr-FR"),
-      phone: params.tier !== "basic" ? params.phone : undefined,
+      phone: params.phone || undefined,
       productName: params.productName,
       businessName: params.businessName ?? undefined,
     });

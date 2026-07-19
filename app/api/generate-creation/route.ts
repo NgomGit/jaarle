@@ -74,7 +74,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
   }
 
-  const { photoPath, productName, price, industry, language, tier, logoPath, businessName } = (await request.json()) as {
+  const { photoPath, productName, price, industry, language, tier, logoPath, businessName, contactPhone } = (await request.json()) as {
     photoPath: string;
     productName: string;
     price: number;
@@ -83,6 +83,7 @@ export async function POST(request: Request) {
     tier: Tier;
     logoPath: string | null;
     businessName: string | null;
+    contactPhone: string | null;
   };
 
   if (!photoPath || !productName || !price) {
@@ -113,7 +114,7 @@ export async function POST(request: Request) {
   ]);
 
   const phone =
-    (user.user_metadata?.whatsapp_number as string | undefined) || user.phone || "";
+    contactPhone?.trim() || (user.user_metadata?.whatsapp_number as string | undefined) || user.phone || "";
 
   let posterPath: string | null = null;
   try {
@@ -157,6 +158,7 @@ export async function POST(request: Request) {
       regenerations_used: 0,
       logo_path: normalizedTier === "premium" ? logoPath : null,
       business_name: normalizedTier === "premium" ? businessName : null,
+      contact_phone: phone || null,
     })
     .select()
     .single();

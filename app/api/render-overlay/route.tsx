@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
   const accentGradient = `linear-gradient(135deg, ${accent.from}, ${accent.to})`;
 
   const showBadge = (tier === "medium" || tier === "premium") && !!badge;
-  const showContact = (tier === "medium" || tier === "premium") && !!phone;
+  const showContact = !!phone;
 
   const badgePill = (
     <div
@@ -273,7 +273,7 @@ export async function GET(request: NextRequest) {
                 display: "flex",
                 flexDirection: "column",
                 background: `linear-gradient(to top, ${COLORS.dark} 0%, rgba(0,0,0,0.35) 60%, transparent 100%)`,
-                padding: tier === "basic" ? "60px 28px 24px" : "80px 32px 32px",
+                padding: showContact ? "80px 32px 32px" : "60px 28px 24px",
               }}
             >
               <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", width: "100%" }}>

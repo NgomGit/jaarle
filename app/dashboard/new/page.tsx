@@ -13,9 +13,11 @@ export default async function NewCreationPage() {
     redirect("/login");
   }
 
+  const defaultPhone = (user.user_metadata?.whatsapp_number as string | undefined) || user.phone || "";
+
   return (
     <Suspense>
-      <NewCreationWizard userId={user.id} />
+      <NewCreationWizard userId={user.id} defaultPhone={defaultPhone} />
     </Suspense>
   );
 }

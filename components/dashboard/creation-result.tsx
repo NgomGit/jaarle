@@ -1,8 +1,10 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import { Download, Lock, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { useLocale } from "@/lib/locale-context";
 import type { Tier } from "@/lib/pricing";
 
@@ -39,9 +41,10 @@ export function CreationResult({
   tier?: Tier;
   regenerationsRemaining?: number;
   regenerating?: boolean;
-  onRegenerate?: () => void;
+  onRegenerate?: (instructions: string) => void;
 }) {
   const { t } = useLocale();
+  const [instructions, setInstructions] = React.useState("");
 
   return (
     <div className="flex flex-col gap-4">
@@ -70,17 +73,34 @@ export function CreationResult({
       {imageFallback && <p className="text-xs text-muted-foreground">{t("creation.imageFallbackNote")}</p>}
 
       {locked && tier === "premium" && onRegenerate && (
-        <Button
-          variant="secondary"
-          className="gap-1.5 self-start"
-          onClick={onRegenerate}
-          disabled={regenerating || regenerationsRemaining <= 0}
-        >
-          <RefreshCw className={regenerating ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
-          {regenerationsRemaining > 0
-            ? t("creation.regenerate").replace("{count}", String(regenerationsRemaining))
-            : t("creation.regenerateExhausted")}
-        </Button>
+        <div className="flex flex-col gap-2">
+          {regenerationsRemaining > 0 && (
+            <div className="flex flex-col gap-1">
+              <label htmlFor="regenerate-instructions" className="text-xs font-medium text-muted-foreground">
+                {t("creation.regenerateInstructionsLabel")}
+              </label>
+              <Textarea
+                id="regenerate-instructions"
+                rows={2}
+                maxLength={300}
+                value={instructions}
+                onChange={(e) => setInstructions(e.target.value)}
+                placeholder={t("creation.regenerateInstructionsPlaceholder")}
+              />
+            </div>
+          )}
+          <Button
+            variant="secondary"
+            className="gap-1.5 self-start"
+            onClick={() => onRegenerate(instructions.trim())}
+            disabled={regenerating || regenerationsRemaining <= 0}
+          >
+            <RefreshCw className={regenerating ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
+            {regenerationsRemaining > 0
+              ? t("creation.regenerate").replace("{count}", String(regenerationsRemaining))
+              : t("creation.regenerateExhausted")}
+          </Button>
+        </div>
       )}
 
       <div className="rounded-xl border border-border bg-card px-4 py-3.5">

@@ -4,7 +4,8 @@
     "app": "The app",
     "pricing": "Pricing",
     "dashboard": "Dashboard",
-    "cta": "Try for free"
+    "cta": "Try for free",
+    "openMenu": "Open menu"
   },
   "hero": {
     "kicker": "Built for African merchants",
@@ -89,6 +90,7 @@
     "nav_creations": "My creations",
     "nav_brands": "Brands",
     "nav_settings": "Settings",
+    "openMenu": "Open menu",
     "welcomeBack": "Hello",
     "emptyTitle": "No creations yet",
     "emptyDesc": "Launch your first campaign to see it appear here.",
@@ -192,11 +194,11 @@
     "tier": {
       "basic": {
         "name": "Basic",
-        "desc": "Styled background, name and price."
+        "desc": "Styled background, name, price and contact."
       },
       "medium": {
         "name": "Medium",
-        "desc": "+ style badge and contact."
+        "desc": "+ style badge."
       },
       "premium": {
         "name": "Premium",
@@ -205,6 +207,10 @@
     },
     "regenerate": "Regenerate design ({count} left)",
     "regenerateExhausted": "No regenerations left",
+    "regenerateInstructionsLabel": "What do you want to change? (optional)",
+    "regenerateInstructionsPlaceholder": "E.g. brighter background, more vivid colors, more minimalist style...",
+    "contactPhone": "Number to show on the poster",
+    "contactPhoneHint": "Pre-filled with your WhatsApp number. Edit it if you want to show a different number for this poster.",
     "brandingTitle": "Your brand (optional)",
     "brandingHint": "Add your logo and/or business name to the poster.",
     "businessName": "Business name",

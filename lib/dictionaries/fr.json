@@ -4,7 +4,8 @@
     "app": "L'application",
     "pricing": "Tarifs",
     "dashboard": "Dashboard",
-    "cta": "Essayer gratuitement"
+    "cta": "Essayer gratuitement",
+    "openMenu": "Ouvrir le menu"
   },
   "hero": {
     "kicker": "Fait pour les commerçants d'Afrique",
@@ -89,6 +90,7 @@
     "nav_creations": "Mes créations",
     "nav_brands": "Marques",
     "nav_settings": "Paramètres",
+    "openMenu": "Ouvrir le menu",
     "welcomeBack": "Bonjour",
     "emptyTitle": "Aucune création pour le moment",
     "emptyDesc": "Lance ta première campagne pour la voir apparaître ici.",
@@ -192,11 +194,11 @@
     "tier": {
       "basic": {
         "name": "Basique",
-        "desc": "Fond stylisé, nom et prix."
+        "desc": "Fond stylisé, nom, prix et contact."
       },
       "medium": {
         "name": "Medium",
-        "desc": "+ badge de style et contact."
+        "desc": "+ badge de style."
       },
       "premium": {
         "name": "Premium",
@@ -205,6 +207,10 @@
     },
     "regenerate": "Régénérer le design ({count} restantes)",
     "regenerateExhausted": "Régénérations épuisées",
+    "regenerateInstructionsLabel": "Que veux-tu changer ? (optionnel)",
+    "regenerateInstructionsPlaceholder": "Ex : fond plus lumineux, couleurs plus vives, style plus minimaliste...",
+    "contactPhone": "Numéro à afficher sur l'affiche",
+    "contactPhoneHint": "Pré-rempli avec ton numéro WhatsApp. Modifie-le si tu veux afficher un autre numéro pour cette affiche.",
     "brandingTitle": "Ta marque (optionnel)",
     "brandingHint": "Ajoute ton logo et/ou le nom de ton entreprise sur l'affiche.",
     "businessName": "Nom de l'entreprise",

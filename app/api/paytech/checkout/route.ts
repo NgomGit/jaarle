@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { requestPaytechPayment } from "@/lib/paytech";
+import { requestPaytechPayment, withoutPaytechFee } from "@/lib/paytech";
 import { getTierConfig } from "@/lib/pricing";
 
 export async function POST(request: Request) {
@@ -55,7 +55,10 @@ export async function POST(request: Request) {
   try {
     const redirectUrl = await requestPaytechPayment({
       itemName: `Affiche ${tierConfig.labelFr} Jaarle`,
-      itemPrice: tierConfig.price,
+      // Prix réduit envoyé à PayTech pour compenser leurs ~2% de frais ajoutés côté client —
+      // le client voit et paie exactement tierConfig.price, pas plus. orders.amount garde le
+      // prix nominal du palier (100/250/350) pour la comptabilité interne.
+      itemPrice: withoutPaytechFee(tierConfig.price),
       refCommand,
       commandName: `Déblocage de "${creation.product_name}"`,
       successUrl: `${origin}/dashboard/unlock?ref=${refCommand}`,
