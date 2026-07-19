@@ -25,7 +25,7 @@ export async function POST(request: Request) {
 
   const { data: creation, error: creationError } = await supabase
     .from("creations")
-    .select("id, product_name, price, photo_path, industry, tier, regenerations_used")
+    .select("id, product_name, price, photo_path, industry, tier, regenerations_used, logo_path, business_name")
     .eq("id", creationId)
     .eq("user_id", user.id)
     .single();
@@ -60,6 +60,12 @@ export async function POST(request: Request) {
   );
   const phone = (user.user_metadata?.whatsapp_number as string | undefined) || user.phone || "";
 
+  let logoBuffer: Buffer | null = null;
+  if (creation.tier === "premium" && creation.logo_path) {
+    const { data: logoBlob } = await supabase.storage.from("creations").download(creation.logo_path);
+    if (logoBlob) logoBuffer = Buffer.from(await logoBlob.arrayBuffer());
+  }
+
   let posterPath: string | null = null;
   try {
     const origin = new URL(request.url).origin;
@@ -71,6 +77,8 @@ export async function POST(request: Request) {
       phone,
       industry: creation.industry,
       accentGradient,
+      businessName: creation.business_name,
+      logoBuffer,
     });
 
     posterPath = `${user.id}/${Date.now()}-poster.jpg`;
@@ -96,10 +104,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
-  const { data: signed } = await supabase.storage.from("creations").createSignedUrl(posterPath, 3600);
-
   return NextResponse.json({
-    imageUrl: signed?.signedUrl ?? null,
+    imageUrl: `/api/creations/${creation.id}/preview?v=${Date.now()}`,
     imageError,
     regenerationsRemaining: tierConfig.maxRegenerations - regenerationsUsed,
   });

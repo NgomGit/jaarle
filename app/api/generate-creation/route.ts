@@ -74,13 +74,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
   }
 
-  const { photoPath, productName, price, industry, language, tier } = (await request.json()) as {
+  const { photoPath, productName, price, industry, language, tier, logoPath, businessName } = (await request.json()) as {
     photoPath: string;
     productName: string;
     price: number;
     industry: string | null;
     language: string;
     tier: Tier;
+    logoPath: string | null;
+    businessName: string | null;
   };
 
   if (!photoPath || !productName || !price) {
@@ -98,6 +100,12 @@ export async function POST(request: Request) {
   const mediaType: AllowedMediaType = ALLOWED_MEDIA_TYPES.includes(photoBlob.type as AllowedMediaType)
     ? (photoBlob.type as AllowedMediaType)
     : "image/jpeg";
+
+  let logoBuffer: Buffer | null = null;
+  if (normalizedTier === "premium" && logoPath) {
+    const { data: logoBlob } = await supabase.storage.from("creations").download(logoPath);
+    if (logoBlob) logoBuffer = Buffer.from(await logoBlob.arrayBuffer());
+  }
 
   const [{ salesCopy, hashtags, copyError }, { backgroundBuffer, imageError, layout, accentGradient }] = await Promise.all([
     generateSalesCopy(photoBase64, mediaType, { productName, price, industry, language }),
@@ -118,6 +126,8 @@ export async function POST(request: Request) {
       phone,
       industry,
       accentGradient,
+      businessName,
+      logoBuffer,
     });
 
     posterPath = `${user.id}/${Date.now()}-poster.jpg`;
@@ -145,6 +155,8 @@ export async function POST(request: Request) {
       unlocked: false,
       tier: normalizedTier,
       regenerations_used: 0,
+      logo_path: normalizedTier === "premium" ? logoPath : null,
+      business_name: normalizedTier === "premium" ? businessName : null,
     })
     .select()
     .single();
@@ -153,14 +165,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: insertError?.message ?? "Échec de l'enregistrement." }, { status: 500 });
   }
 
-  const displayPath = posterPath || photoPath;
-  const { data: signed } = await supabase.storage.from("creations").createSignedUrl(displayPath, 3600);
-
   return NextResponse.json({
     salesCopy,
     hashtags,
     copyError,
-    imageUrl: signed?.signedUrl ?? null,
+    imageUrl: `/api/creations/${creation.id}/preview?v=${Date.now()}`,
     imageError,
     posterReady: !!posterPath,
     creationId: creation.id,

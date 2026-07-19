@@ -2,18 +2,20 @@
 
 import * as React from "react";
 import {
-  UploadCloud, Pencil, ImagePlus, Sparkles, CheckCircle2,
+  UploadCloud, Pencil, Layers, Sparkles, CheckCircle2,
   Circle, Download, Share2, Tag, DollarSign,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/lib/locale-context";
-import { creationStyles as styles } from "@/lib/creation-styles";
+import { TIERS, type Tier } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
+
+const TIER_ORDER: Tier[] = ["basic", "medium", "premium"];
 
 export function AppPreview() {
   const { t } = useLocale();
-  const [selectedStyle, setSelectedStyle] = React.useState("premium");
+  const [selectedTier, setSelectedTier] = React.useState<Tier>("premium");
 
   return (
     <section id="preview" className="pb-24">
@@ -29,8 +31,8 @@ export function AppPreview() {
               <TabIcon icon={UploadCloud} />
               <TabLabel title={t("preview.tab1")} sub={t("preview.tab1s")} />
             </TabsTrigger>
-            <TabsTrigger value="style">
-              <TabIcon icon={ImagePlus} />
+            <TabsTrigger value="tier">
+              <TabIcon icon={Layers} />
               <TabLabel title={t("preview.tab2")} sub={t("preview.tab2s")} />
             </TabsTrigger>
             <TabsTrigger value="generation">
@@ -53,27 +55,29 @@ export function AppPreview() {
                 <span className="text-xs text-muted-foreground">{t("preview.uploadHint")}</span>
               </div>
               <Field icon={Tag} label={t("preview.fieldProduct")} value="Robe wax bleue" />
-              <Field icon={DollarSign} label={t("preview.fieldPrice")} value="25 000 FCFA" mono />
+              <Field icon={DollarSign} label={t("preview.fieldPrice")} value="32 500 FCFA" mono />
             </TabsContent>
 
-            <TabsContent value="style">
-              <div className="grid grid-cols-3 gap-2.5">
-                {styles.map((s) => (
-                  <button
-                    key={s.key}
-                    onClick={() => setSelectedStyle(s.key)}
-                    className={cn(
-                      "relative aspect-[3/4] overflow-hidden rounded-xl border-2 transition-all",
-                      selectedStyle === s.key ? "border-primary" : "border-transparent"
-                    )}
-                  >
-                    <img src={`/images/styles/${s.key}.png`} alt={s.key} className="h-full w-full object-cover" />
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent pb-2 pt-6">
-                      <span className="block px-2 text-left text-[10px] font-bold capitalize text-white">{s.key}</span>
-                    </div>
-                  </button>
-                ))}
+            <TabsContent value="tier">
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                {TIER_ORDER.map((key) => {
+                  const cfg = TIERS[key];
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setSelectedTier(key)}
+                      className={cn(
+                        "flex flex-col items-start gap-1 rounded-xl border-2 bg-card px-4 py-3.5 text-left transition-colors",
+                        selectedTier === key ? "border-primary" : "border-transparent"
+                      )}
+                    >
+                      <span className="text-sm font-bold">{cfg.labelFr}</span>
+                      <span className="font-mono text-sm font-bold text-primary">{cfg.price} FCFA</span>
+                    </button>
+                  );
+                })}
               </div>
+              <p className="mt-3.5 text-xs leading-relaxed text-muted-foreground">{t("preview.tierNote")}</p>
             </TabsContent>
 
             <TabsContent value="generation">
@@ -99,16 +103,11 @@ export function AppPreview() {
             <TabsContent value="result">
               <div className="mb-3.5 flex items-center justify-between">
                 <div className="flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-3.5 py-1.5 font-mono text-xs font-bold text-success">
-                  <CheckCircle2 className="h-3.5 w-3.5" /> Score 91/100
+                  <CheckCircle2 className="h-3.5 w-3.5" /> {t("preview.resultVerified")}
                 </div>
-                <span className="text-xs text-muted-foreground">{t("preview.resultCount")}</span>
               </div>
-              <div className="mb-3.5 grid grid-cols-4 gap-2">
-                {styles.slice(0, 4).map((s) => (
-                  <div key={s.key} className="aspect-square overflow-hidden rounded-xl">
-                    <img src={`/images/styles/${s.key}.png`} alt={s.key} className="h-full w-full object-cover" />
-                  </div>
-                ))}
+              <div className="mb-3.5 overflow-hidden rounded-xl">
+                <img src="/images/premium-examples/example-1.jpg" alt="Affiche générée par Jaarle" className="aspect-square w-full object-cover" />
               </div>
               <Field icon={Pencil} label={t("preview.resultText")} value="&ldquo;Élégance et fraîcheur — notre robe wax bleue, faite pour te sublimer. Livraison à Dakar.&rdquo;" small />
               <div className="mt-3 flex gap-2.5">

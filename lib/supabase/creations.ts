@@ -23,13 +23,7 @@ export async function listCreations(supabase: SupabaseClient, limit?: number): P
   const { data, error } = await query;
   if (error || !data) return [];
 
-  return Promise.all(
-    data.map(async (row) => {
-      const displayPath = row.poster_path || row.photo_path;
-      const { data: signed } = await supabase.storage.from("creations").createSignedUrl(displayPath, 3600);
-      return { ...row, photoUrl: signed?.signedUrl ?? null } as Creation;
-    })
-  );
+  return data.map((row) => ({ ...row, photoUrl: `/api/creations/${row.id}/preview` }) as Creation);
 }
 
 export async function countCreationsSince(supabase: SupabaseClient, since: Date): Promise<number> {

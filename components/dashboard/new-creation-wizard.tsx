@@ -28,6 +28,9 @@ export function NewCreationWizard({ userId }: { userId: string }) {
   const [industry, setIndustry] = React.useState("");
   const [language, setLanguage] = React.useState<Language>("fr");
   const [tier, setTier] = React.useState<Tier>("basic");
+  const [businessName, setBusinessName] = React.useState("");
+  const [logoFile, setLogoFile] = React.useState<File | null>(null);
+  const [logoPreviewUrl, setLogoPreviewUrl] = React.useState<string | null>(null);
   const [genStepIndex, setGenStepIndex] = React.useState(0);
   const [error, setError] = React.useState<string | null>(
     searchParams.get("canceled") ? t("creation.paymentCanceled") : null
@@ -58,6 +61,13 @@ export function NewCreationWizard({ userId }: { userId: string }) {
     setError(null);
   }
 
+  function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setLogoFile(f);
+    setLogoPreviewUrl(URL.createObjectURL(f));
+  }
+
   async function runGeneration() {
     if (!canProceedStep0 || !file) {
       setError(t("creation.errorMissingFields"));
@@ -75,6 +85,13 @@ export function NewCreationWizard({ userId }: { userId: string }) {
       const { error: uploadError } = await supabase.storage.from("creations").upload(photoPath, file);
       if (uploadError) throw uploadError;
 
+      let logoPath: string | null = null;
+      if (tier === "premium" && logoFile) {
+        logoPath = `${userId}/${Date.now()}-logo-${logoFile.name}`;
+        const { error: logoUploadError } = await supabase.storage.from("creations").upload(logoPath, logoFile);
+        if (logoUploadError) logoPath = null;
+      }
+
       const res = await fetch("/api/generate-creation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -85,6 +102,8 @@ export function NewCreationWizard({ userId }: { userId: string }) {
           industry: industry || null,
           language,
           tier,
+          logoPath,
+          businessName: tier === "premium" && businessName.trim() ? businessName.trim() : null,
         }),
       });
       const data = await res.json();
@@ -170,6 +189,9 @@ export function NewCreationWizard({ userId }: { userId: string }) {
     setIndustry("");
     setLanguage("fr");
     setTier("basic");
+    setBusinessName("");
+    setLogoFile(null);
+    setLogoPreviewUrl(null);
     setGenStepIndex(0);
     setError(null);
     setResult(null);
@@ -265,6 +287,49 @@ export function NewCreationWizard({ userId }: { userId: string }) {
                 })}
               </div>
             </div>
+
+            {tier === "premium" && (
+              <div className="flex flex-col gap-3 rounded-xl border border-dashed border-border p-3.5">
+                <span className="text-sm font-medium">{t("creation.brandingTitle")}</span>
+                <span className="-mt-2 text-[11px] text-muted-foreground">{t("creation.brandingHint")}</span>
+
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="businessName" className="text-xs font-medium text-muted-foreground">
+                    {t("creation.businessName")}
+                  </label>
+                  <Input
+                    id="businessName"
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
+                    placeholder="Awa Créations"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="businessLogo" className="text-xs font-medium text-muted-foreground">
+                    {t("creation.businessLogo")}
+                  </label>
+                  <label
+                    htmlFor="businessLogo"
+                    className="flex cursor-pointer items-center gap-3 rounded-lg border border-input bg-card px-3.5 py-2 text-sm text-muted-foreground hover:border-primary"
+                  >
+                    {logoPreviewUrl ? (
+                      <img src={logoPreviewUrl} alt="" className="h-8 w-8 rounded object-contain" />
+                    ) : (
+                      <UploadCloud className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+                    )}
+                    <span className="truncate">{logoFile ? logoFile.name : t("creation.businessLogoPlaceholder")}</span>
+                  </label>
+                  <input
+                    id="businessLogo"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleLogoChange}
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="flex flex-col gap-1.5">
               <span className="text-sm font-medium">{t("creation.language")}</span>

@@ -2,14 +2,16 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { LayoutGrid, Lock, Download } from "lucide-react";
+import { LayoutGrid, Lock, Download, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/lib/locale-context";
 import type { Creation } from "@/lib/supabase/creations";
 
-export function CreationsGallery({ creations, canceled }: { creations: Creation[]; canceled?: boolean }) {
+export function CreationsGallery({ creations: initialCreations, canceled }: { creations: Creation[]; canceled?: boolean }) {
   const { t } = useLocale();
+  const [creations, setCreations] = React.useState(initialCreations);
   const [unlockingId, setUnlockingId] = React.useState<string | null>(null);
+  const [deletingId, setDeletingId] = React.useState<string | null>(null);
 
   async function unlock(creationId: string) {
     setUnlockingId(creationId);
@@ -24,6 +26,18 @@ export function CreationsGallery({ creations, canceled }: { creations: Creation[
       window.location.href = data.redirectUrl;
     } catch {
       setUnlockingId(null);
+    }
+  }
+
+  async function deleteCreation(creationId: string) {
+    if (!window.confirm(t("creation.deleteConfirm"))) return;
+    setDeletingId(creationId);
+    try {
+      const res = await fetch(`/api/creations/${creationId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      setCreations((prev) => prev.filter((c) => c.id !== creationId));
+    } catch {
+      setDeletingId(null);
     }
   }
 
@@ -53,10 +67,26 @@ export function CreationsGallery({ creations, canceled }: { creations: Creation[
           {creations.map((c) => (
             <div key={c.id} className="relative aspect-[4/5] overflow-hidden rounded-xl border border-border bg-muted">
               {c.photoUrl && (
-                <img src={c.photoUrl} alt={c.product_name} loading="lazy" className="h-full w-full object-cover" />
+                <img
+                  src={c.photoUrl}
+                  alt={c.product_name}
+                  loading="lazy"
+                  className="h-full w-full select-none object-cover [-webkit-touch-callout:none]"
+                  draggable={c.unlocked ? undefined : false}
+                  onContextMenu={c.unlocked ? undefined : (e) => e.preventDefault()}
+                  onDragStart={c.unlocked ? undefined : (e) => e.preventDefault()}
+                />
               )}
               <div className="absolute inset-0 flex flex-col justify-between bg-gradient-to-t from-black/60 to-transparent p-2">
-                <div className="flex justify-end">
+                <div className="flex justify-between">
+                  <button
+                    onClick={() => deleteCreation(c.id)}
+                    disabled={deletingId === c.id}
+                    className="flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-destructive shadow-glow-sm disabled:opacity-60"
+                    aria-label={t("creation.delete")}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                   {c.unlocked ? (
                     <a
                       href={c.photoUrl ?? "#"}

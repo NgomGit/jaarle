@@ -16,15 +16,15 @@
     "ctaSecondary": "Voir les tarifs",
     "proof": "Déjà utilisé par des commerçants à Dakar, Thiès et Touba",
     "badgeScore": "Score IA 91/100",
-    "badgePrice": "500 FCFA / campagne"
+    "badgePrice": "À partir de 100 FCFA"
   },
   "how": {
     "title": "Trois étapes. Zéro compétence en design.",
     "desc": "Pas besoin de Photoshop, pas besoin de graphiste. Jaarle s'occupe de tout, du visuel au texte.",
     "s1t": "Envoie ta photo",
     "s1d": "Une photo prise avec ton téléphone suffit. Ajoute le nom du produit et le prix, ou parle simplement à Jaarle.",
-    "s2t": "Choisis ton style",
-    "s2d": "Premium, moderne, promo, luxe — Jaarle propose plusieurs styles adaptés à ton produit et ton public.",
+    "s2t": "Choisis ton palier",
+    "s2d": "Basique, Medium ou Premium — l'IA analyse ton produit et choisit elle-même le style, le décor et les couleurs. Le palier détermine juste la richesse du résultat.",
     "s3t": "Publie partout",
     "s3d": "Reçois ton affiche, ta story et ton texte de vente en un clic. Télécharge ou partage directement."
   },
@@ -33,8 +33,8 @@
     "desc": "De la photo brute à la campagne publiée — avec une IA qui montre ce qu'elle fait, en temps réel.",
     "tab1": "Importer",
     "tab1s": "Photo, nom, prix",
-    "tab2": "Style",
-    "tab2s": "6 ambiances",
+    "tab2": "Palier",
+    "tab2s": "3 formules",
     "tab3": "Génération",
     "tab3s": "L'IA travaille",
     "tab4": "Résultat",
@@ -44,7 +44,9 @@
     "fieldProduct": "Produit",
     "fieldPrice": "Prix",
     "aiTitle": "Génération en cours",
-    "aiSub": "Environ 20 secondes",
+    "aiSub": "Environ 40 secondes",
+    "tierNote": "Pas de style à choisir : l'IA analyse ton produit et compose elle-même le décor, la mise en page et les couleurs les plus adaptés. Le palier détermine seulement la richesse du résultat (badge, contact, mise en avant).",
+    "resultVerified": "Prix et contact vérifiés",
     "step1": "Analyse du produit",
     "step2": "Compréhension du public cible",
     "step3": "Génération des concepts créatifs",
@@ -77,9 +79,9 @@
     "spent": "Dépensé ce mois-ci",
     "created": "Créations ce mois-ci",
     "score": "Score IA moyen",
-    "newCampaign": "Nouvelle campagne — 500F",
-    "qaSimple": "Création simple — 200F",
-    "qaCampaign": "Campagne complète — 500F",
+    "newCampaign": "Nouvelle création",
+    "qaSimple": "Créer une affiche",
+    "qaCampaign": "Nouvelle campagne",
     "qaVoice": "Parler à l'assistant",
     "recent": "Créations récentes",
     "nav_dashboard": "Tableau de bord",
@@ -95,6 +97,12 @@
   },
   "voices": {
     "title": "Des commerçants qui l'utilisent déjà"
+  },
+  "showcase": {
+    "title": "Ce que le palier Premium peut créer",
+    "desc": "Des affiches générées par Jaarle, sans retouche — l'IA choisit le style, la mise en page et les couleurs qui vont le mieux à ton produit.",
+    "imageAlt": "Exemple d'affiche Premium générée par Jaarle",
+    "cta": "Voir les tarifs"
   },
   "cta": {
     "title": "Prêt à faire connaître ton produit à tout le monde ?",
@@ -157,6 +165,8 @@
     "imageFallbackNote": "La stylisation IA de l'image n'a pas pu être générée pour cette création. Voici ta photo originale — le texte ci-dessous est bien généré par l'IA.",
     "aiLabel": "Généré par l'IA",
     "download": "Télécharger la photo",
+    "delete": "Supprimer",
+    "deleteConfirm": "Supprimer définitivement cette création ? Cette action est irréversible.",
     "viewCreations": "Voir mes créations",
     "newOne": "Créer une nouvelle affiche",
     "errorGeneric": "Une erreur est survenue pendant l'envoi. Réessaie.",
@@ -186,6 +196,11 @@
       }
     },
     "regenerate": "Régénérer le design ({count} restantes)",
-    "regenerateExhausted": "Régénérations épuisées"
+    "regenerateExhausted": "Régénérations épuisées",
+    "brandingTitle": "Ta marque (optionnel)",
+    "brandingHint": "Ajoute ton logo et/ou le nom de ton entreprise sur l'affiche.",
+    "businessName": "Nom de l'entreprise",
+    "businessLogo": "Logo",
+    "businessLogoPlaceholder": "Choisir un logo (PNG, JPG)"
   }
 }

@@ -91,6 +91,7 @@ export async function GET(request: NextRequest) {
   const price = params.get("price") || "";
   const phone = params.get("phone") || "";
   const badge = params.get("badge") || "";
+  const businessName = params.get("businessName") || "";
   const benefits = (params.get("benefits") || "")
     .split("|")
     .map((b) => b.trim())
@@ -196,6 +197,9 @@ export async function GET(request: NextRequest) {
                   </div>
                 ))}
               </div>
+              {businessName && (
+                <div style={{ display: "flex", color: "rgba(255,255,255,0.6)", fontSize: 14, fontWeight: 600 }}>{businessName}</div>
+              )}
               <div style={{ display: "flex", width: 48, height: 3, background: accent.from }} />
               <div
                 style={{
@@ -273,8 +277,13 @@ export async function GET(request: NextRequest) {
               }}
             >
               <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", width: "100%" }}>
-                <div style={{ display: "flex", color: COLORS.white, fontSize: tier === "premium" ? 36 : 26, fontWeight: 800 }}>
-                  {productName}
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  <div style={{ display: "flex", color: COLORS.white, fontSize: tier === "premium" ? 36 : 26, fontWeight: 800 }}>
+                    {productName}
+                  </div>
+                  {businessName && (
+                    <div style={{ display: "flex", color: "rgba(255,255,255,0.65)", fontSize: 14, fontWeight: 600 }}>{businessName}</div>
+                  )}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   {tier === "premium" && <TagIcon size={20} color={COLORS.white} />}

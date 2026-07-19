@@ -2,6 +2,7 @@ import { Navbar } from "@/components/site/navbar";
 import { Hero } from "@/components/site/hero";
 import { HowItWorks } from "@/components/site/how-it-works";
 import { AppPreview } from "@/components/site/app-preview";
+import { PremiumShowcase } from "@/components/site/premium-showcase";
 import { Pricing } from "@/components/site/pricing";
 import { DashboardPreview } from "@/components/site/dashboard-preview";
 import { Testimonials } from "@/components/site/testimonials";
@@ -21,6 +22,7 @@ export default function Home() {
       </div>
       <HowItWorks />
       <AppPreview />
+      <PremiumShowcase />
       <Pricing />
       <DashboardPreview />
       <Testimonials />

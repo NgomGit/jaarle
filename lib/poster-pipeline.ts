@@ -1,3 +1,5 @@
+import { readFileSync } from "fs";
+import path from "path";
 import { compositeOverlay, finalizeJpeg } from "@/lib/image-compose";
 import { removeBackground } from "@/lib/background-removal";
 import { analyzeProduct, type ProductAnalysis } from "@/lib/product-analyzer";
@@ -251,6 +253,8 @@ interface FinalPosterParams {
   phone: string;
   industry: string | null;
   accentGradient?: { from: string; to: string } | null;
+  businessName?: string | null;
+  logoBuffer?: Buffer | null;
 }
 
 /**
@@ -273,12 +277,15 @@ async function renderSatoriOverlay(origin: string, backgroundBuffer: Buffer, par
     overlayUrl.searchParams.set("accentFrom", params.accentGradient.from);
     overlayUrl.searchParams.set("accentTo", params.accentGradient.to);
   }
+  if (params.businessName) {
+    overlayUrl.searchParams.set("businessName", params.businessName);
+  }
 
   const overlayRes = await fetch(overlayUrl.toString());
   if (!overlayRes.ok) throw new Error("Échec du rendu de l'overlay.");
   const overlayBuffer = Buffer.from(await overlayRes.arrayBuffer());
 
-  return compositeOverlay(backgroundBuffer, overlayBuffer);
+  return compositeOverlay(backgroundBuffer, overlayBuffer, params.logoBuffer);
 }
 
 /**
@@ -287,42 +294,72 @@ async function renderSatoriOverlay(origin: string, backgroundBuffer: Buffer, par
  * Plus créatif et varié, mais le texte est produit par un modèle génératif, donc jamais garanti
  * exact : c'est à `checkTextAccuracy` de trancher si le résultat est fiable.
  */
+const JAARLE_LOGO_PATH = path.join(process.cwd(), "public/images/logo-icon.png");
+
 async function generateTemplatedPoster(backgroundBuffer: Buffer, params: FinalPosterParams) {
   try {
     const tierConfig = getTierConfig(params.tier);
     const priceLabel = params.price.toLocaleString("fr-FR");
     const showContact = params.tier !== "basic" && !!params.phone;
-    const benefits = params.tier === "premium" ? getBenefitTags(params.industry) : [];
+    const isBasic = params.tier === "basic";
+    const industry = getIndustry(params.industry ?? undefined);
 
     const requirements = [`Product name: "${params.productName}"`, `Price: "${priceLabel} FCFA"`];
     if (showContact) requirements.push(`WhatsApp contact: "${params.phone}"`);
+    if (params.businessName) requirements.push(`Business name: "${params.businessName}"`);
     if (tierConfig.labelFr !== "Basique") requirements.push(`A small badge/tag reading "${tierConfig.labelFr}"`);
-    if (params.tier === "premium" && benefits.length > 0) {
-      requirements.push(`Up to two short benefit tags: ${benefits.join(" / ")}`);
-    }
     if (params.tier === "premium") requirements.push(`A short call-to-action, e.g. "Commander sur WhatsApp"`);
 
-    const prompt = `You are an award-winning advertising creative director. You are given a professional, already-composed product photo.
+    const creativeBenefitsInstruction =
+      params.tier === "premium"
+        ? `\n\nBenefit tags: choose up to 3 short, compelling benefit or selling-point tags yourself — whatever best fits THIS specific product and would genuinely attract customers in Senegal (delivery, guarantee, payment options, exclusivity, craftsmanship, style appeal...). You decide the exact wording and how many (1 to 3) — don't default to generic filler.${industry ? ` For inspiration only, not mandatory — typical angles for "${industry.labelFr}": ${industry.ctaExamples.join(", ")}.` : ""}`
+        : "";
+
+    const hasMerchantLogo = params.tier === "premium" && !!params.logoBuffer;
+
+    const watermarkInstruction = isBasic
+      ? `\n\nWatermark: a second reference image is provided — the Jaarle logo mark. Place it small and subtle as a watermark in a bottom corner of the poster (low visual weight, must not obscure the product, the price or the product name).`
+      : "";
+
+    const merchantLogoInstruction = hasMerchantLogo
+      ? `\n\nBrand logo: a second reference image is provided — the merchant's own business logo. Place it tastefully as a real brand mark on the poster (e.g. a corner, near the CTA, or integrated into the layout) — clearly visible and legible, but not dominating the product.`
+      : "";
+
+    const prompt = `You are an award-winning advertising creative director. You are given a professional, already-composed product photo${isBasic || hasMerchantLogo ? " as the first reference image" : ""}.
 
 Add a complete, professional marketing poster layout on top of this exact image — do not alter the photo itself, only add design elements around/over it (badges, price tag, contact info, typography).
 
 Text that MUST appear, spelled and written EXACTLY as given below (this is real business information — accuracy is critical, never invent, alter or truncate any digit or character):
 ${requirements.map((r) => `- ${r}`).join("\n")}
+${creativeBenefitsInstruction}
+${watermarkInstruction}
+${merchantLogoInstruction}
 
 Design rules:
 - Choose typography, color accents and layout that genuinely complement this specific image — elegant, modern, very clean, like a real advertising agency poster.
 - Vary your layout choices creatively — don't default to a generic template.
-- All the text above must be 100% accurate and fully legible — no other invented text, numbers or logos.
+- All the text listed above as "MUST appear" must be 100% accurate and fully legible.
+- Do not add any other invented text, numbers or logos beyond what's explicitly requested above.
 - Keep the product itself fully visible, not obstructed by text or UI elements.`;
 
     const backgroundBase64 = backgroundBuffer.toString("base64");
+    const inputReferences: { type: "image_url"; image_url: { url: string } }[] = [
+      { type: "image_url", image_url: { url: `data:image/png;base64,${backgroundBase64}` } },
+    ];
+    if (isBasic) {
+      const logoBase64 = readFileSync(JAARLE_LOGO_PATH).toString("base64");
+      inputReferences.push({ type: "image_url", image_url: { url: `data:image/png;base64,${logoBase64}` } });
+    } else if (hasMerchantLogo && params.logoBuffer) {
+      inputReferences.push({ type: "image_url", image_url: { url: `data:image/png;base64,${params.logoBuffer.toString("base64")}` } });
+    }
+
     const res = await fetch("https://openrouter.ai/api/v1/images", {
       method: "POST",
       headers: { Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "openai/gpt-image-2",
         prompt,
-        input_references: [{ type: "image_url", image_url: { url: `data:image/png;base64,${backgroundBase64}` } }],
+        input_references: inputReferences,
         resolution: "2K",
         aspect_ratio: "1:1",
       }),
@@ -355,6 +392,7 @@ export async function renderFinalPoster(
       price: params.price.toLocaleString("fr-FR"),
       phone: params.tier !== "basic" ? params.phone : undefined,
       productName: params.productName,
+      businessName: params.businessName ?? undefined,
     });
     if (check.passed) {
       const finalBuffer = await finalizeJpeg(Buffer.from(imageBase64, "base64"));

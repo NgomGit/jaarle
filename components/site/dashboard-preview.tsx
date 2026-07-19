@@ -53,7 +53,7 @@ export function DashboardPreview() {
             </nav>
             <div className="mt-3.5 rounded-2xl border border-border bg-card p-3.5">
               <div className="mb-1 text-[10.5px] text-muted-foreground">{t("dashboard.spent")}</div>
-              <div className="mb-2.5 font-mono text-[15px] font-bold">4 600 FCFA</div>
+              <div className="mb-2.5 font-mono text-[15px] font-bold">2 150 FCFA</div>
               <Button variant="accent" size="sm" className="w-full">{t("dashboard.newCampaign")}</Button>
             </div>
           </aside>
@@ -66,7 +66,7 @@ export function DashboardPreview() {
 
             <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
               <StatCard icon={Target} value="9" label={t("dashboard.created")} />
-              <StatCard icon={Wallet} value="4 600" label={t("dashboard.spent")} mono />
+              <StatCard icon={Wallet} value="2 150" label={t("dashboard.spent")} mono />
               <StatCard icon={Gauge} value="91/100" label={t("dashboard.score")} />
             </div>
 

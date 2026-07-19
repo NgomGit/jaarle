@@ -45,11 +45,8 @@ export function UnlockConfirm({ refCommand }: { refCommand: string }) {
         return;
       }
 
-      const displayPath = creation.poster_path || creation.photo_path;
-      const { data: signed } = await supabase.storage.from("creations").createSignedUrl(displayPath, 3600);
-
       setResult({
-        imageUrl: signed?.signedUrl ?? "",
+        imageUrl: `/api/creations/${creationId}/preview?v=${Date.now()}`,
         productName: creation.product_name,
         price: creation.price,
         salesCopy: creation.generated_copy,

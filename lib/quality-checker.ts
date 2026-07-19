@@ -55,6 +55,7 @@ export async function checkPosterQuality(
 const TextAccuracySchema = z.object({
   priceCorrect: z.boolean(),
   contactCorrect: z.boolean(),
+  businessNameCorrect: z.boolean(),
   textLegible: z.boolean(),
   issues: z.array(z.string()).max(3),
 });
@@ -68,12 +69,13 @@ const TextAccuracySchema = z.object({
  */
 export async function checkTextAccuracy(
   imageBase64: string,
-  expected: { price: string; phone?: string; productName?: string }
+  expected: { price: string; phone?: string; productName?: string; businessName?: string }
 ): Promise<{ passed: boolean; issues: string[] }> {
   try {
     const requirements = [`le prix "${expected.price} FCFA"`];
     if (expected.phone) requirements.push(`le contact WhatsApp "${expected.phone}"`);
     if (expected.productName) requirements.push(`le nom du produit "${expected.productName}"`);
+    if (expected.businessName) requirements.push(`le nom d'entreprise "${expected.businessName}"`);
 
     const anthropic = new Anthropic();
     const message = await anthropic.messages.parse({
@@ -98,7 +100,8 @@ export async function checkTextAccuracy(
     const result = message.parsed_output;
     if (!result) return { passed: false, issues: ["Vérification impossible."] };
     const contactOk = expected.phone ? result.contactCorrect : true;
-    return { passed: result.priceCorrect && result.textLegible && contactOk, issues: result.issues };
+    const businessNameOk = expected.businessName ? result.businessNameCorrect : true;
+    return { passed: result.priceCorrect && result.textLegible && contactOk && businessNameOk, issues: result.issues };
   } catch {
     return { passed: false, issues: ["Erreur lors de la vérification du texte."] };
   }

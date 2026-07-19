@@ -46,7 +46,14 @@ export function CreationResult({
   return (
     <div className="flex flex-col gap-4">
       <div className="relative overflow-hidden rounded-2xl border border-border">
-        <img src={imageUrl} alt={productName} className="max-h-[360px] w-full object-contain bg-muted" />
+        <img
+          src={imageUrl}
+          alt={productName}
+          className="max-h-[360px] w-full select-none object-contain bg-muted [-webkit-touch-callout:none]"
+          draggable={locked ? false : undefined}
+          onContextMenu={locked ? (e) => e.preventDefault() : undefined}
+          onDragStart={locked ? (e) => e.preventDefault() : undefined}
+        />
         <span className="absolute left-3 top-3 rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-primary shadow-glow-sm">
           {imageFallback ? t("creation.imageFallbackLabel") : t("creation.aiLabel")}
         </span>
