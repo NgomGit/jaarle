@@ -36,14 +36,6 @@ function CheckIcon({ size = 15, color }: { size?: number; color: string }) {
   );
 }
 
-function SparkleIcon({ size = 14 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" style={{ display: "flex" }}>
-      <path d="M12 2v6M12 16v6M2 12h6M16 12h6" stroke={COLORS.white} strokeWidth={2.5} />
-    </svg>
-  );
-}
-
 function TagIcon({ size = 14, color }: { size?: number; color: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" style={{ display: "flex" }}>
@@ -90,7 +82,6 @@ export async function GET(request: NextRequest) {
   const productName = params.get("productName") || "";
   const price = params.get("price") || "";
   const phone = params.get("phone") || "";
-  const badge = params.get("badge") || "";
   const businessName = params.get("businessName") || "";
   const benefits = (params.get("benefits") || "")
     .split("|")
@@ -107,28 +98,7 @@ export async function GET(request: NextRequest) {
   const accentGradient = `linear-gradient(135deg, ${accent.from}, ${accent.to})`;
 
   const isRichTier = tier === "premium" || tier === "gold";
-  const showBadge = (tier === "medium" || isRichTier) && !!badge;
   const showContact = !!phone;
-
-  const badgePill = (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        background: accentGradient,
-        color: COLORS.white,
-        fontSize: 22,
-        fontWeight: 700,
-        padding: "10px 20px",
-        borderRadius: 999,
-        alignSelf: "flex-start",
-      }}
-    >
-      {isRichTier && <SparkleIcon size={16} />}
-      {badge}
-    </div>
-  );
 
   const contactPill = (
     <div
@@ -190,8 +160,7 @@ export async function GET(request: NextRequest) {
             }}
           >
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {showBadge && badgePill}
-              <div style={{ display: "flex", flexDirection: "column", marginTop: 6 }}>
+              <div style={{ display: "flex", flexDirection: "column" }}>
                 {wrapText(productName, 15, 3).map((line) => (
                   <div key={line} style={{ display: "flex", color: COLORS.white, fontSize: 27, fontWeight: 800 }}>
                     {line}
@@ -236,10 +205,6 @@ export async function GET(request: NextRequest) {
           </div>
         ) : (
           <div style={{ display: "flex", width: "100%", height: "100%", position: "relative" }}>
-            {showBadge && (
-              <div style={{ display: "flex", position: "absolute", top: 28, left: 28 }}>{badgePill}</div>
-            )}
-
             {isRichTier && benefits.length > 0 && (
               <div style={{ position: "absolute", top: 28, right: 28, display: "flex", flexDirection: "column", gap: 10 }}>
                 {benefits.map((b) => (

@@ -9,6 +9,10 @@ import {
   renderFinalPoster,
 } from "@/lib/poster-pipeline";
 
+// Même raison que generate-creation/route.ts : la génération enchaîne plusieurs appels IA
+// séquentiels et peut dépasser le timeout serverless par défaut sans ce réglage.
+export const maxDuration = 300;
+
 export async function POST(request: Request) {
   const supabase = createClient();
   const {
@@ -79,7 +83,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { backgroundBuffer, imageError, layout, accentGradient } = backgroundResult;
+  const { backgroundBuffer, imageError, layout, accentGradient, creativeBrief } = backgroundResult;
   const phone = creation.contact_phone || (user.user_metadata?.whatsapp_number as string | undefined) || user.phone || "";
 
   let logoBuffer: Buffer | null = null;
@@ -99,6 +103,7 @@ export async function POST(request: Request) {
       phone,
       industry: creation.industry,
       accentGradient,
+      creativeBrief,
       businessName: creation.business_name,
       logoBuffer,
       customInstructions: trimmedInstructions,

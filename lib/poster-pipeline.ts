@@ -7,7 +7,15 @@ import { checkPosterQuality, checkTextAccuracy } from "@/lib/quality-checker";
 import { getIndustry } from "@/lib/knowledge/industries";
 import { getRelevantEvents } from "@/lib/knowledge/events";
 import { deliveryPhrasesFr, paymentPhrasesFr } from "@/lib/knowledge/business-practices";
-import { getTierConfig, type Tier } from "@/lib/pricing";
+import {
+  buildCreativeBrief,
+  formatCreativeBrief,
+  pickTypographyMood,
+  CREATIVITY_RULES,
+  DESIGN_PRINCIPLES,
+  type CreativeBrief,
+} from "@/lib/knowledge/creative-vocabulary";
+import { type Tier } from "@/lib/pricing";
 import { ALLOWED_MEDIA_TYPES, type AllowedMediaType } from "@/lib/media-types";
 
 export { ALLOWED_MEDIA_TYPES, type AllowedMediaType };
@@ -107,10 +115,10 @@ function getNegativeSpaceInstruction(tier: Tier, layout: LayoutVariant): string 
     return "Composition constraint: keep the left third of the frame visually calm and uncluttered — a dark text panel with the name, price and contact will be added there programmatically. Compose and frame the product mainly within the right two-thirds of the image.";
   }
   if (tier === "premium" || tier === "gold") {
-    return "Composition constraint: keep the top-left corner (small badge), the top-right corner (two short benefit tags) and a generous strip along the bottom ~25% of the frame visually calm and uncluttered — marketing text, price and contact info will be added programmatically in those zones afterward.";
+    return "Composition constraint: keep the top-right corner (two short benefit tags) and a generous strip along the bottom ~25% of the frame visually calm and uncluttered — marketing text, price and contact info will be added programmatically in those zones afterward.";
   }
   if (tier === "medium") {
-    return "Composition constraint: keep the top-left corner (small badge) and a strip along the bottom ~20% of the frame visually calm and uncluttered — a name, price and contact pill will be added programmatically in those zones afterward.";
+    return "Composition constraint: keep a strip along the bottom ~20% of the frame visually calm and uncluttered — a name, price and contact pill will be added programmatically in that zone afterward.";
   }
   return "Composition constraint: keep a strip along the bottom ~15% of the frame visually calm and uncluttered — a name and price will be added programmatically in that zone afterward.";
 }
@@ -129,6 +137,7 @@ function buildComposedPosterPrompt(params: {
   analysis: ProductAnalysis | null;
   customInstructions?: string | null;
   photoCount?: number;
+  creativeBrief: CreativeBrief;
 }): string {
   const industry = getIndustry(params.industryKey ?? undefined);
   const seasonalNote = getSeasonalVisualNote(new Date());
@@ -148,23 +157,23 @@ function buildComposedPosterPrompt(params: {
 - Positioning: ${params.analysis.positioning}
 - Distinctive detail: ${params.analysis.visualNotes}
 
-Use this analysis to choose a background, palette and mood that genuinely complement these specific colors and materials — not a generic look.`
+Weave THIS analysis into the creative direction below — the palette and materials must genuinely relate to these specific colors and materials, not be chosen independently of them.`
     : "";
 
-  return `You are an award-winning advertising creative director specialized in premium commercial photography and social media marketing for African markets — for physical products as well as local services (e.g. car rental, cleaning services, car detailing).
+  return `You are a senior, award-winning advertising creative director at a world-class agency, specialized in premium commercial photography and social media marketing for African markets — for physical products as well as local services (e.g. car rental, cleaning services, car detailing). You constantly explore new ideas and never repeat yourself — you are not a template generator.
 
 ${subjectLine}
 
 Your task: design a complete, professional advertising visual around this exact subject to sell it — as if shot and art-directed by a top-tier advertising agency.
 
-Rules:
-- The subject shown is the absolute hero of the composition — preserve its exact colors, proportions, textures, and any text or logo already visible on it. Never redesign, restyle or reinterpret the subject itself — no exceptions.
-- Analyze the subject's own colors, materials and character, and choose the visual style, mood, lighting and color palette that fits it best yourself. Don't default to one generic look — every subject deserves a scene designed specifically for it.
-- Always aim for: elegant, modern, attractive and very clean — never cluttered, never gimmicky, never a generic AI stock-photo look.
-- Build a coherent, realistic professional environment around the subject — proper lighting, depth, shadows and composition, using colors and materials that genuinely complement its own palette.
-- Adapt the visual to the Senegalese / West African market while remaining internationally premium.
+Product/service fidelity (absolute, overrides everything else below):
+- The subject shown is the absolute hero of the composition — preserve its exact colors, proportions, textures, and any text or logo already visible on it. Never redesign, restyle or reinterpret the subject itself — no exceptions, regardless of the creative direction below.
 
-Avoid generic AI-background clichés: no draped fabric, no bedsheets or cloth backdrops, no floating pedestal wrapped in cloth, no plain pastel gradient with a soft cast shadow and nothing else. Build a genuine, specific scene appropriate to this subject's category.
+${formatCreativeBrief(params.creativeBrief)}
+
+${CREATIVITY_RULES}
+
+${DESIGN_PRINCIPLES}
 
 Do NOT include: text, logos other than what's already visible on the subject, prices, numbers, watermarks, QR codes, buttons or UI elements.
 
@@ -175,7 +184,7 @@ Category: ${industry ? `${industry.labelFr} — typical scene elements to draw i
 Distribution channels: Facebook, Instagram and WhatsApp — the visual must read clearly even as a small thumbnail.
 ${seasonalNote ? `\n${seasonalNote}` : ""}
 ${getNegativeSpaceInstruction(params.tier, params.layout)}
-${params.customInstructions ? `\nThe merchant asked for these specific changes compared to the previous version — prioritize honoring this request while still respecting the rules above (subject fidelity, no text/logos): "${params.customInstructions}"` : ""}`;
+${params.customInstructions ? `\nThe merchant asked for these specific changes compared to the previous version — prioritize honoring this request while still respecting the fidelity rule above: "${params.customInstructions}"` : ""}`;
 }
 
 /**
@@ -189,7 +198,8 @@ async function generateComposedPoster(
   layout: LayoutVariant,
   isCutout: boolean,
   analysis: ProductAnalysis | null,
-  customInstructions?: string | null
+  customInstructions: string | null | undefined,
+  creativeBrief: CreativeBrief
 ) {
   try {
     const prompt = buildComposedPosterPrompt({
@@ -200,6 +210,7 @@ async function generateComposedPoster(
       analysis,
       customInstructions,
       photoCount: images.length,
+      creativeBrief,
     });
 
     const res = await fetch("https://openrouter.ai/api/v1/images", {
@@ -255,9 +266,11 @@ export async function buildPosterBackground(
   qualityRetried: boolean;
   layout: LayoutVariant;
   accentGradient: { from: string; to: string } | null;
+  creativeBrief: CreativeBrief;
 }> {
   const layout = forcedLayout ?? pickLayoutVariant(tier);
   const extras = extraPhotos ?? [];
+  const creativeBrief = buildCreativeBrief();
 
   const [analysis, cutoutOutcome] = await Promise.all([
     analyzeProduct(photoBase64, mediaType, productName),
@@ -271,12 +284,12 @@ export async function buildPosterBackground(
   const primaryMediaType: AllowedMediaType = isCutout ? "image/png" : mediaType;
   const primaryImages = [{ base64: primaryImageBase64, mediaType: primaryMediaType }, ...extras];
 
-  let genResult = await generateComposedPoster(primaryImages, industry, tier, layout, isCutout, analysis, customInstructions);
+  let genResult = await generateComposedPoster(primaryImages, industry, tier, layout, isCutout, analysis, customInstructions, creativeBrief);
 
   // Repli si le détourage a réussi mais que la composition IA échoue quand même : retente avec la photo brute.
   if (!genResult.imageBase64 && isCutout) {
     const fallbackImages = [{ base64: photoBase64, mediaType }, ...extras];
-    genResult = await generateComposedPoster(fallbackImages, industry, tier, layout, false, analysis, customInstructions);
+    genResult = await generateComposedPoster(fallbackImages, industry, tier, layout, false, analysis, customInstructions, creativeBrief);
   }
 
   let finalImageBase64 = genResult.imageBase64;
@@ -285,7 +298,7 @@ export async function buildPosterBackground(
   if (finalImageBase64 && (tier === "premium" || tier === "gold")) {
     const { passed } = await checkPosterQuality(photoBase64, mediaType, finalImageBase64);
     if (!passed) {
-      const retry = await generateComposedPoster(primaryImages, industry, tier, layout, isCutout, analysis, customInstructions);
+      const retry = await generateComposedPoster(primaryImages, industry, tier, layout, isCutout, analysis, customInstructions, creativeBrief);
       if (retry.imageBase64) {
         finalImageBase64 = retry.imageBase64;
         qualityRetried = true;
@@ -301,6 +314,7 @@ export async function buildPosterBackground(
     qualityRetried,
     layout,
     accentGradient: analysis?.accentGradient ?? getIndustryAccent(industry),
+    creativeBrief,
   };
 }
 
@@ -318,6 +332,7 @@ function buildServicePosterPrompt(params: {
   serviceDescription: string | null;
   serviceItems: string[];
   customInstructions?: string | null;
+  creativeBrief: CreativeBrief;
 }): string {
   const industry = getIndustry(params.industryKey ?? undefined);
   const seasonalNote = getSeasonalVisualNote(new Date());
@@ -325,7 +340,7 @@ function buildServicePosterPrompt(params: {
     ? `Items/offerings included in this service: ${params.serviceItems.join(", ")}.`
     : "";
 
-  return `You are an award-winning advertising creative director specialized in premium marketing visuals for local services in Senegal / West Africa (e.g. car rental, cleaning services, car detailing).
+  return `You are a senior, award-winning advertising creative director at a world-class agency, specialized in premium marketing visuals for local services in Senegal / West Africa (e.g. car rental, cleaning services, car detailing). You constantly explore new ideas and never repeat yourself — you are not a template generator.
 
 There is no reference photo for this brief — imagine and compose an entirely original, professional advertising visual from scratch that convincingly represents this exact service.
 
@@ -333,11 +348,13 @@ Service: "${params.serviceName}"
 ${params.serviceDescription ? `Description: ${params.serviceDescription}` : ""}
 ${itemsLine}
 
-Rules:
-- Depict a realistic, specific, professional scene that genuinely evokes this exact service being performed or its result — never a generic stock-photo cliché. Draw inspiration from the category and the details given above.
-- Always aim for: elegant, modern, attractive and very clean — never cluttered, never gimmicky.
-- Adapt the visual to the Senegalese / West African market while remaining internationally premium.
-- Do NOT include: text, logos, prices, numbers, watermarks, QR codes, buttons or UI elements — those are added separately.
+${formatCreativeBrief(params.creativeBrief)}
+
+${CREATIVITY_RULES}
+
+${DESIGN_PRINCIPLES}
+
+Do NOT include: text, logos, prices, numbers, watermarks, QR codes, buttons or UI elements — those are added separately.
 
 Category: ${industry ? `${industry.labelFr} — typical scene elements to draw inspiration from: ${industry.visualDirection}.` : "General local service."}
 
@@ -355,6 +372,7 @@ async function generateServiceImage(params: {
   tier: Tier;
   layout: LayoutVariant;
   customInstructions?: string | null;
+  creativeBrief: CreativeBrief;
 }) {
   try {
     const prompt = buildServicePosterPrompt(params);
@@ -393,14 +411,17 @@ export async function buildServiceBackground(
   serviceItems: string[],
   industry: string | null,
   tier: Tier,
-  customInstructions?: string | null
+  customInstructions?: string | null,
+  forcedLayout?: LayoutVariant
 ): Promise<{
   backgroundBuffer: Buffer;
   imageError: string | null;
   layout: LayoutVariant;
   accentGradient: { from: string; to: string } | null;
+  creativeBrief: CreativeBrief;
 }> {
-  const layout = pickLayoutVariant(tier);
+  const layout = forcedLayout ?? pickLayoutVariant(tier);
+  const creativeBrief = buildCreativeBrief();
   const genResult = await generateServiceImage({
     serviceName,
     serviceDescription,
@@ -409,6 +430,7 @@ export async function buildServiceBackground(
     tier,
     layout,
     customInstructions,
+    creativeBrief,
   });
 
   const accentGradient = getIndustryAccent(industry);
@@ -416,7 +438,7 @@ export async function buildServiceBackground(
     ? Buffer.from(genResult.imageBase64, "base64")
     : await buildPlainBackground(accentGradient);
 
-  return { backgroundBuffer, imageError: genResult.imageError, layout, accentGradient };
+  return { backgroundBuffer, imageError: genResult.imageError, layout, accentGradient, creativeBrief };
 }
 
 interface FinalPosterParams {
@@ -431,6 +453,7 @@ interface FinalPosterParams {
   logoBuffer?: Buffer | null;
   customInstructions?: string | null;
   serviceItems?: string[] | null;
+  creativeBrief?: CreativeBrief | null;
 }
 
 /**
@@ -438,14 +461,12 @@ interface FinalPosterParams {
  * pas par un modèle génératif) composité sur le fond IA.
  */
 async function renderSatoriOverlay(origin: string, backgroundBuffer: Buffer, params: FinalPosterParams): Promise<Buffer> {
-  const tierConfig = getTierConfig(params.tier);
   const overlayUrl = new URL("/api/render-overlay", origin);
   overlayUrl.searchParams.set("tier", params.tier);
   overlayUrl.searchParams.set("layout", params.layout);
   overlayUrl.searchParams.set("productName", params.productName);
   overlayUrl.searchParams.set("price", params.price != null ? `${params.price.toLocaleString("fr-FR")} FCFA` : "Sur devis");
   overlayUrl.searchParams.set("phone", params.phone);
-  overlayUrl.searchParams.set("badge", tierConfig.labelFr === "Basique" ? "" : tierConfig.labelFr);
   if (params.tier === "premium" || params.tier === "gold") {
     const benefits =
       params.serviceItems && params.serviceItems.length > 0 ? params.serviceItems.slice(0, 3) : getBenefitTags(params.industry);
@@ -468,7 +489,7 @@ async function renderSatoriOverlay(origin: string, backgroundBuffer: Buffer, par
 
 /**
  * Demande à GPT Image 2 de dessiner directement la mise en page complète (texte, prix, contact,
- * badges, CTA) sur l'image déjà composée — au lieu d'un gabarit fixe qu'on superpose nous-mêmes.
+ * CTA, tags) sur l'image déjà composée — au lieu d'un gabarit fixe qu'on superpose nous-mêmes.
  * Plus créatif et varié, mais le texte est produit par un modèle génératif, donc jamais garanti
  * exact : c'est à `checkTextAccuracy` de trancher si le résultat est fiable.
  *
@@ -492,7 +513,6 @@ async function generateTemplatedPoster(backgroundBuffer: Buffer, params: FinalPo
     }
     if (showContact) requirements.push(`WhatsApp contact: "${params.phone}"`);
     if (params.businessName) requirements.push(`Business name: "${params.businessName}"`);
-    requirements.push(`A small badge/tag reading "${getTierConfig(params.tier).labelFr}"`);
     requirements.push(`A short call-to-action, e.g. "Commander sur WhatsApp"`);
 
     const hasServiceItems = !!params.serviceItems && params.serviceItems.length > 0;
@@ -522,22 +542,39 @@ async function generateTemplatedPoster(backgroundBuffer: Buffer, params: FinalPo
     // Sans direction de couleur explicite, le modèle retombe souvent sur une teinte neutre/beige
     // par défaut. On lui impose la palette déjà calculée (logo du marchand si disponible, sinon
     // l'analyse du produit, sinon une teinte propre au secteur) pour une vraie diversité visuelle.
+    // Point corrigé après retour utilisateur : imposer l'accent SANS dire quoi faire du panneau/
+    // fond derrière le texte produisait des combinaisons qui juraient (ex: panneau noir brut +
+    // accent bleu vif, sans lien de teinte entre les deux) — l'instruction précise maintenant
+    // que le fond du bloc de texte doit être choisi EN FONCTION de cet accent, pas indépendamment.
     let accent = params.accentGradient ?? null;
     if (hasMerchantLogo && params.logoBuffer) {
       const logoAccent = await analyzeLogoColors(params.logoBuffer.toString("base64"));
       if (logoAccent) accent = logoAccent;
     }
     const colorInstruction = accent
-      ? `\n\nColor palette (mandatory): use this exact 2-color accent for badges, the CTA button and typography highlights — ${accent.from} to ${accent.to}. This was chosen specifically for this ${hasMerchantLogo ? "merchant's brand" : "product/service"} — do NOT default to a generic neutral, beige or pastel scheme instead.`
+      ? `\n\nColor palette (mandatory): use this exact 2-color accent — ${accent.from} to ${accent.to} — for the CTA button, benefit tags and typography highlights. This was chosen specifically for this ${hasMerchantLogo ? "merchant's brand" : "product/service"} — do NOT default to a generic neutral, beige or pastel scheme instead. Critically, the panel or gradient background BEHIND the text (the dark panel in a side-panel layout, or the bottom gradient in a bottom-bar layout) must be chosen to harmonize with this exact accent — e.g. a deep, desaturated tint of the same hue family, rather than a plain, unrelated black or grey. Treat the background, the accent and the typography as ONE deliberate color story, never as independent, clashing choices.`
       : "";
 
     const toneInstruction = industry ? `\n\nOverall tone to match this category: ${industry.toneHint}` : "";
 
-    const prompt = `You are an award-winning advertising creative director designing the flagship, top-of-the-line tier of this product — the client paid a premium price specifically for a breathtaking result, and expects it to look like it came from a top international ad agency, not a template. You are given a professional, already-composed product photo${hasMerchantLogo ? " as the first reference image" : ""}.
+    // Même brief créatif que l'étape de décor (si disponible) pour que la mise en page reste
+    // cohérente avec la scène déjà composée, plus une humeur typographique tirée indépendamment
+    // pour que la typographie elle-même varie d'une génération à l'autre.
+    const typographyMood = pickTypographyMood();
+    const creativeBriefBlock = params.creativeBrief
+      ? `\n\nThe scene behind you was already composed with this exact creative direction — the layout, typography and finishing touches you add now must feel like they belong to the SAME unified vision, not a mismatched addition:\n- Direction: "${params.creativeBrief.archetypeName}" (${params.creativeBrief.cues.join(", ")})\n- Typography mood for this generation: ${typographyMood}.`
+      : `\n\nTypography mood for this generation: ${typographyMood}.`;
 
-Add a complete, professional marketing poster layout on top of this exact image — do not alter the photo itself, only add design elements around/over it (badges, price tag, contact info, typography).
+    const prompt = `You are a senior, award-winning advertising creative director at a world-class agency, designing the flagship, top-of-the-line tier of this product — the client paid a premium price specifically for a breathtaking result, and expects it to look like it came from a top international ad agency, not a template. You constantly explore new ideas and never repeat yourself. You are given a professional, already-composed product photo${hasMerchantLogo ? " as the first reference image" : ""}.
+
+Add a complete, professional marketing poster layout on top of this exact image — do not alter the photo itself, only add design elements around/over it (price tag, contact info, typography). Do NOT add any badge, ribbon, tier label or stamp of any kind.
 
 This must be genuinely stunning — the kind of visual that stops someone mid-scroll on Instagram, not a safe or generic composition. Take a bold, memorable creative risk: striking typography, a considered color story, confident use of space. Never settle for "good enough."
+${creativeBriefBlock}
+
+${CREATIVITY_RULES}
+
+${DESIGN_PRINCIPLES}
 ${layoutInstruction}
 ${colorInstruction}
 ${toneInstruction}
@@ -552,6 +589,7 @@ Design rules:
 - Choose typography and finer layout details that genuinely complement this specific image — elegant, modern, magazine-cover quality, like a real advertising agency poster — while strictly respecting the mandatory layout and color palette above.
 - All the text listed above as "MUST appear" must be 100% accurate and fully legible.
 - Do not add any other invented text, numbers or logos beyond what's explicitly requested above.
+- No badge, ribbon, tier name or stamp anywhere on the poster.
 - Keep the product itself fully visible, not obstructed by text or UI elements.`;
 
     const backgroundBase64 = backgroundBuffer.toString("base64");

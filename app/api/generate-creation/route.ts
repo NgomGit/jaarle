@@ -14,6 +14,11 @@ import {
   renderFinalPoster,
 } from "@/lib/poster-pipeline";
 
+// Le palier Gold lance 2 pipelines complets en parallèle (fond + mise en page + vérifications
+// chacun) — sans ceci, la fonction serverless expire avant la fin sur la plupart des plans
+// Vercel (15s par défaut sur Pro, encore moins sur Hobby). 300s est le maximum du plan Pro.
+export const maxDuration = 300;
+
 // Le style visuel n'est plus choisi par l'utilisateur : l'IA le déduit du produit lui-même.
 // La colonne `style` de `creations` reste NOT NULL pour compat avec les créations existantes.
 const AUTO_STYLE = "auto";
@@ -186,9 +191,9 @@ export async function POST(request: Request) {
             extraPhotos,
             forcedLayout
           )
-        : await buildServiceBackground(productName, serviceDescription, normalizedItems, industry, normalizedTier);
+        : await buildServiceBackground(productName, serviceDescription, normalizedItems, industry, normalizedTier, null, forcedLayout);
 
-    const { backgroundBuffer, imageError, layout, accentGradient } = backgroundResult;
+    const { backgroundBuffer, imageError, layout, accentGradient, creativeBrief } = backgroundResult;
 
     const { finalBuffer } = await renderFinalPoster(new URL(request.url).origin, backgroundBuffer, {
       tier: normalizedTier,
@@ -198,6 +203,7 @@ export async function POST(request: Request) {
       phone,
       industry,
       accentGradient,
+      creativeBrief,
       businessName,
       logoBuffer,
       serviceItems: normalizedItems,
