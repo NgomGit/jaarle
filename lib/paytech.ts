@@ -1,7 +1,5 @@
 import crypto from "crypto";
 
-export const CAMPAIGN_PRICE_FCFA = 500;
-
 export interface PaytechRequestPaymentParams {
   itemName: string;
   itemPrice: number;

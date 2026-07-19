@@ -58,15 +58,15 @@
   "pricing": {
     "title": "Pay only for what you use",
     "desc": "No mandatory subscription, no expiring credits. Pay with Wave or Orange Money.",
-    "freeTitle": "Free",
-    "freeUnit": "to try it out",
-    "simpleTitle": "Simple creation",
-    "simpleUnit": "per image",
-    "campaignTitle": "Full campaign",
+    "freeTitle": "Generation",
+    "freeUnit": "unlimited, before you pay",
+    "simpleTitle": "Basic",
+    "simpleUnit": "per poster",
+    "campaignTitle": "Medium",
     "campaignUnit": "image + copy, all included",
     "campaignTag": "Most popular",
-    "packTitle": "3-campaign pack",
-    "packUnit": "≈ 433 FCFA / campaign",
+    "packTitle": "Premium",
+    "packUnit": "up to 3 regenerations",
     "choose": "Choose",
     "start": "Get started"
   },
@@ -146,6 +146,10 @@
     "chooseFile": "Choose a photo",
     "industry": "Business category",
     "industryPlaceholder": "Choose a category (optional)",
+    "industrySearchPlaceholder": "Search for a category...",
+    "industryNoResults": "No results",
+    "industryAllCategories": "All categories",
+    "industrySelectWhole": "Choose \"{category}\" in general",
     "language": "Copy language",
     "languageFr": "French",
     "languageWo": "Wolof",
@@ -164,6 +168,24 @@
     "retry": "Try again",
     "galleryTitle": "My creations",
     "galleryEmpty": "No creations yet",
-    "galleryEmptyDesc": "Launch your first campaign to see it appear here."
+    "galleryEmptyDesc": "Launch your first campaign to see it appear here.",
+    "stepCustomize": "Customize",
+    "tierLabel": "Poster quality",
+    "tier": {
+      "basic": {
+        "name": "Basic",
+        "desc": "Styled background, name and price."
+      },
+      "medium": {
+        "name": "Medium",
+        "desc": "+ style badge and contact."
+      },
+      "premium": {
+        "name": "Premium",
+        "desc": "+ highlights and up to 3 regenerations."
+      }
+    },
+    "regenerate": "Regenerate design ({count} left)",
+    "regenerateExhausted": "No regenerations left"
   }
 }

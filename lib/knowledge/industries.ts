@@ -5,6 +5,8 @@ export interface Industry {
   toneHint: string;
   ctaExamples: string[];
   hashtags: string[];
+  /** Éléments de mise en scène typiques du secteur, pour orienter la génération du fond IA. */
+  visualDirection: string;
 }
 
 export const industries: Industry[] = [
@@ -15,6 +17,7 @@ export const industries: Industry[] = [
     toneHint: "Élégant, tendance, valorisant.",
     ctaExamples: ["Commande ton look maintenant", "Dispo en plusieurs tailles"],
     hashtags: ["#ModeSenegal", "#Dakar", "#WaxStyle"],
+    visualDirection: "seamless studio backdrop, editorial fashion lighting, clean fabric-like textures, runway-adjacent mood",
   },
   {
     key: "beauty",
@@ -23,6 +26,7 @@ export const industries: Industry[] = [
     toneHint: "Séduisant, confiant, soin de soi.",
     ctaExamples: ["Prends soin de toi", "Résultats visibles rapidement"],
     hashtags: ["#BeauteSenegal", "#SkinCare221", "#Dakar"],
+    visualDirection: "soft glam lighting, marble or silk surface, delicate botanical accents, dewy glow",
   },
   {
     key: "restaurant",
@@ -31,6 +35,7 @@ export const industries: Industry[] = [
     toneHint: "Gourmand, convivial, appétissant.",
     ctaExamples: ["Commande ton plat maintenant", "Livraison chaude et rapide"],
     hashtags: ["#FoodDakar", "#Ndogou", "#CuisineSenegalaise"],
+    visualDirection: "warm ambient light, gentle steam, wooden table surface, fresh ingredients arranged artfully, shallow depth of field",
   },
   {
     key: "electronics",
@@ -39,6 +44,7 @@ export const industries: Industry[] = [
     toneHint: "Fiable, moderne, orienté performance.",
     ctaExamples: ["Garantie incluse", "Stock limité, commande maintenant"],
     hashtags: ["#TechSenegal", "#Dakar", "#BonPlan"],
+    visualDirection: "clean tech studio backdrop, cool blue accent lighting, reflective surface, minimal futuristic props",
   },
   {
     key: "furniture",
@@ -47,6 +53,7 @@ export const industries: Industry[] = [
     toneHint: "Chaleureux, qualité, confort du foyer.",
     ctaExamples: ["Transforme ton salon", "Livraison et installation possibles"],
     hashtags: ["#DecoSenegal", "#Dakar", "#MaisonEtStyle"],
+    visualDirection: "modern living room setting, natural wood tones, potted plant, soft daylight, contemporary African decor accents",
   },
   {
     key: "real-estate",
@@ -55,6 +62,7 @@ export const industries: Industry[] = [
     toneHint: "Rassurant, sérieux, professionnel.",
     ctaExamples: ["Visite disponible sur rendez-vous", "Contacte-nous pour plus d'informations"],
     hashtags: ["#ImmobilierSenegal", "#Dakar", "#TerrainAVendre"],
+    visualDirection: "golden hour sky, architectural framing, wide-angle real-estate photography feel, aspirational lifestyle",
   },
   {
     key: "automotive",
@@ -63,6 +71,7 @@ export const industries: Industry[] = [
     toneHint: "Puissant, fiable, direct.",
     ctaExamples: ["Disponible immédiatement", "Contacte-nous pour les détails"],
     hashtags: ["#AutoSenegal", "#Dakar", "#Voiture221"],
+    visualDirection: "dramatic studio or urban backdrop, dynamic low-angle framing, glossy reflective floor, bold shadows",
   },
   {
     key: "grocery",
@@ -71,6 +80,7 @@ export const industries: Industry[] = [
     toneHint: "Pratique, frais, prix accessible.",
     ctaExamples: ["Prix imbattable", "Frais du jour"],
     hashtags: ["#EpicerieSenegal", "#Dakar", "#BonPrix"],
+    visualDirection: "fresh market setting, natural daylight, wooden crates or woven baskets, vibrant natural colors",
   },
   {
     key: "pharmacy",
@@ -79,6 +89,7 @@ export const industries: Industry[] = [
     toneHint: "Rassurant, fiable, sérieux.",
     ctaExamples: ["Disponible en pharmacie", "Conseil disponible sur demande"],
     hashtags: ["#SanteSenegal", "#Dakar"],
+    visualDirection: "clean clinical-but-warm setting, soft white and green tones, subtle medical-adjacent props, reassuring atmosphere",
   },
   {
     key: "events",
@@ -87,6 +98,7 @@ export const industries: Industry[] = [
     toneHint: "Festif, mémorable, exclusif.",
     ctaExamples: ["Réserve ta place", "Places limitées"],
     hashtags: ["#EvenementSenegal", "#Dakar"],
+    visualDirection: "festive stage or venue backdrop, warm spotlight, subtle confetti or string lights, celebratory atmosphere",
   },
   {
     key: "hotel",
@@ -95,6 +107,7 @@ export const industries: Industry[] = [
     toneHint: "Accueillant, apaisant, premium.",
     ctaExamples: ["Réserve ton séjour", "Offre limitée"],
     hashtags: ["#HotelSenegal", "#Dakar", "#Voyage"],
+    visualDirection: "resort or lobby setting, soft natural light, calm turquoise and sand palette, aspirational travel mood",
   },
   {
     key: "travel",
@@ -103,6 +116,7 @@ export const industries: Industry[] = [
     toneHint: "Évasion, aventure, accessible.",
     ctaExamples: ["Réserve ton voyage", "Places limitées"],
     hashtags: ["#VoyageSenegal", "#Dakar", "#Evasion"],
+    visualDirection: "scenic destination backdrop, golden light, sense of horizon and movement, adventurous mood",
   },
 ];
 

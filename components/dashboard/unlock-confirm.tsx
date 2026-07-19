@@ -7,6 +7,7 @@ import { useLocale } from "@/lib/locale-context";
 import { CreationStepIndicator } from "@/components/dashboard/creation-step-indicator";
 import { CreationResult } from "@/components/dashboard/creation-result";
 import { Button } from "@/components/ui/button";
+import { getTierConfig } from "@/lib/pricing";
 
 type Phase = "checking" | "ready" | "timeout" | "error";
 
@@ -23,6 +24,7 @@ export function UnlockConfirm({ refCommand }: { refCommand: string }) {
     price: number;
     salesCopy: string | null;
     hashtags: string[];
+    tierPrice: number;
   } | null>(null);
 
   const attemptsRef = React.useRef(0);
@@ -52,6 +54,7 @@ export function UnlockConfirm({ refCommand }: { refCommand: string }) {
         price: creation.price,
         salesCopy: creation.generated_copy,
         hashtags: creation.generated_hashtags ?? [],
+        tierPrice: getTierConfig(creation.tier).price,
       });
       setPhase("ready");
     },
@@ -148,6 +151,7 @@ export function UnlockConfirm({ refCommand }: { refCommand: string }) {
             formattedPrice={result.price.toLocaleString("fr-FR")}
             salesCopy={result.salesCopy}
             hashtags={result.hashtags}
+            tierPrice={result.tierPrice}
             onNewCreation={() => {}}
           />
         )}

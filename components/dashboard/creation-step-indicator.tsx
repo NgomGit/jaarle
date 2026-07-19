@@ -3,13 +3,13 @@
 import { useLocale } from "@/lib/locale-context";
 import { cn } from "@/lib/utils";
 
-const STEPS = ["tab1", "tab2", "tab3", "tab4"] as const;
+const STEP_KEYS = ["preview.tab1", "creation.stepCustomize", "preview.tab3", "preview.tab4"] as const;
 
 export function CreationStepIndicator({ step }: { step: 0 | 1 | 2 | 3 }) {
   const { t } = useLocale();
   return (
     <div className="mb-6 flex flex-wrap gap-2">
-      {STEPS.map((key, i) => (
+      {STEP_KEYS.map((key, i) => (
         <div
           key={key}
           className={cn(
@@ -25,7 +25,7 @@ export function CreationStepIndicator({ step }: { step: 0 | 1 | 2 | 3 }) {
           >
             {i + 1}
           </span>
-          {t(`preview.${key}`)}
+          {t(key)}
         </div>
       ))}
     </div>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { requestPaytechPayment, CAMPAIGN_PRICE_FCFA } from "@/lib/paytech";
+import { requestPaytechPayment } from "@/lib/paytech";
+import { getTierConfig } from "@/lib/pricing";
 
 export async function POST(request: Request) {
   const supabase = createClient();
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
 
   const { data: creation, error: creationError } = await supabase
     .from("creations")
-    .select("id, product_name, unlocked")
+    .select("id, product_name, unlocked, tier")
     .eq("id", creationId)
     .eq("user_id", user.id)
     .single();
@@ -32,17 +33,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Cette création est déjà débloquée." }, { status: 400 });
   }
 
+  const tierConfig = getTierConfig(creation.tier);
   const refCommand = `JAARLE-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   const { error: insertError } = await supabase.from("orders").insert({
     user_id: user.id,
     ref_command: refCommand,
-    amount: CAMPAIGN_PRICE_FCFA,
+    amount: tierConfig.price,
     status: "pending",
     creation_id: creation.id,
+    tier: creation.tier,
   });
 
   if (insertError) {
+    console.error("[paytech/checkout] order insert failed:", insertError);
     return NextResponse.json({ error: insertError.message }, { status: 500 });
   }
 
@@ -50,8 +54,8 @@ export async function POST(request: Request) {
 
   try {
     const redirectUrl = await requestPaytechPayment({
-      itemName: "Campagne complète Jaarle",
-      itemPrice: CAMPAIGN_PRICE_FCFA,
+      itemName: `Affiche ${tierConfig.labelFr} Jaarle`,
+      itemPrice: tierConfig.price,
       refCommand,
       commandName: `Déblocage de "${creation.product_name}"`,
       successUrl: `${origin}/dashboard/unlock?ref=${refCommand}`,
@@ -62,6 +66,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ redirectUrl });
   } catch (err) {
+    console.error("[paytech/checkout] requestPaytechPayment failed:", err);
     return NextResponse.json({ error: err instanceof Error ? err.message : "Erreur PayTech." }, { status: 500 });
   }
 }

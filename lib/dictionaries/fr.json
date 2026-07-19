@@ -58,15 +58,15 @@
   "pricing": {
     "title": "Tu paies ce que tu utilises",
     "desc": "Pas d'abonnement obligatoire, pas de crédits qui expirent. Paiement par Wave ou Orange Money.",
-    "freeTitle": "Gratuit",
-    "freeUnit": "pour découvrir",
-    "simpleTitle": "Création simple",
-    "simpleUnit": "par image",
-    "campaignTitle": "Campagne complète",
+    "freeTitle": "Génération",
+    "freeUnit": "illimitée, avant de payer",
+    "simpleTitle": "Basique",
+    "simpleUnit": "par affiche",
+    "campaignTitle": "Medium",
     "campaignUnit": "image + textes tout inclus",
     "campaignTag": "Le plus choisi",
-    "packTitle": "Pack 3 campagnes",
-    "packUnit": "≈ 433 FCFA / campagne",
+    "packTitle": "Premium",
+    "packUnit": "jusqu'à 3 régénérations",
     "choose": "Choisir",
     "start": "Commencer"
   },
@@ -146,6 +146,10 @@
     "chooseFile": "Choisir une photo",
     "industry": "Secteur d'activité",
     "industryPlaceholder": "Choisis un secteur (optionnel)",
+    "industrySearchPlaceholder": "Rechercher un secteur...",
+    "industryNoResults": "Aucun résultat",
+    "industryAllCategories": "Tous les secteurs",
+    "industrySelectWhole": "Choisir « {category} » en général",
     "language": "Langue du texte",
     "languageFr": "Français",
     "languageWo": "Wolof",
@@ -164,6 +168,24 @@
     "retry": "Réessayer",
     "galleryTitle": "Mes créations",
     "galleryEmpty": "Aucune création pour le moment",
-    "galleryEmptyDesc": "Lance ta première campagne pour la voir apparaître ici."
+    "galleryEmptyDesc": "Lance ta première campagne pour la voir apparaître ici.",
+    "stepCustomize": "Personnaliser",
+    "tierLabel": "Qualité de l'affiche",
+    "tier": {
+      "basic": {
+        "name": "Basique",
+        "desc": "Fond stylisé, nom et prix."
+      },
+      "medium": {
+        "name": "Medium",
+        "desc": "+ badge de style et contact."
+      },
+      "premium": {
+        "name": "Premium",
+        "desc": "+ mise en avant et jusqu'à 3 régénérations."
+      }
+    },
+    "regenerate": "Régénérer le design ({count} restantes)",
+    "regenerateExhausted": "Régénérations épuisées"
   }
 }

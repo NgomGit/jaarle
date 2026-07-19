@@ -4,58 +4,34 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { buildCulturalContext } from "@/lib/knowledge/context";
+import { type Tier } from "@/lib/pricing";
+import {
+  ALLOWED_MEDIA_TYPES,
+  type AllowedMediaType,
+  buildPosterBackground,
+  renderFinalPoster,
+} from "@/lib/poster-pipeline";
+
+// Le style visuel n'est plus choisi par l'utilisateur : l'IA le déduit du produit lui-même.
+// La colonne `style` de `creations` reste NOT NULL pour compat avec les créations existantes.
+const AUTO_STYLE = "auto";
 
 const CopySchema = z.object({
   salesCopy: z.string(),
   hashtags: z.array(z.string()).max(8),
 });
 
-const ALLOWED_MEDIA_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"] as const;
-type AllowedMediaType = (typeof ALLOWED_MEDIA_TYPES)[number];
-
-export async function POST(request: Request) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
-  }
-
-  const { photoPath, productName, price, style, industry, language } = (await request.json()) as {
-    photoPath: string;
-    productName: string;
-    price: number;
-    style: string;
-    industry: string | null;
-    language: string;
-  };
-
-  if (!photoPath || !productName || !price || !style) {
-    return NextResponse.json({ error: "Champs manquants." }, { status: 400 });
-  }
-
-  const { data: photoBlob, error: downloadError } = await supabase.storage.from("creations").download(photoPath);
-  if (downloadError || !photoBlob) {
-    return NextResponse.json({ error: "Photo introuvable." }, { status: 500 });
-  }
-
-  const photoBuffer = Buffer.from(await photoBlob.arrayBuffer());
-  const photoBase64 = photoBuffer.toString("base64");
-  const mediaType: AllowedMediaType = ALLOWED_MEDIA_TYPES.includes(photoBlob.type as AllowedMediaType)
-    ? (photoBlob.type as AllowedMediaType)
-    : "image/jpeg";
-
-  const culturalContext = buildCulturalContext({ industryKey: industry ?? undefined });
+async function generateSalesCopy(photoBase64: string, mediaType: AllowedMediaType, params: {
+  productName: string;
+  price: number;
+  industry: string | null;
+  language: string;
+}) {
+  const culturalContext = buildCulturalContext({ industryKey: params.industry ?? undefined });
   const languageLabel =
-    language === "wo"
+    params.language === "wo"
       ? "wolof (mélangé naturellement avec du français si besoin, comme parlent vraiment les commerçants à Dakar — pas une traduction littérale)"
       : "français";
-
-  let salesCopy: string | null = null;
-  let hashtags: string[] = [];
-  let copyError: string | null = null;
 
   try {
     const anthropic = new Anthropic();
@@ -71,7 +47,7 @@ export async function POST(request: Request) {
             { type: "image", source: { type: "base64", media_type: mediaType, data: photoBase64 } },
             {
               type: "text",
-              text: `Produit : "${productName}", prix : ${price} FCFA, style visuel choisi : "${style}". Écris en ${languageLabel}. Rédige un texte de vente court (2-3 phrases, prêt à publier sur Facebook/Instagram/WhatsApp) et une liste de 4 à 6 hashtags pertinents pour le Sénégal.`,
+              text: `Produit : "${params.productName}", prix : ${params.price} FCFA. Écris en ${languageLabel}. Rédige un texte de vente court (2-3 phrases, prêt à publier sur Facebook/Instagram/WhatsApp) et une liste de 4 à 6 hashtags pertinents pour le Sénégal.`,
             },
           ],
         },
@@ -80,59 +56,77 @@ export async function POST(request: Request) {
     });
 
     if (message.parsed_output) {
-      salesCopy = message.parsed_output.salesCopy;
-      hashtags = message.parsed_output.hashtags;
-    } else {
-      copyError = "Réponse IA invalide.";
+      return { salesCopy: message.parsed_output.salesCopy, hashtags: message.parsed_output.hashtags, copyError: null as string | null };
     }
+    return { salesCopy: null, hashtags: [] as string[], copyError: "Réponse IA invalide." };
   } catch (err) {
-    copyError = err instanceof Error ? err.message : "Erreur lors de la génération du texte.";
+    return { salesCopy: null, hashtags: [] as string[], copyError: err instanceof Error ? err.message : "Erreur lors de la génération du texte." };
+  }
+}
+
+export async function POST(request: Request) {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
   }
 
-  let generatedImageBase64: string | null = null;
-  let imageError: string | null = null;
+  const { photoPath, productName, price, industry, language, tier } = (await request.json()) as {
+    photoPath: string;
+    productName: string;
+    price: number;
+    industry: string | null;
+    language: string;
+    tier: Tier;
+  };
 
-  try {
-    const imagePrompt = `Transforme cette photo de produit en affiche publicitaire de style "${style}", adaptée au marché sénégalais. Garde le produit reconnaissable et fidèle à la photo originale. Ajoute un arrière-plan et une mise en page professionnelle, sans texte incrusté.`;
-
-    const openRouterRes = await fetch("https://openrouter.ai/api/v1/images", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "openai/gpt-image-1",
-        prompt: imagePrompt,
-        input_references: [{ type: "image_url", image_url: { url: `data:${mediaType};base64,${photoBase64}` } }],
-        quality: "medium",
-        size: "1024x1024",
-      }),
-    });
-
-    if (!openRouterRes.ok) {
-      throw new Error(`${openRouterRes.status} ${await openRouterRes.text()}`);
-    }
-
-    const editResult = (await openRouterRes.json()) as { data?: { b64_json?: string }[] };
-    const b64 = editResult.data?.[0]?.b64_json;
-    if (b64) {
-      generatedImageBase64 = b64;
-    } else {
-      imageError = "Aucune image générée.";
-    }
-  } catch (err) {
-    imageError = err instanceof Error ? err.message : "Erreur lors de la génération de l'image.";
+  if (!photoPath || !productName || !price) {
+    return NextResponse.json({ error: "Champs manquants." }, { status: 400 });
   }
+
+  const { data: photoBlob, error: downloadError } = await supabase.storage.from("creations").download(photoPath);
+  if (downloadError || !photoBlob) {
+    return NextResponse.json({ error: "Photo introuvable." }, { status: 500 });
+  }
+
+  const normalizedTier: Tier = (tier as Tier) || "basic";
+  const photoBuffer = Buffer.from(await photoBlob.arrayBuffer());
+  const photoBase64 = photoBuffer.toString("base64");
+  const mediaType: AllowedMediaType = ALLOWED_MEDIA_TYPES.includes(photoBlob.type as AllowedMediaType)
+    ? (photoBlob.type as AllowedMediaType)
+    : "image/jpeg";
+
+  const [{ salesCopy, hashtags, copyError }, { backgroundBuffer, imageError, layout, accentGradient }] = await Promise.all([
+    generateSalesCopy(photoBase64, mediaType, { productName, price, industry, language }),
+    buildPosterBackground(photoBuffer, photoBase64, mediaType, productName, industry, normalizedTier),
+  ]);
+
+  const phone =
+    (user.user_metadata?.whatsapp_number as string | undefined) || user.phone || "";
 
   let posterPath: string | null = null;
-  if (generatedImageBase64) {
-    posterPath = `${user.id}/${Date.now()}-poster.png`;
-    const posterBuffer = Buffer.from(generatedImageBase64, "base64");
+  try {
+    const origin = new URL(request.url).origin;
+    const { finalBuffer } = await renderFinalPoster(origin, backgroundBuffer, {
+      tier: normalizedTier,
+      layout,
+      productName,
+      price,
+      phone,
+      industry,
+      accentGradient,
+    });
+
+    posterPath = `${user.id}/${Date.now()}-poster.jpg`;
     const { error: posterUploadError } = await supabase.storage
       .from("creations")
-      .upload(posterPath, posterBuffer, { contentType: "image/png" });
+      .upload(posterPath, finalBuffer, { contentType: "image/jpeg" });
     if (posterUploadError) posterPath = null;
+  } catch {
+    posterPath = null;
   }
 
   const { data: creation, error: insertError } = await supabase
@@ -141,7 +135,7 @@ export async function POST(request: Request) {
       user_id: user.id,
       product_name: productName,
       price,
-      style,
+      style: AUTO_STYLE,
       photo_path: photoPath,
       poster_path: posterPath,
       industry,
@@ -149,6 +143,8 @@ export async function POST(request: Request) {
       generated_copy: salesCopy,
       generated_hashtags: hashtags,
       unlocked: false,
+      tier: normalizedTier,
+      regenerations_used: 0,
     })
     .select()
     .single();
@@ -166,8 +162,10 @@ export async function POST(request: Request) {
     copyError,
     imageUrl: signed?.signedUrl ?? null,
     imageError,
+    posterReady: !!posterPath,
     creationId: creation.id,
     productName,
     price,
+    tier: creation.tier,
   });
 }

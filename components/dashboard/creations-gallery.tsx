@@ -52,13 +52,15 @@ export function CreationsGallery({ creations, canceled }: { creations: Creation[
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4">
           {creations.map((c) => (
             <div key={c.id} className="relative aspect-[4/5] overflow-hidden rounded-xl border border-border bg-muted">
-              {c.photoUrl && <img src={c.photoUrl} alt={c.product_name} className="h-full w-full object-cover" />}
+              {c.photoUrl && (
+                <img src={c.photoUrl} alt={c.product_name} loading="lazy" className="h-full w-full object-cover" />
+              )}
               <div className="absolute inset-0 flex flex-col justify-between bg-gradient-to-t from-black/60 to-transparent p-2">
                 <div className="flex justify-end">
                   {c.unlocked ? (
                     <a
                       href={c.photoUrl ?? "#"}
-                      download="affiche.png"
+                      download="affiche.jpg"
                       className="flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-primary shadow-glow-sm"
                       aria-label={t("creation.download")}
                     >

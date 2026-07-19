@@ -7,14 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
 import { useLocale } from "@/lib/locale-context";
-import { creationStyles } from "@/lib/creation-styles";
-import { industries } from "@/lib/knowledge/industries";
+import { TIERS, type Tier } from "@/lib/pricing";
 import { CreationStepIndicator } from "@/components/dashboard/creation-step-indicator";
 import { CreationResult } from "@/components/dashboard/creation-result";
+import { CategoryPicker } from "@/components/dashboard/category-picker";
 import { cn } from "@/lib/utils";
 
 type Step = 0 | 1 | 2 | 3;
 type Language = "fr" | "wo";
+const TIER_ORDER: Tier[] = ["basic", "medium", "premium"];
 
 export function NewCreationWizard({ userId }: { userId: string }) {
   const { t } = useLocale();
@@ -24,22 +25,26 @@ export function NewCreationWizard({ userId }: { userId: string }) {
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
   const [productName, setProductName] = React.useState("");
   const [price, setPrice] = React.useState("");
-  const [style, setStyle] = React.useState<string>(creationStyles[0].key);
   const [industry, setIndustry] = React.useState("");
   const [language, setLanguage] = React.useState<Language>("fr");
+  const [tier, setTier] = React.useState<Tier>("basic");
   const [genStepIndex, setGenStepIndex] = React.useState(0);
   const [error, setError] = React.useState<string | null>(
     searchParams.get("canceled") ? t("creation.paymentCanceled") : null
   );
   const [submitting, setSubmitting] = React.useState(false);
   const [unlocking, setUnlocking] = React.useState(false);
+  const [regenerating, setRegenerating] = React.useState(false);
 
   const [result, setResult] = React.useState<{
     creationId: string;
     imageUrl: string;
     imageFallback: boolean;
+    posterReady: boolean;
     salesCopy: string | null;
     hashtags: string[];
+    tier: Tier;
+    regenerationsRemaining: number;
   } | null>(null);
 
   const canProceedStep0 = !!file && productName.trim() !== "" && price.trim() !== "";
@@ -73,7 +78,14 @@ export function NewCreationWizard({ userId }: { userId: string }) {
       const res = await fetch("/api/generate-creation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ photoPath, productName, price: Number(price), style, industry: industry || null, language }),
+        body: JSON.stringify({
+          photoPath,
+          productName,
+          price: Number(price),
+          industry: industry || null,
+          language,
+          tier,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "generation_failed");
@@ -82,8 +94,11 @@ export function NewCreationWizard({ userId }: { userId: string }) {
         creationId: data.creationId,
         imageUrl: data.imageUrl,
         imageFallback: !!data.imageError,
+        posterReady: !!data.posterReady,
         salesCopy: data.salesCopy,
         hashtags: data.hashtags ?? [],
+        tier: (data.tier as Tier) || "basic",
+        regenerationsRemaining: TIERS[(data.tier as Tier) || "basic"].maxRegenerations,
       };
     })();
 
@@ -122,15 +137,39 @@ export function NewCreationWizard({ userId }: { userId: string }) {
     }
   }
 
+  async function handleRegenerate() {
+    if (!result) return;
+    setRegenerating(true);
+    try {
+      const res = await fetch("/api/regenerate-creation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ creationId: result.creationId }),
+      });
+      const data = (await res.json()) as { imageUrl?: string; regenerationsRemaining?: number; error?: string };
+      if (!res.ok || !data.imageUrl) throw new Error(data.error || "regenerate_failed");
+      setResult({
+        ...result,
+        imageUrl: data.imageUrl,
+        posterReady: true,
+        regenerationsRemaining: data.regenerationsRemaining ?? 0,
+      });
+    } catch {
+      setError(t("creation.errorGeneric"));
+    } finally {
+      setRegenerating(false);
+    }
+  }
+
   function reset() {
     setStep(0);
     setFile(null);
     setPreviewUrl(null);
     setProductName("");
     setPrice("");
-    setStyle(creationStyles[0].key);
     setIndustry("");
     setLanguage("fr");
+    setTier("basic");
     setGenStepIndex(0);
     setError(null);
     setResult(null);
@@ -192,22 +231,8 @@ export function NewCreationWizard({ userId }: { userId: string }) {
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="industry" className="text-sm font-medium">
-                {t("creation.industry")}
-              </label>
-              <select
-                id="industry"
-                value={industry}
-                onChange={(e) => setIndustry(e.target.value)}
-                className="flex h-10 w-full rounded-lg border border-input bg-card px-3.5 text-sm text-foreground outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
-              >
-                <option value="">{t("creation.industryPlaceholder")}</option>
-                {industries.map((ind) => (
-                  <option key={ind.key} value={ind.key}>
-                    {ind.labelFr}
-                  </option>
-                ))}
-              </select>
+              <label className="text-sm font-medium">{t("creation.industry")}</label>
+              <CategoryPicker value={industry} onChange={setIndustry} />
             </div>
 
             <Button variant="accent" size="lg" className="mt-2 self-end" disabled={!canProceedStep0} onClick={() => setStep(1)}>
@@ -218,23 +243,27 @@ export function NewCreationWizard({ userId }: { userId: string }) {
 
         {step === 1 && (
           <div className="flex flex-col gap-4">
-            <div className="grid grid-cols-3 gap-2.5">
-              {creationStyles.map((s) => (
-                <button
-                  key={s.key}
-                  onClick={() => setStyle(s.key)}
-                  className={cn(
-                    "relative aspect-[3/4] overflow-hidden rounded-xl border-2 bg-gradient-to-br transition-all",
-                    s.from,
-                    s.to,
-                    style === s.key ? "border-primary" : "border-transparent"
-                  )}
-                >
-                  <span className="absolute bottom-2 left-2 right-2 text-left text-[10px] font-bold capitalize text-white">
-                    {s.key}
-                  </span>
-                </button>
-              ))}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium">{t("creation.tierLabel")}</span>
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                {TIER_ORDER.map((key) => {
+                  const cfg = TIERS[key];
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setTier(key)}
+                      className={cn(
+                        "flex flex-col items-start gap-1 rounded-xl border-2 px-4 py-3 text-left transition-colors",
+                        tier === key ? "border-primary bg-accent" : "border-border"
+                      )}
+                    >
+                      <span className="text-sm font-bold">{t(`creation.tier.${key}.name`)}</span>
+                      <span className="font-mono text-sm font-bold text-primary">{cfg.price} FCFA</span>
+                      <span className="text-[11px] text-muted-foreground">{t(`creation.tier.${key}.desc`)}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -306,6 +335,7 @@ export function NewCreationWizard({ userId }: { userId: string }) {
           <CreationResult
             imageUrl={result.imageUrl}
             imageFallback={result.imageFallback}
+            posterReady={result.posterReady}
             productName={productName}
             formattedPrice={formattedPrice}
             salesCopy={result.salesCopy}
@@ -314,6 +344,11 @@ export function NewCreationWizard({ userId }: { userId: string }) {
             unlocking={unlocking}
             onUnlock={unlockAndDownload}
             onNewCreation={reset}
+            tierPrice={TIERS[result.tier].price}
+            tier={result.tier}
+            regenerationsRemaining={result.regenerationsRemaining}
+            regenerating={regenerating}
+            onRegenerate={handleRegenerate}
           />
         )}
       </div>

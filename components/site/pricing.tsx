@@ -19,19 +19,19 @@ export function Pricing() {
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <PlanCard title={t("pricing.freeTitle")} amount="0" unit={t("pricing.freeUnit")}
-            items={["3 créations / mois", "Filigrane Jaarle", "Format Facebook uniquement"]}
+            items={["Autant d'essais que tu veux", "Aperçu HD avant de payer", "Tu ne payes qu'au téléchargement"]}
             ctaLabel={t("pricing.start")} variant="secondary" />
 
           <PlanCard title={t("pricing.simpleTitle")} amount="200" unit={t("pricing.simpleUnit")}
-            items={["1 visuel, 1 format", "Sans filigrane", "Téléchargement HD"]}
+            items={["Fond stylisé par IA", "Nom et prix inclus", "Téléchargement HD"]}
             ctaLabel={t("pricing.choose")} variant="secondary" mono />
 
           <PlanCard title={t("pricing.campaignTitle")} amount="500" unit={t("pricing.campaignUnit")}
-            items={["Image + texte Facebook, TikTok, Instagram, WhatsApp", "Hashtags inclus", "Version promo et version luxe"]}
+            items={["Badge de style et contact inclus", "Texte + hashtags Facebook, TikTok, Instagram, WhatsApp", "Téléchargement HD"]}
             ctaLabel={t("pricing.choose")} variant="accent" mono featured tag={t("pricing.campaignTag")} />
 
-          <PlanCard title={t("pricing.packTitle")} amount="1300" unit={t("pricing.packUnit")}
-            items={["3 campagnes complètes", "Idéal pour un rythme hebdomadaire", "Valables 60 jours"]}
+          <PlanCard title={t("pricing.packTitle")} amount="1000" unit={t("pricing.packUnit")}
+            items={["Design pensé pour convertir", "Mise en avant premium", "Jusqu'à 3 régénérations incluses"]}
             ctaLabel={t("pricing.choose")} variant="secondary" mono />
         </div>
       </div>
