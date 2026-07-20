@@ -1,6 +1,7 @@
 "use client";
 
 import { Check } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useLocale } from "@/lib/locale-context";
@@ -21,15 +22,15 @@ export function Pricing() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <PlanCard title={t("pricing.freeTitle")} amount="0" unit={t("pricing.freeUnit")}
             items={["Autant d'essais que tu veux", "Aperçu HD avant de payer", "Tu ne payes qu'au téléchargement"]}
-            ctaLabel={t("pricing.start")} variant="secondary" />
+            ctaLabel={t("pricing.start")} variant="secondary" href="/register" />
 
           <PlanCard title={t("pricing.packTitle")} amount={TIERS.premium.price.toLocaleString("fr-FR")} unit={t("pricing.packUnit")}
             items={["Design pensé pour convertir", "Mise en avant premium", "Un rendu pensé pour l'effet waouh"]}
-            ctaLabel={t("pricing.choose")} variant="accent" mono featured tag={t("pricing.campaignTag")} />
+            ctaLabel={t("pricing.choose")} variant="accent" mono featured tag={t("pricing.campaignTag")} href="/register" />
 
           <PlanCard title={t("pricing.goldTitle")} amount={TIERS.gold.price.toLocaleString("fr-FR")} unit={t("pricing.goldUnit")}
             items={["Jusqu'à 3 photos produit", "2 déclinaisons de design au choix", "Qualité la plus poussée"]}
-            ctaLabel={t("pricing.choose")} variant="secondary" mono />
+            ctaLabel={t("pricing.choose")} variant="secondary" mono href="/register" />
         </div>
       </div>
     </section>
@@ -37,10 +38,10 @@ export function Pricing() {
 }
 
 function PlanCard({
-  title, amount, unit, items, ctaLabel, variant, mono, featured, tag,
+  title, amount, unit, items, ctaLabel, variant, mono, featured, tag, href,
 }: {
   title: string; amount: string; unit: string; items: string[];
-  ctaLabel: string; variant: "accent" | "secondary"; mono?: boolean; featured?: boolean; tag?: string;
+  ctaLabel: string; variant: "accent" | "secondary"; mono?: boolean; featured?: boolean; tag?: string; href: string;
 }) {
   return (
     <Card className={cn("relative flex flex-col p-7", featured && "border-primary shadow-[0_20px_50px_-18px_hsl(var(--primary)/0.35)]")}>
@@ -63,7 +64,9 @@ function PlanCard({
           </li>
         ))}
       </ul>
-      <Button variant={variant} className="w-full">{ctaLabel}</Button>
+      <Button variant={variant} className="w-full" asChild>
+        <Link href={href}>{ctaLabel}</Link>
+      </Button>
     </Card>
   );
 }

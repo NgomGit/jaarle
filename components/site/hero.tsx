@@ -26,7 +26,7 @@ export function Hero() {
           <p className="mb-8 max-w-md text-lg leading-relaxed text-muted-foreground">{t("hero.lead")}</p>
           <div className="mb-8 flex flex-wrap gap-3">
             <Button variant="accent" size="lg" asChild>
-              <Link href="#preview">{t("hero.ctaPrimary")}</Link>
+              <Link href="/register">{t("hero.ctaPrimary")}</Link>
             </Button>
             <Button variant="secondary" size="lg" asChild>
               <Link href="#pricing">{t("hero.ctaSecondary")}</Link>
