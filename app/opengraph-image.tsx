@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-export const alt = "Jaarle — Nako nepp yeg";
+export const alt = "Jaarle — Vendez comme une grande marque";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
