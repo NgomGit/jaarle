@@ -160,6 +160,7 @@
     "goldExtraPhotosTitle": "Extra photos (up to 2 more)",
     "goldExtraPhotosHint": "Different angles or contexts of the same product for a richer, more faithful result.",
     "goldExtraPhotoSlot": "Add a photo",
+    "showSecondaryPhotos": "Also show my secondary photos on the poster (instead of just using them as a reference for the AI)",
     "subjectTypeLabel": "What are you promoting?",
     "subjectTypeProduct": "A product",
     "subjectTypeService": "A service",

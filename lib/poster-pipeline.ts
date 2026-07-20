@@ -145,6 +145,7 @@ function buildComposedPosterPrompt(params: {
   analysis: ProductAnalysis | null;
   customInstructions?: string | null;
   photoCount?: number;
+  showSecondaryPhotos?: boolean;
   creativeBrief: CreativeBrief;
 }): string {
   const industry = getIndustry(params.industryKey ?? undefined);
@@ -154,7 +155,9 @@ function buildComposedPosterPrompt(params: {
   const subjectLine = params.isCutout
     ? "You are given the subject (a product, or something representing a service being offered — e.g. a vehicle, equipment, a person at work) completely isolated on a transparent background — no original scene, no props, no distracting context. Everything visible in the reference image is the subject itself."
     : multiPhoto
-      ? "You are given several reference photos of the same subject from different angles/contexts — use them together to understand it fully (all its sides, details, textures) and compose a single richer, more faithful visual."
+      ? params.showSecondaryPhotos
+        ? "You are given several reference photos of the same subject from different angles/contexts. Compose a single poster image built around a main hero shot PLUS 1-2 clearly distinct secondary shots (a different angle or a close-up detail) of the same subject, drawn from these additional reference photos — arranged tastefully within the same composition. Vary their exact placement, size and framing across generations, following the creative direction below — never default to the same fixed corner or grid every time."
+        : "You are given several reference photos of the same subject from different angles/contexts — use them together to understand it fully (all its sides, details, textures) and compose a single richer, more faithful visual."
       : "You are given a photo of the subject — a product, or something representing a service being offered (e.g. a vehicle, equipment, a person at work) — in its original setting.";
 
   const analysisBlock = params.analysis
@@ -175,7 +178,11 @@ ${subjectLine}
 Your task: design a complete, professional advertising visual around this exact subject to sell it — as if shot and art-directed by a top-tier advertising agency.
 
 Product/service fidelity (absolute, overrides everything else below):
-- The subject shown is the absolute hero of the composition — preserve its exact colors, proportions, textures, and any text or logo already visible on it. Never redesign, restyle or reinterpret the subject itself — no exceptions, regardless of the creative direction below.
+- The subject shown is the absolute hero of the composition — preserve its exact colors, proportions, textures, and any text or logo already visible on it. Never redesign, restyle or reinterpret the subject itself — no exceptions, regardless of the creative direction below.${
+    multiPhoto && params.showSecondaryPhotos
+      ? " This applies equally to the secondary shots — they must show the true, unaltered appearance of the subject, exactly as faithfully as the main hero shot, never a reinterpreted or stylized version of it."
+      : ""
+  }
 
 ${formatCreativeBrief(params.creativeBrief)}
 
@@ -208,7 +215,8 @@ async function generateComposedPoster(
   isCutout: boolean,
   analysis: ProductAnalysis | null,
   customInstructions: string | null | undefined,
-  creativeBrief: CreativeBrief
+  creativeBrief: CreativeBrief,
+  showSecondaryPhotos?: boolean
 ) {
   try {
     const prompt = buildComposedPosterPrompt({
@@ -219,6 +227,7 @@ async function generateComposedPoster(
       analysis,
       customInstructions,
       photoCount: images.length,
+      showSecondaryPhotos,
       creativeBrief,
     });
 
@@ -268,7 +277,8 @@ export async function buildPosterBackground(
   tier: Tier,
   customInstructions?: string | null,
   extraPhotos?: { base64: string; mediaType: AllowedMediaType }[],
-  forcedLayout?: LayoutVariant
+  forcedLayout?: LayoutVariant,
+  showSecondaryPhotos?: boolean
 ): Promise<{
   backgroundBuffer: Buffer;
   imageError: string | null;
@@ -294,12 +304,32 @@ export async function buildPosterBackground(
   const primaryMediaType: AllowedMediaType = isCutout ? "image/png" : mediaType;
   const primaryImages = [{ base64: primaryImageBase64, mediaType: primaryMediaType }, ...extras];
 
-  let genResult = await generateComposedPoster(primaryImages, industry, tier, layout, isCutout, analysis, customInstructions, creativeBrief);
+  let genResult = await generateComposedPoster(
+    primaryImages,
+    industry,
+    tier,
+    layout,
+    isCutout,
+    analysis,
+    customInstructions,
+    creativeBrief,
+    showSecondaryPhotos
+  );
 
   // Repli si le détourage a réussi mais que la composition IA échoue quand même : retente avec la photo brute.
   if (!genResult.imageBase64 && isCutout) {
     const fallbackImages = [{ base64: photoBase64, mediaType }, ...extras];
-    genResult = await generateComposedPoster(fallbackImages, industry, tier, layout, false, analysis, customInstructions, creativeBrief);
+    genResult = await generateComposedPoster(
+      fallbackImages,
+      industry,
+      tier,
+      layout,
+      false,
+      analysis,
+      customInstructions,
+      creativeBrief,
+      showSecondaryPhotos
+    );
   }
 
   let finalImageBase64 = genResult.imageBase64;
@@ -308,7 +338,17 @@ export async function buildPosterBackground(
   if (finalImageBase64 && tier !== "basic") {
     const { passed } = await checkPosterQuality(photoBase64, mediaType, finalImageBase64);
     if (!passed) {
-      const retry = await generateComposedPoster(primaryImages, industry, tier, layout, isCutout, analysis, customInstructions, creativeBrief);
+      const retry = await generateComposedPoster(
+        primaryImages,
+        industry,
+        tier,
+        layout,
+        isCutout,
+        analysis,
+        customInstructions,
+        creativeBrief,
+        showSecondaryPhotos
+      );
       if (retry.imageBase64) {
         finalImageBase64 = retry.imageBase64;
         qualityRetried = true;

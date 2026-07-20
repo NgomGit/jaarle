@@ -9,6 +9,7 @@ export interface Creation {
   photo_path: string | null;
   poster_path: string | null;
   poster_path_2: string | null;
+  show_secondary_photos: boolean;
   industry: string | null;
   language: string;
   generated_copy: string | null;

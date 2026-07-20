@@ -101,6 +101,7 @@ export async function POST(request: Request) {
   const {
     photoPath,
     extraPhotoPaths,
+    showSecondaryPhotos,
     productName,
     price,
     industry,
@@ -115,6 +116,7 @@ export async function POST(request: Request) {
   } = (await request.json()) as {
     photoPath: string | null;
     extraPhotoPaths: string[] | null;
+    showSecondaryPhotos: boolean | null;
     productName: string;
     price: number | null;
     industry: string | null;
@@ -138,6 +140,7 @@ export async function POST(request: Request) {
   const normalizedTier: Tier = (tier as Tier) || "basic";
   const isGold = normalizedTier === "gold";
   const hasBranding = normalizedTier === "premium" || isGold;
+  const normalizedShowSecondaryPhotos = isGold && !!showSecondaryPhotos;
 
   let logoBuffer: Buffer | null = null;
   if (hasBranding && logoPath) {
@@ -180,7 +183,18 @@ export async function POST(request: Request) {
   async function renderVariation() {
     const backgroundResult =
       photoBuffer && photoBase64
-        ? await buildPosterBackground(photoBuffer, photoBase64, mediaType, productName, industry, normalizedTier, null, extraPhotos)
+        ? await buildPosterBackground(
+            photoBuffer,
+            photoBase64,
+            mediaType,
+            productName,
+            industry,
+            normalizedTier,
+            null,
+            extraPhotos,
+            undefined,
+            normalizedShowSecondaryPhotos
+          )
         : await buildServiceBackground(productName, serviceDescription, normalizedItems, industry, normalizedTier);
 
     const { backgroundBuffer, imageError, layout, accentGradient, creativeBrief } = backgroundResult;
@@ -248,6 +262,7 @@ export async function POST(request: Request) {
       style: AUTO_STYLE,
       photo_path: photoPath,
       extra_photo_paths: isGold && extraPhotoPaths?.length ? extraPhotoPaths.slice(0, 2) : null,
+      show_secondary_photos: normalizedShowSecondaryPhotos,
       poster_path: posterPath,
       layout: usedLayout,
       industry,

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { UploadCloud, CheckCircle2, Circle, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
   const [extraPreview2, setExtraPreview2] = React.useState<string | null>(null);
   const [extraFile3, setExtraFile3] = React.useState<File | null>(null);
   const [extraPreview3, setExtraPreview3] = React.useState<string | null>(null);
+  const [showSecondaryPhotos, setShowSecondaryPhotos] = React.useState(false);
   const [productName, setProductName] = React.useState("");
   const [serviceDescription, setServiceDescription] = React.useState("");
   const [serviceItems, setServiceItems] = React.useState<string[]>([]);
@@ -48,6 +50,7 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
   const [error, setError] = React.useState<string | null>(
     searchParams.get("canceled") ? t("creation.paymentCanceled") : null
   );
+  const [generationFailed, setGenerationFailed] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [unlocking, setUnlocking] = React.useState(false);
   const [regenerating, setRegenerating] = React.useState(false);
@@ -113,6 +116,7 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
       return;
     }
     setError(null);
+    setGenerationFailed(false);
     setSubmitting(true);
     setStep(2);
 
@@ -152,6 +156,7 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
         body: JSON.stringify({
           photoPath,
           extraPhotoPaths,
+          showSecondaryPhotos: tier === "gold" && extraPhotoPaths.length > 0 ? showSecondaryPhotos : false,
           productName,
           price: priceOnRequest ? null : Number(price),
           industry: industry || null,
@@ -204,6 +209,7 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
         setStep(3);
       } else {
         setError(t("creation.errorGenerationUnclear"));
+        setGenerationFailed(true);
         setStep(1);
       }
     } finally {
@@ -319,8 +325,10 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
     setExtraPreview2(null);
     setExtraFile3(null);
     setExtraPreview3(null);
+    setShowSecondaryPhotos(false);
     setGenStepIndex(0);
     setError(null);
+    setGenerationFailed(false);
     setResult(null);
   }
 
@@ -329,9 +337,14 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
       <CreationStepIndicator step={step} />
 
       {error && (
-        <p className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">
-          {error}
-        </p>
+        <div className="mb-4 flex flex-col gap-2.5 rounded-lg border border-destructive/30 bg-destructive/10 px-3.5 py-2.5">
+          <p className="text-sm text-destructive">{error}</p>
+          {generationFailed && (
+            <Button variant="secondary" size="sm" className="self-start" asChild>
+              <Link href="/dashboard/creations">{t("creation.viewCreations")}</Link>
+            </Button>
+          )}
+        </div>
       )}
 
       <div className="rounded-[20px] border border-border bg-card p-6">
@@ -558,6 +571,17 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
                     );
                   })}
                 </div>
+                {(extraFile2 || extraFile3) && (
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={showSecondaryPhotos}
+                      onChange={(e) => setShowSecondaryPhotos(e.target.checked)}
+                      className="h-3.5 w-3.5 rounded border-input"
+                    />
+                    {t("creation.showSecondaryPhotos")}
+                  </label>
+                )}
               </div>
             )}
 

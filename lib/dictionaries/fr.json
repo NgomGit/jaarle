@@ -160,6 +160,7 @@
     "goldExtraPhotosTitle": "Photos supplémentaires (jusqu'à 2 de plus)",
     "goldExtraPhotosHint": "Différents angles ou contextes du même produit pour un résultat plus riche et plus fidèle.",
     "goldExtraPhotoSlot": "Ajouter une photo",
+    "showSecondaryPhotos": "Afficher aussi mes photos secondaires sur l'affiche (au lieu de servir seulement de référence à l'IA)",
     "subjectTypeLabel": "Que veux-tu mettre en avant ?",
     "subjectTypeProduct": "Un produit",
     "subjectTypeService": "Un service",

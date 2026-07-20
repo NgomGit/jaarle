@@ -34,7 +34,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const { data: creation, error: creationError } = await supabase
     .from("creations")
     .select(
-      "id, product_name, price, photo_path, extra_photo_paths, industry, tier, layout, logo_path, business_name, contact_phone, service_description, service_items, poster_path_2"
+      "id, product_name, price, photo_path, extra_photo_paths, show_secondary_photos, industry, tier, layout, logo_path, business_name, contact_phone, service_description, service_items, poster_path_2"
     )
     .eq("id", params.id)
     .eq("user_id", user.id)
@@ -95,7 +95,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
       "gold",
       trimmedInstructions,
       extraPhotos,
-      opposingLayout
+      opposingLayout,
+      !!creation.show_secondary_photos
     );
   } else {
     backgroundResult = await buildServiceBackground(
