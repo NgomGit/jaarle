@@ -197,6 +197,7 @@
     "viewCreations": "Voir mes créations",
     "newOne": "Créer une nouvelle affiche",
     "errorGeneric": "Une erreur est survenue pendant l'envoi. Réessaie.",
+    "errorGenerationUnclear": "La connexion a été interrompue pendant la génération. Vérifie \"Mes créations\" avant de réessayer — il est possible qu'elle ait quand même été créée.",
     "errorMissingFields": "Complète les champs requis pour continuer.",
     "unlockDownload": "Payer {price} FCFA pour télécharger",
     "detailBack": "Retour à mes créations",

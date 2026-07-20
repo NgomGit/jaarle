@@ -190,7 +190,12 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
       setResult(generated);
       setStep(3);
     } catch {
-      setError(t("creation.errorGeneric"));
+      // La génération tourne côté serveur pendant 30-120s+ ; si la connexion du client
+      // décroche pendant l'attente (réseau mobile, onglet mis en arrière-plan...), le fetch
+      // échoue même si l'enregistrement en base a bien abouti côté serveur (l'insert se fait
+      // avant l'envoi de la réponse). D'où le message : vérifier avant de relancer, pour éviter
+      // une création en double.
+      setError(t("creation.errorGenerationUnclear"));
       setStep(1);
     } finally {
       setSubmitting(false);
@@ -271,7 +276,7 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
     setPriceOnRequest(false);
     setIndustry("");
     setLanguage("fr");
-    setTier("basic");
+    setTier("premium");
     setContactPhone(defaultPhone);
     setBusinessName("");
     setLogoFile(null);

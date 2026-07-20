@@ -197,6 +197,7 @@
     "viewCreations": "View my creations",
     "newOne": "Create a new poster",
     "errorGeneric": "Something went wrong while uploading. Try again.",
+    "errorGenerationUnclear": "The connection dropped during generation. Check \"My creations\" before retrying — it may have been created anyway.",
     "errorMissingFields": "Complete the required fields to continue.",
     "unlockDownload": "Pay {price} FCFA to download",
     "detailBack": "Back to my creations",
