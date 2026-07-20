@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/supabase/client";
+import { listCreations } from "@/lib/supabase/creations";
 import { useLocale } from "@/lib/locale-context";
 import { TIERS, type Tier } from "@/lib/pricing";
 import { CreationStepIndicator } from "@/components/dashboard/creation-step-indicator";
@@ -193,12 +194,45 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
       // La génération tourne côté serveur pendant 30-120s+ ; si la connexion du client
       // décroche pendant l'attente (réseau mobile, onglet mis en arrière-plan...), le fetch
       // échoue même si l'enregistrement en base a bien abouti côté serveur (l'insert se fait
-      // avant l'envoi de la réponse). D'où le message : vérifier avant de relancer, pour éviter
-      // une création en double.
-      setError(t("creation.errorGenerationUnclear"));
-      setStep(1);
+      // avant l'envoi de la réponse). Avant d'afficher une erreur, on vérifie si une création
+      // très récente avec ce même nom existe déjà pour cet utilisateur — si oui, elle a bien
+      // été générée, on l'affiche normalement au lieu d'induire en erreur (et d'exposer au
+      // risque de double génération si le marchand relance).
+      const recovered = await tryRecoverRecentCreation();
+      if (recovered) {
+        setResult(recovered);
+        setStep(3);
+      } else {
+        setError(t("creation.errorGenerationUnclear"));
+        setStep(1);
+      }
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function tryRecoverRecentCreation() {
+    try {
+      const supabase = createClient();
+      const recent = await listCreations(supabase, 5);
+      const match = recent.find(
+        (c) => c.product_name === productName.trim() && Date.now() - new Date(c.created_at).getTime() < 3 * 60 * 1000
+      );
+      if (!match) return null;
+
+      return {
+        creationId: match.id,
+        imageUrl: match.photoUrl ?? "",
+        imageUrl2: match.photoUrl2,
+        imageFallback: !match.poster_path,
+        posterReady: !!match.poster_path,
+        salesCopy: match.generated_copy,
+        hashtags: match.generated_hashtags ?? [],
+        tier: (match.tier as Tier) || "premium",
+        regenerationsRemaining: TIERS[(match.tier as Tier) || "premium"].maxRegenerations,
+      };
+    } catch {
+      return null;
     }
   }
 
