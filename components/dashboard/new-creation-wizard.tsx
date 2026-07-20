@@ -195,7 +195,17 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
       const generated = await generationPromise;
       setResult(generated);
       setStep(3);
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && err.message === "unpaid_limit_reached") {
+        // Rejet explicite du serveur avant toute génération : pas de génération en cours dont
+        // le résultat pourrait avoir abouti malgré l'erreur, donc pas besoin de tentative de
+        // récupération — juste indiquer clairement pourquoi et quoi faire (débloquer une
+        // création existante pour libérer un emplacement).
+        setError(t("creation.errorUnpaidLimit"));
+        setGenerationFailed(true);
+        setStep(1);
+        return;
+      }
       // La génération tourne côté serveur pendant 30-120s+ ; si la connexion du client
       // décroche pendant l'attente (réseau mobile, onglet mis en arrière-plan...), le fetch
       // échoue même si l'enregistrement en base a bien abouti côté serveur (l'insert se fait

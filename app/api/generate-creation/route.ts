@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { countUnpaidCreations } from "@/lib/supabase/creations";
 import { buildCulturalContext } from "@/lib/knowledge/context";
 import { type Tier } from "@/lib/pricing";
 import {
@@ -22,6 +23,11 @@ export const maxDuration = 300;
 // Le style visuel n'est plus choisi par l'utilisateur : l'IA le déduit du produit lui-même.
 // La colonne `style` de `creations` reste NOT NULL pour compat avec les créations existantes.
 const AUTO_STYLE = "auto";
+
+// Anti-abus : au-delà de ce nombre de créations générées mais jamais payées (unlocked=false),
+// on bloque de nouvelles générations tant qu'aucune n'a été débloquée — la génération reste
+// gratuite pour tester le produit, mais pas indéfiniment sans jamais rien acheter.
+const MAX_UNPAID_CREATIONS = 5;
 
 const CopySchema = z.object({
   salesCopy: z.string(),
@@ -96,6 +102,11 @@ export async function POST(request: Request) {
 
   if (!user) {
     return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
+  }
+
+  const unpaidCount = await countUnpaidCreations(supabase, user.id);
+  if (unpaidCount >= MAX_UNPAID_CREATIONS) {
+    return NextResponse.json({ error: "unpaid_limit_reached", limit: MAX_UNPAID_CREATIONS }, { status: 403 });
   }
 
   const {

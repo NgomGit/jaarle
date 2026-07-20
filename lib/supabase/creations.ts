@@ -54,3 +54,17 @@ export async function countCreationsSince(supabase: SupabaseClient, since: Date)
     .gte("created_at", since.toISOString());
   return count ?? 0;
 }
+
+/**
+ * Créations générées mais jamais débloquées (payées) par cet utilisateur — sert de garde-fou
+ * anti-abus : au-delà d'un certain nombre, on demande de payer au moins une création existante
+ * avant d'en générer une nouvelle (voir MAX_UNPAID_CREATIONS dans generate-creation/route.ts).
+ */
+export async function countUnpaidCreations(supabase: SupabaseClient, userId: string): Promise<number> {
+  const { count } = await supabase
+    .from("creations")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("unlocked", false);
+  return count ?? 0;
+}

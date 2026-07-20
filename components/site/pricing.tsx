@@ -21,7 +21,7 @@ export function Pricing() {
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <PlanCard title={t("pricing.freeTitle")} amount="0" unit={t("pricing.freeUnit")}
-            items={["Autant d'essais que tu veux", "Aperçu HD avant de payer", "Tu ne payes qu'au téléchargement"]}
+            items={["Jusqu'à 5 créations en attente", "Aperçu HD avant de payer", "Tu ne payes qu'au téléchargement"]}
             ctaLabel={t("pricing.start")} variant="secondary" href="/register" />
 
           <PlanCard title={t("pricing.packTitle")} amount={TIERS.premium.price.toLocaleString("fr-FR")} unit={t("pricing.packUnit")}
