@@ -8,7 +8,7 @@ import { WhatsAppFloatButton } from "@/components/whatsapp-float-button";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
-const title = "Jaarle — Nako nepp yeg";
+const title = "Jaarle — Vendez comme une grande marque.";
 const description =
   "L'assistant marketing IA pour les commerçants africains. Crée ton affiche, ta story et ton texte de vente en 30 secondes.";
 
