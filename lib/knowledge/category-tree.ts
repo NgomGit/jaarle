@@ -12,6 +12,7 @@ import {
   PartyPopper,
   BedDouble,
   Plane,
+  Palette,
 } from "lucide-react";
 
 // Arborescence de navigation (catégorie > sous-catégorie > feuille) pour le sélecteur de secteur.
@@ -307,6 +308,40 @@ export const categoryTree: CategoryNode[] = [
         key: "corporate",
         label: "Corporate",
         leaves: [{ key: "evenements-entreprise", label: "Événements d'entreprise" }],
+      },
+    ],
+  },
+  {
+    industryKey: "artisanat",
+    label: "Artisanat / Métiers d'art",
+    icon: Palette,
+    subCategories: [
+      {
+        key: "cuir-maroquinerie",
+        label: "Cuir & maroquinerie",
+        leaves: [
+          { key: "sacs-cuir", label: "Sacs & sandales en cuir" },
+          { key: "articles-cuir", label: "Autres articles en cuir" },
+        ],
+      },
+      {
+        key: "bijoux-artisanaux",
+        label: "Bijoux artisanaux",
+        leaves: [{ key: "bijoux-fait-main", label: "Bijoux faits main" }],
+      },
+      {
+        key: "poterie-vannerie",
+        label: "Poterie, bois & vannerie",
+        leaves: [
+          { key: "poterie", label: "Poterie & céramique" },
+          { key: "sculpture-bois", label: "Sculpture sur bois" },
+          { key: "vannerie", label: "Vannerie" },
+        ],
+      },
+      {
+        key: "textile-artisanal",
+        label: "Textile artisanal",
+        leaves: [{ key: "teinture-tissage", label: "Teinture & tissage traditionnel" }],
       },
     ],
   },

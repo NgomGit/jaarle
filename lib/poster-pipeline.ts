@@ -4,7 +4,8 @@ import { compositeOverlay, finalizeJpeg, buildPlainBackground } from "@/lib/imag
 import { removeBackground } from "@/lib/background-removal";
 import { analyzeProduct, analyzeLogoColors, type ProductAnalysis } from "@/lib/product-analyzer";
 import { checkPosterQuality, checkTextAccuracy } from "@/lib/quality-checker";
-import { getIndustry } from "@/lib/knowledge/industries";
+import { getIndustry, type Industry } from "@/lib/knowledge/industries";
+import { pickHeritageCue } from "@/lib/knowledge/senegal-heritage";
 import { getRelevantEvents } from "@/lib/knowledge/events";
 import { deliveryPhrasesFr, paymentPhrasesFr } from "@/lib/knowledge/business-practices";
 import {
@@ -20,34 +21,30 @@ import { ALLOWED_MEDIA_TYPES, type AllowedMediaType } from "@/lib/media-types";
 
 export { ALLOWED_MEDIA_TYPES, type AllowedMediaType };
 
-const DEFAULT_IMAGE_MODEL = "black-forest-labs/flux.2-pro";
+type ImageQuality = "low" | "medium" | "high";
+
+interface ModelChoice {
+  model: string;
+  quality?: ImageQuality;
+}
 
 /**
- * "chooseBestModel()" : route vers le modèle le plus adapté au secteur. Choix de départ basé
- * sur le positionnement documenté de chaque modèle, vérifié par un test direct avant activation
- * (pas une comparaison A/B exhaustive, mais pas non plus une pure hypothèse) :
- * - FLUX.2 Pro : édition d'image forte, fidélité du produit de référence — défaut sûr, et
- *   nettement moins cher que GPT Image 2 (~$0.55 vs ~$0.886 par appel, coûts observés).
- * - GPT Image 2 : très bon en mise en scène/ambiance narrative — vérifié sur "restaurant",
- *   résultat net (scène de cuisine chaleureuse, produit fidèle). Activé pour le palier Premium
- *   selon le secteur, et systématiquement pour le palier Gold (zéro compromis, c'est le palier
- *   le plus cher). Basique et Medium doivent rester les plus accessibles possible, donc toujours
- *   sur FLUX.2 Pro quel que soit le secteur, pour un coût plancher prévisible.
- * - Recraft V4.1 Pro : testé sur "furniture" — résultat raté (fond quasi blanc, flou, probable
- *   mésentente sur le paramètre resolution). PAS activé tant que ce n'est pas corrigé.
+ * "chooseBestModel()" : route vers le modèle le plus adapté au palier. Choix vérifié par des
+ * appels réels avec mesure directe du coût facturé (champ `usage.cost` renvoyé par OpenRouter),
+ * pas une estimation :
+ * - GPT Image 1 (qualité "low") : ~$0.019/appel en édition avec référence, fidélité produit
+ *   testée et confirmée bonne. Utilisé pour Basique — le palier le plus accessible.
+ * - GPT Image 1 (qualité "medium") : ~$0.066/appel, un cran de qualité au-dessus. Utilisé pour
+ *   Medium, combiné au contrôle qualité + reprise (voir buildPosterBackground).
+ * - GPT Image 2 : ~$0.065-0.073/appel selon le nombre de références (mesuré, pas $0.886 comme
+ *   estimé précédemment sur la base d'un seul point de données de dashboard, apparemment non
+ *   représentatif). Utilisé systématiquement pour Premium et Gold, quel que soit le secteur —
+ *   plus besoin de routage par secteur puisque le coût réel est très proche de GPT Image 1.
  */
-const MODEL_BY_INDUSTRY: Record<string, string> = {
-  restaurant: "openai/gpt-image-2",
-  hotel: "openai/gpt-image-2",
-  travel: "openai/gpt-image-2",
-  events: "openai/gpt-image-2",
-};
-
-function chooseImageModel(industryKey: string | null, tier: Tier): string {
-  if (tier === "gold") return "openai/gpt-image-2";
-  if (tier !== "premium") return DEFAULT_IMAGE_MODEL;
-  if (!industryKey) return DEFAULT_IMAGE_MODEL;
-  return MODEL_BY_INDUSTRY[industryKey] ?? DEFAULT_IMAGE_MODEL;
+function chooseImageModel(tier: Tier): ModelChoice {
+  if (tier === "premium" || tier === "gold") return { model: "openai/gpt-image-2" };
+  if (tier === "medium") return { model: "openai/gpt-image-1", quality: "medium" };
+  return { model: "openai/gpt-image-1", quality: "low" };
 }
 
 /**
@@ -67,6 +64,7 @@ const INDUSTRY_ACCENTS: Record<string, { from: string; to: string }> = {
   grocery: { from: "#15803D", to: "#65A30D" },
   pharmacy: { from: "#0F766E", to: "#1D4ED8" },
   events: { from: "#7C3AED", to: "#B45309" },
+  artisanat: { from: "#B45309", to: "#1E3A5F" },
   hotel: { from: "#0E7490", to: "#2563EB" },
   travel: { from: "#0D9488", to: "#EA580C" },
 };
@@ -121,6 +119,16 @@ function getNegativeSpaceInstruction(tier: Tier, layout: LayoutVariant): string 
     return "Composition constraint: keep a strip along the bottom ~20% of the frame visually calm and uncluttered — a name, price and contact pill will be added programmatically in that zone afterward.";
   }
   return "Composition constraint: keep a strip along the bottom ~15% of the frame visually calm and uncluttered — a name and price will be added programmatically in that zone afterward.";
+}
+
+/**
+ * Ancre visuellement le fond dans une référence patrimoniale sénégalaise précise (Gorée,
+ * Saint-Louis, Casamance...) plutôt qu'une imagerie "africaine" générique — réservé aux
+ * secteurs où l'identité culturelle est un vrai angle créatif (voir Industry.culturalHeritage).
+ */
+function getCulturalHeritageInstruction(industry: Industry | undefined): string {
+  if (!industry?.culturalHeritage) return "";
+  return `\n\nSenegalese cultural identity (mandatory for this category — this is what makes the result read as authentically Senegalese, not generic "African" stock imagery): weave in a specific, tasteful visual reference to real Senegalese heritage — ${pickHeritageCue()}. Treat it as a backdrop influence (mood, texture, silhouette, color, materials) rather than a literal postcard illustration, and never let it compete with or obscure the product itself, which remains the hero.`;
 }
 
 /**
@@ -180,6 +188,7 @@ Do NOT include: text, logos other than what's already visible on the subject, pr
 ${analysisBlock}
 
 Category: ${industry ? `${industry.labelFr} — typical scene elements to draw inspiration from: ${industry.visualDirection}.` : "General Senegalese retail."}
+${getCulturalHeritageInstruction(industry)}
 
 Distribution channels: Facebook, Instagram and WhatsApp — the visual must read clearly even as a small thumbnail.
 ${seasonalNote ? `\n${seasonalNote}` : ""}
@@ -213,15 +222,16 @@ async function generateComposedPoster(
       creativeBrief,
     });
 
+    const { model, quality } = chooseImageModel(tier);
     const res = await fetch("https://openrouter.ai/api/v1/images", {
       method: "POST",
       headers: { Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: chooseImageModel(industryKey, tier),
+        model,
         prompt,
         input_references: images.map((img) => ({ type: "image_url", image_url: { url: `data:${img.mediaType};base64,${img.base64}` } })),
-        resolution: "2K",
         aspect_ratio: "1:1",
+        ...(quality ? { quality } : { resolution: "2K" }),
       }),
     });
 
@@ -241,8 +251,8 @@ async function generateComposedPoster(
  * Le détourage (pixels du produit intacts, aucun décor d'origine) tourne en parallèle de
  * l'analyse produit puisque les deux partent de la même photo brute.
  *
- * Le contrôle qualité + la reprise (max 1) sont réservés aux paliers Premium et Gold : Basique
- * et Medium acceptent toujours la première génération, pour un coût prévisible et accessible.
+ * Le contrôle qualité + la reprise (max 1) sont réservés à Medium/Premium/Gold : Basique
+ * accepte toujours la première génération, pour un coût plancher prévisible.
  *
  * `extraPhotos` (palier Gold) : jusqu'à 2 photos supplémentaires du même produit, fournies en
  * référence en plus de la photo principale, pour une composition plus riche et plus fidèle.
@@ -295,7 +305,7 @@ export async function buildPosterBackground(
   let finalImageBase64 = genResult.imageBase64;
   let qualityRetried = false;
 
-  if (finalImageBase64 && (tier === "premium" || tier === "gold")) {
+  if (finalImageBase64 && tier !== "basic") {
     const { passed } = await checkPosterQuality(photoBase64, mediaType, finalImageBase64);
     if (!passed) {
       const retry = await generateComposedPoster(primaryImages, industry, tier, layout, isCutout, analysis, customInstructions, creativeBrief);
@@ -357,6 +367,7 @@ ${DESIGN_PRINCIPLES}
 Do NOT include: text, logos, prices, numbers, watermarks, QR codes, buttons or UI elements — those are added separately.
 
 Category: ${industry ? `${industry.labelFr} — typical scene elements to draw inspiration from: ${industry.visualDirection}.` : "General local service."}
+${getCulturalHeritageInstruction(industry)}
 
 Distribution channels: Facebook, Instagram and WhatsApp — the visual must read clearly even as a small thumbnail.
 ${seasonalNote ? `\n${seasonalNote}` : ""}
@@ -376,15 +387,16 @@ async function generateServiceImage(params: {
 }) {
   try {
     const prompt = buildServicePosterPrompt(params);
+    const { model, quality } = chooseImageModel(params.tier);
 
     const res = await fetch("https://openrouter.ai/api/v1/images", {
       method: "POST",
       headers: { Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: chooseImageModel(params.industryKey, params.tier),
+        model,
         prompt,
-        resolution: "2K",
         aspect_ratio: "1:1",
+        ...(quality ? { quality } : { resolution: "2K" }),
       }),
     });
 

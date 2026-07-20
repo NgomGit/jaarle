@@ -15,7 +15,7 @@ export function PremiumShowcase() {
       <div className="container">
         <div className="mx-auto mb-12 max-w-xl text-center">
           <div className="mx-auto mb-3 flex w-fit items-center gap-1.5 rounded-full bg-accent px-3 py-1 text-xs font-semibold text-accent-foreground">
-            <Sparkles className="h-3 w-3" /> Premium
+            <Sparkles className="h-3 w-3" /> Standard
           </div>
           <h2 className="mb-3 text-3xl font-bold tracking-tight sm:text-4xl">{t("showcase.title")}</h2>
           <p className="text-muted-foreground">{t("showcase.desc")}</p>

@@ -11,7 +11,7 @@ import { useLocale } from "@/lib/locale-context";
 import { TIERS, type Tier } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 
-const TIER_ORDER: Tier[] = ["basic", "medium", "premium", "gold"];
+const TIER_ORDER: Tier[] = ["premium", "gold"];
 
 export function AppPreview() {
   const { t } = useLocale();

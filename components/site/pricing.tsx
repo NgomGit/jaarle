@@ -18,22 +18,14 @@ export function Pricing() {
           <p className="text-muted-foreground">{t("pricing.desc")}</p>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <PlanCard title={t("pricing.freeTitle")} amount="0" unit={t("pricing.freeUnit")}
             items={["Autant d'essais que tu veux", "Aperçu HD avant de payer", "Tu ne payes qu'au téléchargement"]}
             ctaLabel={t("pricing.start")} variant="secondary" />
 
-          <PlanCard title={t("pricing.simpleTitle")} amount={TIERS.basic.price.toLocaleString("fr-FR")} unit={t("pricing.simpleUnit")}
-            items={["Fond stylisé par IA", "Nom et prix inclus", "Téléchargement HD"]}
-            ctaLabel={t("pricing.choose")} variant="secondary" mono />
-
-          <PlanCard title={t("pricing.campaignTitle")} amount={TIERS.medium.price.toLocaleString("fr-FR")} unit={t("pricing.campaignUnit")}
-            items={["Badge de style et contact inclus", "Texte + hashtags Facebook, TikTok, Instagram, WhatsApp", "Téléchargement HD"]}
-            ctaLabel={t("pricing.choose")} variant="accent" mono featured tag={t("pricing.campaignTag")} />
-
           <PlanCard title={t("pricing.packTitle")} amount={TIERS.premium.price.toLocaleString("fr-FR")} unit={t("pricing.packUnit")}
             items={["Design pensé pour convertir", "Mise en avant premium", "Un rendu pensé pour l'effet waouh"]}
-            ctaLabel={t("pricing.choose")} variant="secondary" mono />
+            ctaLabel={t("pricing.choose")} variant="accent" mono featured tag={t("pricing.campaignTag")} />
 
           <PlanCard title={t("pricing.goldTitle")} amount={TIERS.gold.price.toLocaleString("fr-FR")} unit={t("pricing.goldUnit")}
             items={["Jusqu'à 3 photos produit", "2 déclinaisons de design au choix", "Qualité la plus poussée"]}

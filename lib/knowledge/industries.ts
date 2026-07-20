@@ -7,6 +7,12 @@ export interface Industry {
   hashtags: string[];
   /** Éléments de mise en scène typiques du secteur, pour orienter la génération du fond IA. */
   visualDirection: string;
+  /**
+   * Secteurs où l'identité culturelle sénégalaise est un vrai angle créatif (mode, restauration,
+   * événementiel, artisanat) — pas forcée sur des secteurs sans lien (électronique, pharmacie...).
+   * Déclenche l'ajout d'une référence patrimoniale précise (voir lib/knowledge/senegal-heritage.ts).
+   */
+  culturalHeritage?: boolean;
 }
 
 export const industries: Industry[] = [
@@ -18,6 +24,7 @@ export const industries: Industry[] = [
     ctaExamples: ["Commande ton look maintenant", "Dispo en plusieurs tailles"],
     hashtags: ["#ModeSenegal", "#Dakar", "#WaxStyle"],
     visualDirection: "seamless studio backdrop, editorial fashion lighting, clean fabric-like textures, runway-adjacent mood",
+    culturalHeritage: true,
   },
   {
     key: "beauty",
@@ -36,6 +43,7 @@ export const industries: Industry[] = [
     ctaExamples: ["Commande ton plat maintenant", "Livraison chaude et rapide"],
     hashtags: ["#FoodDakar", "#Ndogou", "#CuisineSenegalaise"],
     visualDirection: "warm ambient light, gentle steam, wooden table surface, fresh ingredients arranged artfully, shallow depth of field",
+    culturalHeritage: true,
   },
   {
     key: "electronics",
@@ -99,6 +107,7 @@ export const industries: Industry[] = [
     ctaExamples: ["Réserve ta place", "Places limitées"],
     hashtags: ["#EvenementSenegal", "#Dakar"],
     visualDirection: "festive stage or venue backdrop, warm spotlight, subtle confetti or string lights, celebratory atmosphere",
+    culturalHeritage: true,
   },
   {
     key: "hotel",
@@ -108,6 +117,16 @@ export const industries: Industry[] = [
     ctaExamples: ["Réserve ton séjour", "Offre limitée"],
     hashtags: ["#HotelSenegal", "#Dakar", "#Voyage"],
     visualDirection: "resort or lobby setting, soft natural light, calm turquoise and sand palette, aspirational travel mood",
+  },
+  {
+    key: "artisanat",
+    labelFr: "Artisanat / Métiers d'art",
+    colors: ["terre cuite", "indigo", "or"],
+    toneHint: "Authentique, fait main, fier de son savoir-faire.",
+    ctaExamples: ["Pièce faite main", "Savoir-faire artisanal sénégalais"],
+    hashtags: ["#ArtisanatSenegal", "#FaitMain", "#Dakar"],
+    visualDirection: "handcrafted textures, natural materials (leather, wood, clay, woven fiber), warm tactile lighting, artisan workshop mood",
+    culturalHeritage: true,
   },
   {
     key: "travel",

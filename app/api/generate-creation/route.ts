@@ -14,9 +14,9 @@ import {
   renderFinalPoster,
 } from "@/lib/poster-pipeline";
 
-// Le palier Gold lance 2 pipelines complets en parallèle (fond + mise en page + vérifications
-// chacun) — sans ceci, la fonction serverless expire avant la fin sur la plupart des plans
-// Vercel (15s par défaut sur Pro, encore moins sur Hobby). 300s est le maximum du plan Pro.
+// La génération enchaîne plusieurs appels IA séquentiels (fond + mise en page + vérifications)
+// — sans ceci, la fonction serverless expire avant la fin sur la plupart des plans Vercel (15s
+// par défaut sur Pro, encore moins sur Hobby). 300s est le maximum du plan Pro.
 export const maxDuration = 300;
 
 // Le style visuel n'est plus choisi par l'utilisateur : l'IA le déduit du produit lui-même.
@@ -177,21 +177,11 @@ export async function POST(request: Request) {
 
   const phone = contactPhone?.trim() || (user.user_metadata?.whatsapp_number as string | undefined) || user.phone || "";
 
-  async function renderVariation(forcedLayout?: LayoutVariant) {
+  async function renderVariation() {
     const backgroundResult =
       photoBuffer && photoBase64
-        ? await buildPosterBackground(
-            photoBuffer,
-            photoBase64,
-            mediaType,
-            productName,
-            industry,
-            normalizedTier,
-            null,
-            extraPhotos,
-            forcedLayout
-          )
-        : await buildServiceBackground(productName, serviceDescription, normalizedItems, industry, normalizedTier, null, forcedLayout);
+        ? await buildPosterBackground(photoBuffer, photoBase64, mediaType, productName, industry, normalizedTier, null, extraPhotos)
+        : await buildServiceBackground(productName, serviceDescription, normalizedItems, industry, normalizedTier);
 
     const { backgroundBuffer, imageError, layout, accentGradient, creativeBrief } = backgroundResult;
 
@@ -209,72 +199,44 @@ export async function POST(request: Request) {
       serviceItems: normalizedItems,
     });
 
-    return { finalBuffer, imageError };
+    return { finalBuffer, imageError, layout };
   }
 
+  // Palier Gold : seule la 1ère déclinaison est générée ici. La 2e est optionnelle, générée à
+  // la demande via /api/creations/[id]/declination — ça évite de payer 2x la génération pour
+  // les clients qui se contentent de la première (économie substantielle en moyenne).
   let posterPath: string | null = null;
-  let posterPath2: string | null = null;
+  let usedLayout: LayoutVariant | null = null;
   let imageError: string | null = null;
   let salesCopy: string | null = null;
   let hashtags: string[] = [];
   let copyError: string | null = null;
 
   try {
-    if (isGold) {
-      const [copyResult, variation1, variation2] = await Promise.all([
-        generateSalesCopy(photoBase64 ? { base64: photoBase64, mediaType } : null, {
-          productName,
-          price,
-          industry,
-          language,
-          serviceDescription,
-          serviceItems: normalizedItems,
-        }),
-        renderVariation("side-panel"),
-        renderVariation("bottom-bar"),
-      ]);
-      salesCopy = copyResult.salesCopy;
-      hashtags = copyResult.hashtags;
-      copyError = copyResult.copyError;
-      imageError = variation1.imageError || variation2.imageError;
+    const [copyResult, variation] = await Promise.all([
+      generateSalesCopy(photoBase64 ? { base64: photoBase64, mediaType } : null, {
+        productName,
+        price,
+        industry,
+        language,
+        serviceDescription,
+        serviceItems: normalizedItems,
+      }),
+      renderVariation(),
+    ]);
+    salesCopy = copyResult.salesCopy;
+    hashtags = copyResult.hashtags;
+    copyError = copyResult.copyError;
+    imageError = variation.imageError;
+    usedLayout = variation.layout;
 
-      posterPath = `${user.id}/${Date.now()}-poster-1.jpg`;
-      const { error: upload1Error } = await supabase.storage
-        .from("creations")
-        .upload(posterPath, variation1.finalBuffer, { contentType: "image/jpeg" });
-      if (upload1Error) posterPath = null;
-
-      posterPath2 = `${user.id}/${Date.now()}-poster-2.jpg`;
-      const { error: upload2Error } = await supabase.storage
-        .from("creations")
-        .upload(posterPath2, variation2.finalBuffer, { contentType: "image/jpeg" });
-      if (upload2Error) posterPath2 = null;
-    } else {
-      const [copyResult, variation] = await Promise.all([
-        generateSalesCopy(photoBase64 ? { base64: photoBase64, mediaType } : null, {
-          productName,
-          price,
-          industry,
-          language,
-          serviceDescription,
-          serviceItems: normalizedItems,
-        }),
-        renderVariation(),
-      ]);
-      salesCopy = copyResult.salesCopy;
-      hashtags = copyResult.hashtags;
-      copyError = copyResult.copyError;
-      imageError = variation.imageError;
-
-      posterPath = `${user.id}/${Date.now()}-poster.jpg`;
-      const { error: posterUploadError } = await supabase.storage
-        .from("creations")
-        .upload(posterPath, variation.finalBuffer, { contentType: "image/jpeg" });
-      if (posterUploadError) posterPath = null;
-    }
+    posterPath = `${user.id}/${Date.now()}-poster.jpg`;
+    const { error: posterUploadError } = await supabase.storage
+      .from("creations")
+      .upload(posterPath, variation.finalBuffer, { contentType: "image/jpeg" });
+    if (posterUploadError) posterPath = null;
   } catch {
     posterPath = null;
-    posterPath2 = null;
   }
 
   const { data: creation, error: insertError } = await supabase
@@ -287,7 +249,7 @@ export async function POST(request: Request) {
       photo_path: photoPath,
       extra_photo_paths: isGold && extraPhotoPaths?.length ? extraPhotoPaths.slice(0, 2) : null,
       poster_path: posterPath,
-      poster_path_2: posterPath2,
+      layout: usedLayout,
       industry,
       language,
       generated_copy: salesCopy,
@@ -314,7 +276,6 @@ export async function POST(request: Request) {
     hashtags,
     copyError,
     imageUrl: `/api/creations/${creation.id}/preview?v=${Date.now()}`,
-    imageUrl2: posterPath2 ? `/api/creations/${creation.id}/preview?variant=2&v=${Date.now()}` : null,
     imageError,
     posterReady: !!posterPath,
     creationId: creation.id,

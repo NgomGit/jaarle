@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 type Step = 0 | 1 | 2 | 3;
 type Language = "fr" | "wo";
 type SubjectType = "product" | "service";
-const TIER_ORDER: Tier[] = ["basic", "medium", "premium", "gold"];
+const TIER_ORDER: Tier[] = ["premium", "gold"];
 
 export function NewCreationWizard({ userId, defaultPhone }: { userId: string; defaultPhone: string }) {
   const { t } = useLocale();
@@ -38,7 +38,7 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
   const [priceOnRequest, setPriceOnRequest] = React.useState(false);
   const [industry, setIndustry] = React.useState("");
   const [language, setLanguage] = React.useState<Language>("fr");
-  const [tier, setTier] = React.useState<Tier>("basic");
+  const [tier, setTier] = React.useState<Tier>("premium");
   const [contactPhone, setContactPhone] = React.useState(defaultPhone);
   const [businessName, setBusinessName] = React.useState("");
   const [logoFile, setLogoFile] = React.useState<File | null>(null);
@@ -50,6 +50,7 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
   const [submitting, setSubmitting] = React.useState(false);
   const [unlocking, setUnlocking] = React.useState(false);
   const [regenerating, setRegenerating] = React.useState(false);
+  const [generatingDeclination, setGeneratingDeclination] = React.useState(false);
 
   const [result, setResult] = React.useState<{
     creationId: string;
@@ -174,8 +175,8 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
         posterReady: !!data.posterReady,
         salesCopy: data.salesCopy,
         hashtags: data.hashtags ?? [],
-        tier: (data.tier as Tier) || "basic",
-        regenerationsRemaining: TIERS[(data.tier as Tier) || "basic"].maxRegenerations,
+        tier: (data.tier as Tier) || "premium",
+        regenerationsRemaining: TIERS[(data.tier as Tier) || "premium"].maxRegenerations,
       };
     })();
 
@@ -235,6 +236,25 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
       setError(t("creation.errorGeneric"));
     } finally {
       setRegenerating(false);
+    }
+  }
+
+  async function handleGenerateDeclination(customInstructions: string) {
+    if (!result) return;
+    setGeneratingDeclination(true);
+    try {
+      const res = await fetch(`/api/creations/${result.creationId}/declination`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customInstructions: customInstructions || null }),
+      });
+      const data = (await res.json()) as { imageUrl2?: string; error?: string };
+      if (!res.ok || !data.imageUrl2) throw new Error(data.error || "declination_failed");
+      setResult({ ...result, imageUrl2: data.imageUrl2 });
+    } catch {
+      setError(t("creation.errorGeneric"));
+    } finally {
+      setGeneratingDeclination(false);
     }
   }
 
@@ -432,7 +452,7 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <span className="text-sm font-medium">{t("creation.tierLabel")}</span>
-              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 {TIER_ORDER.map((key) => {
                   const cfg = TIERS[key];
                   return (
@@ -628,6 +648,8 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
             regenerationsRemaining={result.regenerationsRemaining}
             regenerating={regenerating}
             onRegenerate={TIERS[result.tier].maxRegenerations > 0 ? handleRegenerate : undefined}
+            onGenerateDeclination={result.tier === "gold" ? handleGenerateDeclination : undefined}
+            generatingDeclination={generatingDeclination}
           />
         )}
       </div>

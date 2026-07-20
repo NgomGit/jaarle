@@ -55,7 +55,7 @@ export function Hero() {
           </div>
           <div className="absolute bottom-16 right-[-6px] hidden items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm font-semibold shadow-glow-md sm:flex">
             <Wallet className="h-4 w-4 text-primary" />
-            {t("hero.badgePrice").replace("{price}", TIERS.basic.price.toLocaleString("fr-FR"))}
+            {t("hero.badgePrice").replace("{price}", TIERS.premium.price.toLocaleString("fr-FR"))}
           </div>
 
           <div className="relative h-[500px] w-[260px] overflow-hidden rounded-[34px] border border-border bg-card shadow-glow-lg">

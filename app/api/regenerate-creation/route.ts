@@ -87,7 +87,7 @@ export async function POST(request: Request) {
   const phone = creation.contact_phone || (user.user_metadata?.whatsapp_number as string | undefined) || user.phone || "";
 
   let logoBuffer: Buffer | null = null;
-  if (creation.tier === "premium" && creation.logo_path) {
+  if ((creation.tier === "premium" || creation.tier === "gold") && creation.logo_path) {
     const { data: logoBlob } = await supabase.storage.from("creations").download(creation.logo_path);
     if (logoBlob) logoBuffer = Buffer.from(await logoBlob.arrayBuffer());
   }

@@ -25,7 +25,7 @@
     "s1t": "Envoie ta photo",
     "s1d": "Une photo prise avec ton téléphone suffit. Ajoute le nom du produit et le prix, ou parle simplement à Jaarle.",
     "s2t": "Choisis ton palier",
-    "s2d": "Basique, Medium, Premium ou Gold — l'IA analyse ton produit et choisit elle-même le style, le décor et les couleurs. Le palier détermine juste la richesse du résultat.",
+    "s2d": "Standard ou Advanced — l'IA analyse ton produit et choisit elle-même le style, le décor et les couleurs. Le palier détermine juste la richesse du résultat.",
     "s3t": "Publie partout",
     "s3d": "Reçois ton affiche, ta story et ton texte de vente en un clic. Télécharge ou partage directement."
   },
@@ -35,7 +35,7 @@
     "tab1": "Importer",
     "tab1s": "Photo, nom, prix",
     "tab2": "Palier",
-    "tab2s": "4 formules",
+    "tab2s": "2 formules",
     "tab3": "Génération",
     "tab3s": "L'IA travaille",
     "tab4": "Résultat",
@@ -69,9 +69,9 @@
     "campaignTitle": "Medium",
     "campaignUnit": "image + textes tout inclus",
     "campaignTag": "Le plus choisi",
-    "packTitle": "Premium",
+    "packTitle": "Standard",
     "packUnit": "l'effet waouh, sans compromis",
-    "goldTitle": "Gold",
+    "goldTitle": "Advanced",
     "goldUnit": "2 déclinaisons, jusqu'à 3 photos",
     "choose": "Choisir",
     "start": "Commencer"
@@ -104,9 +104,9 @@
     "title": "Des commerçants qui l'utilisent déjà"
   },
   "showcase": {
-    "title": "Ce que le palier Premium peut créer",
+    "title": "Ce que le palier Standard peut créer",
     "desc": "Des affiches générées par Jaarle, sans retouche — l'IA choisit le style, la mise en page et les couleurs qui vont le mieux à ton produit.",
-    "imageAlt": "Exemple d'affiche Premium générée par Jaarle",
+    "imageAlt": "Exemple d'affiche Standard générée par Jaarle",
     "cta": "Voir les tarifs"
   },
   "cta": {
@@ -226,16 +226,21 @@
         "desc": "+ badge de style."
       },
       "premium": {
-        "name": "Premium",
+        "name": "Standard",
         "desc": "Design le plus abouti, pensé pour l'effet waouh."
       },
       "gold": {
-        "name": "Gold",
+        "name": "Advanced",
         "desc": "Jusqu'à 3 photos et 2 déclinaisons de design au choix."
       }
     },
     "regenerate": "Régénérer le design ({count} restantes)",
     "regenerateExhausted": "Régénérations épuisées",
+    "declinationTitle": "Envie d'une 2e déclinaison ? (optionnel)",
+    "declinationHint": "Décris ce que tu veux voir différent — sinon l'IA choisit librement un style différent de la 1ère version.",
+    "declinationPlaceholder": "Ex : plus lumineux, ambiance différente...",
+    "declinationButton": "Générer une déclinaison",
+    "declinationGenerating": "Génération en cours...",
     "regenerateInstructionsLabel": "Que veux-tu changer ? (optionnel)",
     "regenerateInstructionsPlaceholder": "Ex : fond plus lumineux, couleurs plus vives, style plus minimaliste...",
     "contactPhone": "Numéro à afficher sur l'affiche",
