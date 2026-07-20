@@ -111,6 +111,17 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   const { backgroundBuffer, imageError, layout, accentGradient, creativeBrief } = backgroundResult;
 
+  // `imageError` non-null signifie que buildPosterBackground/buildServiceBackground n'a pas réussi
+  // à générer un fond IA et est retombé silencieusement sur la photo brute (ou un fond uni pour un
+  // service) — un vrai échec, pas juste un rendu dégradé. Contrairement à la 1ère variation (qui
+  // DOIT toujours livrer quelque chose puisque le client a déjà payé), la déclinaison est facultative :
+  // mieux vaut échouer franchement et laisser `poster_path_2` à null (le garde-fou "une seule
+  // déclinaison" se base dessus) plutôt que de facturer au client sa seule tentative avec la photo
+  // d'origine déguisée en "déclinaison".
+  if (imageError) {
+    return NextResponse.json({ error: "La génération de la déclinaison a échoué. Réessaie." }, { status: 500 });
+  }
+
   let posterPath2: string | null = null;
   try {
     const origin = new URL(request.url).origin;
@@ -139,7 +150,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   }
 
   if (!posterPath2) {
-    return NextResponse.json({ error: imageError || "Échec de la génération de la déclinaison." }, { status: 500 });
+    return NextResponse.json({ error: "Échec de la génération de la déclinaison." }, { status: 500 });
   }
 
   const { error: updateError } = await supabase.from("creations").update({ poster_path_2: posterPath2 }).eq("id", creation.id);
@@ -149,6 +160,5 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   return NextResponse.json({
     imageUrl2: `/api/creations/${creation.id}/preview?variant=2&v=${Date.now()}`,
-    imageError,
   });
 }
