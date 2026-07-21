@@ -1,5 +1,3 @@
-import { readFileSync } from "fs";
-import path from "path";
 import { compositeOverlay, finalizeJpeg, buildPlainBackground } from "@/lib/image-compose";
 import { removeBackground } from "@/lib/background-removal";
 import { analyzeProduct, analyzeLogoColors, type ProductAnalysis } from "@/lib/product-analyzer";
@@ -12,40 +10,25 @@ import {
   buildCreativeBrief,
   formatCreativeBrief,
   pickTypographyMood,
+  formatLightingInstruction,
+  CREATIVE_DIRECTOR_OPENING,
+  CONCEPT_FIRST_INSTRUCTION,
   CREATIVITY_RULES,
   DESIGN_PRINCIPLES,
+  VISUAL_SURPRISE_RULE,
+  ASYMMETRY_RULE,
+  COLOR_HIERARCHY_INSTRUCTION,
+  SELF_CRITIQUE_INSTRUCTION,
+  LAYOUT_FREEDOM_INSTRUCTION,
   type CreativeBrief,
 } from "@/lib/knowledge/creative-vocabulary";
-import { type Tier } from "@/lib/pricing";
 import { ALLOWED_MEDIA_TYPES, type AllowedMediaType } from "@/lib/media-types";
 
 export { ALLOWED_MEDIA_TYPES, type AllowedMediaType };
 
-type ImageQuality = "low" | "medium" | "high";
-
-interface ModelChoice {
-  model: string;
-  quality?: ImageQuality;
-}
-
-/**
- * "chooseBestModel()" : route vers le modèle le plus adapté au palier. Choix vérifié par des
- * appels réels avec mesure directe du coût facturé (champ `usage.cost` renvoyé par OpenRouter),
- * pas une estimation :
- * - GPT Image 1 (qualité "low") : ~$0.019/appel en édition avec référence, fidélité produit
- *   testée et confirmée bonne. Utilisé pour Basique — le palier le plus accessible.
- * - GPT Image 1 (qualité "medium") : ~$0.066/appel, un cran de qualité au-dessus. Utilisé pour
- *   Medium, combiné au contrôle qualité + reprise (voir buildPosterBackground).
- * - GPT Image 2 : ~$0.065-0.073/appel selon le nombre de références (mesuré, pas $0.886 comme
- *   estimé précédemment sur la base d'un seul point de données de dashboard, apparemment non
- *   représentatif). Utilisé systématiquement pour Premium et Gold, quel que soit le secteur —
- *   plus besoin de routage par secteur puisque le coût réel est très proche de GPT Image 1.
- */
-function chooseImageModel(tier: Tier): ModelChoice {
-  if (tier === "premium" || tier === "gold") return { model: "openai/gpt-image-2" };
-  if (tier === "medium") return { model: "openai/gpt-image-1", quality: "medium" };
-  return { model: "openai/gpt-image-1", quality: "low" };
-}
+// GPT Image 2 pour les deux paliers restants (Standard/Advanced) — coût réel mesuré via le champ
+// `usage.cost` renvoyé par OpenRouter : ~$0.065-0.073/appel selon le nombre de références.
+const IMAGE_MODEL = "openai/gpt-image-2";
 
 /**
  * Palette de secours par secteur, utilisée dès qu'aucune couleur d'accent plus spécifique
@@ -77,10 +60,8 @@ export type LayoutVariant = "bottom-bar" | "side-panel";
 
 /**
  * Bascule le gabarit du bandeau de texte pour éviter que toutes les affiches se ressemblent.
- * Le palier Basique reste toujours sur le gabarit le plus simple.
  */
-function pickLayoutVariant(tier: Tier): LayoutVariant {
-  if (tier === "basic") return "bottom-bar";
+function pickLayoutVariant(): LayoutVariant {
   return Math.random() < 0.5 ? "bottom-bar" : "side-panel";
 }
 
@@ -108,17 +89,11 @@ function getSeasonalVisualNote(referenceDate: Date): string | null {
  * ET le gabarit choisi. On le dit à l'IA pour qu'elle laisse ces zones visuellement calmes
  * plutôt que de les remplir.
  */
-function getNegativeSpaceInstruction(tier: Tier, layout: LayoutVariant): string {
+function getNegativeSpaceInstruction(layout: LayoutVariant): string {
   if (layout === "side-panel") {
     return "Composition constraint: keep the left third of the frame visually calm and uncluttered — a dark text panel with the name, price and contact will be added there programmatically. Compose and frame the product mainly within the right two-thirds of the image.";
   }
-  if (tier === "premium" || tier === "gold") {
-    return "Composition constraint: keep the top-right corner (two short benefit tags) and a generous strip along the bottom ~25% of the frame visually calm and uncluttered — marketing text, price and contact info will be added programmatically in those zones afterward.";
-  }
-  if (tier === "medium") {
-    return "Composition constraint: keep a strip along the bottom ~20% of the frame visually calm and uncluttered — a name, price and contact pill will be added programmatically in that zone afterward.";
-  }
-  return "Composition constraint: keep a strip along the bottom ~15% of the frame visually calm and uncluttered — a name and price will be added programmatically in that zone afterward.";
+  return "Composition constraint: keep the top-right corner (two short benefit tags) and a generous strip along the bottom ~25% of the frame visually calm and uncluttered — marketing text, price and contact info will be added programmatically in those zones afterward.";
 }
 
 /**
@@ -139,7 +114,6 @@ function getCulturalHeritageInstruction(industry: Industry | undefined): string 
  */
 function buildComposedPosterPrompt(params: {
   industryKey: string | null;
-  tier: Tier;
   layout: LayoutVariant;
   isCutout: boolean;
   analysis: ProductAnalysis | null;
@@ -171,11 +145,15 @@ function buildComposedPosterPrompt(params: {
 Weave THIS analysis into the creative direction below — the palette and materials must genuinely relate to these specific colors and materials, not be chosen independently of them.`
     : "";
 
-  return `You are a senior, award-winning advertising creative director at a world-class agency, specialized in premium commercial photography and social media marketing for African markets — for physical products as well as local services (e.g. car rental, cleaning services, car detailing). You constantly explore new ideas and never repeat yourself — you are not a template generator.
+  return `${CREATIVE_DIRECTOR_OPENING}
+
+You are working on premium commercial photography and social media marketing for African markets — for physical products as well as local services (e.g. car rental, cleaning services, car detailing).
 
 ${subjectLine}
 
-Your task: design a complete, professional advertising visual around this exact subject to sell it — as if shot and art-directed by a top-tier advertising agency.
+Your task: design a complete, professional advertising visual around this exact subject to sell it.
+
+${CONCEPT_FIRST_INSTRUCTION}
 
 Product/service fidelity (absolute, overrides everything else below):
 - The subject shown is the absolute hero of the composition — preserve its exact colors, proportions, textures, and any text or logo already visible on it. Never redesign, restyle or reinterpret the subject itself — no exceptions, regardless of the creative direction below.${
@@ -186,7 +164,15 @@ Product/service fidelity (absolute, overrides everything else below):
 
 ${formatCreativeBrief(params.creativeBrief)}
 
+${formatLightingInstruction(params.creativeBrief.lightingStrategy)}
+
+${COLOR_HIERARCHY_INSTRUCTION}
+
 ${CREATIVITY_RULES}
+
+${VISUAL_SURPRISE_RULE}
+
+${ASYMMETRY_RULE}
 
 ${DESIGN_PRINCIPLES}
 
@@ -199,8 +185,10 @@ ${getCulturalHeritageInstruction(industry)}
 
 Distribution channels: Facebook, Instagram and WhatsApp — the visual must read clearly even as a small thumbnail.
 ${seasonalNote ? `\n${seasonalNote}` : ""}
-${getNegativeSpaceInstruction(params.tier, params.layout)}
-${params.customInstructions ? `\nThe merchant asked for these specific changes compared to the previous version — prioritize honoring this request while still respecting the fidelity rule above: "${params.customInstructions}"` : ""}`;
+${getNegativeSpaceInstruction(params.layout)}
+${params.customInstructions ? `\nThe merchant asked for these specific changes compared to the previous version — prioritize honoring this request while still respecting the fidelity rule above: "${params.customInstructions}"` : ""}
+
+${SELF_CRITIQUE_INSTRUCTION}`;
 }
 
 /**
@@ -210,7 +198,6 @@ ${params.customInstructions ? `\nThe merchant asked for these specific changes c
 async function generateComposedPoster(
   images: { base64: string; mediaType: AllowedMediaType }[],
   industryKey: string | null,
-  tier: Tier,
   layout: LayoutVariant,
   isCutout: boolean,
   analysis: ProductAnalysis | null,
@@ -221,7 +208,6 @@ async function generateComposedPoster(
   try {
     const prompt = buildComposedPosterPrompt({
       industryKey,
-      tier,
       layout,
       isCutout,
       analysis,
@@ -231,16 +217,15 @@ async function generateComposedPoster(
       creativeBrief,
     });
 
-    const { model, quality } = chooseImageModel(tier);
     const res = await fetch("https://openrouter.ai/api/v1/images", {
       method: "POST",
       headers: { Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model,
+        model: IMAGE_MODEL,
         prompt,
         input_references: images.map((img) => ({ type: "image_url", image_url: { url: `data:${img.mediaType};base64,${img.base64}` } })),
         aspect_ratio: "1:1",
-        ...(quality ? { quality } : { resolution: "2K" }),
+        resolution: "2K",
       }),
     });
 
@@ -260,12 +245,9 @@ async function generateComposedPoster(
  * Le détourage (pixels du produit intacts, aucun décor d'origine) tourne en parallèle de
  * l'analyse produit puisque les deux partent de la même photo brute.
  *
- * Le contrôle qualité + la reprise (max 1) sont réservés à Medium/Premium/Gold : Basique
- * accepte toujours la première génération, pour un coût plancher prévisible.
- *
- * `extraPhotos` (palier Gold) : jusqu'à 2 photos supplémentaires du même produit, fournies en
+ * `extraPhotos` (palier Advanced) : jusqu'à 2 photos supplémentaires du même produit, fournies en
  * référence en plus de la photo principale, pour une composition plus riche et plus fidèle.
- * `forcedLayout` (palier Gold) : impose le gabarit plutôt que de le tirer au hasard, pour
+ * `forcedLayout` (palier Advanced) : impose le gabarit plutôt que de le tirer au hasard, pour
  * générer 2 déclinaisons structurellement différentes (une side-panel, une bottom-bar).
  */
 export async function buildPosterBackground(
@@ -274,7 +256,6 @@ export async function buildPosterBackground(
   mediaType: AllowedMediaType,
   productName: string,
   industry: string | null,
-  tier: Tier,
   customInstructions?: string | null,
   extraPhotos?: { base64: string; mediaType: AllowedMediaType }[],
   forcedLayout?: LayoutVariant,
@@ -288,7 +269,7 @@ export async function buildPosterBackground(
   accentGradient: { from: string; to: string } | null;
   creativeBrief: CreativeBrief;
 }> {
-  const layout = forcedLayout ?? pickLayoutVariant(tier);
+  const layout = forcedLayout ?? pickLayoutVariant();
   const extras = extraPhotos ?? [];
   const creativeBrief = buildCreativeBrief();
 
@@ -307,7 +288,6 @@ export async function buildPosterBackground(
   let genResult = await generateComposedPoster(
     primaryImages,
     industry,
-    tier,
     layout,
     isCutout,
     analysis,
@@ -322,7 +302,6 @@ export async function buildPosterBackground(
     genResult = await generateComposedPoster(
       fallbackImages,
       industry,
-      tier,
       layout,
       false,
       analysis,
@@ -335,13 +314,12 @@ export async function buildPosterBackground(
   let finalImageBase64 = genResult.imageBase64;
   let qualityRetried = false;
 
-  if (finalImageBase64 && tier !== "basic") {
+  if (finalImageBase64) {
     const { passed } = await checkPosterQuality(photoBase64, mediaType, finalImageBase64);
     if (!passed) {
       const retry = await generateComposedPoster(
         primaryImages,
         industry,
-        tier,
         layout,
         isCutout,
         analysis,
@@ -376,7 +354,6 @@ export async function buildPosterBackground(
  */
 function buildServicePosterPrompt(params: {
   industryKey: string | null;
-  tier: Tier;
   layout: LayoutVariant;
   serviceName: string;
   serviceDescription: string | null;
@@ -390,9 +367,13 @@ function buildServicePosterPrompt(params: {
     ? `Items/offerings included in this service: ${params.serviceItems.join(", ")}.`
     : "";
 
-  return `You are a senior, award-winning advertising creative director at a world-class agency, specialized in premium marketing visuals for local services in Senegal / West Africa (e.g. car rental, cleaning services, car detailing). You constantly explore new ideas and never repeat yourself — you are not a template generator.
+  return `${CREATIVE_DIRECTOR_OPENING}
+
+You are working on premium marketing visuals for local services in Senegal / West Africa (e.g. car rental, cleaning services, car detailing).
 
 There is no reference photo for this brief — imagine and compose an entirely original, professional advertising visual from scratch that convincingly represents this exact service.
+
+${CONCEPT_FIRST_INSTRUCTION}
 
 Service: "${params.serviceName}"
 ${params.serviceDescription ? `Description: ${params.serviceDescription}` : ""}
@@ -400,7 +381,15 @@ ${itemsLine}
 
 ${formatCreativeBrief(params.creativeBrief)}
 
+${formatLightingInstruction(params.creativeBrief.lightingStrategy)}
+
+${COLOR_HIERARCHY_INSTRUCTION}
+
 ${CREATIVITY_RULES}
+
+${VISUAL_SURPRISE_RULE}
+
+${ASYMMETRY_RULE}
 
 ${DESIGN_PRINCIPLES}
 
@@ -411,8 +400,10 @@ ${getCulturalHeritageInstruction(industry)}
 
 Distribution channels: Facebook, Instagram and WhatsApp — the visual must read clearly even as a small thumbnail.
 ${seasonalNote ? `\n${seasonalNote}` : ""}
-${getNegativeSpaceInstruction(params.tier, params.layout)}
-${params.customInstructions ? `\nThe merchant asked for these specific changes compared to the previous version: "${params.customInstructions}"` : ""}`;
+${getNegativeSpaceInstruction(params.layout)}
+${params.customInstructions ? `\nThe merchant asked for these specific changes compared to the previous version: "${params.customInstructions}"` : ""}
+
+${SELF_CRITIQUE_INSTRUCTION}`;
 }
 
 async function generateServiceImage(params: {
@@ -420,23 +411,21 @@ async function generateServiceImage(params: {
   serviceDescription: string | null;
   serviceItems: string[];
   industryKey: string | null;
-  tier: Tier;
   layout: LayoutVariant;
   customInstructions?: string | null;
   creativeBrief: CreativeBrief;
 }) {
   try {
     const prompt = buildServicePosterPrompt(params);
-    const { model, quality } = chooseImageModel(params.tier);
 
     const res = await fetch("https://openrouter.ai/api/v1/images", {
       method: "POST",
       headers: { Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model,
+        model: IMAGE_MODEL,
         prompt,
         aspect_ratio: "1:1",
-        ...(quality ? { quality } : { resolution: "2K" }),
+        resolution: "2K",
       }),
     });
 
@@ -462,7 +451,6 @@ export async function buildServiceBackground(
   serviceDescription: string | null,
   serviceItems: string[],
   industry: string | null,
-  tier: Tier,
   customInstructions?: string | null,
   forcedLayout?: LayoutVariant
 ): Promise<{
@@ -472,14 +460,13 @@ export async function buildServiceBackground(
   accentGradient: { from: string; to: string } | null;
   creativeBrief: CreativeBrief;
 }> {
-  const layout = forcedLayout ?? pickLayoutVariant(tier);
+  const layout = forcedLayout ?? pickLayoutVariant();
   const creativeBrief = buildCreativeBrief();
   const genResult = await generateServiceImage({
     serviceName,
     serviceDescription,
     serviceItems,
     industryKey: industry,
-    tier,
     layout,
     customInstructions,
     creativeBrief,
@@ -494,7 +481,6 @@ export async function buildServiceBackground(
 }
 
 interface FinalPosterParams {
-  tier: Tier;
   layout: LayoutVariant;
   productName: string;
   price: number | null;
@@ -514,16 +500,13 @@ interface FinalPosterParams {
  */
 async function renderSatoriOverlay(origin: string, backgroundBuffer: Buffer, params: FinalPosterParams): Promise<Buffer> {
   const overlayUrl = new URL("/api/render-overlay", origin);
-  overlayUrl.searchParams.set("tier", params.tier);
   overlayUrl.searchParams.set("layout", params.layout);
   overlayUrl.searchParams.set("productName", params.productName);
   overlayUrl.searchParams.set("price", params.price != null ? `${params.price.toLocaleString("fr-FR")} FCFA` : "Sur devis");
   overlayUrl.searchParams.set("phone", params.phone);
-  if (params.tier === "premium" || params.tier === "gold") {
-    const benefits =
-      params.serviceItems && params.serviceItems.length > 0 ? params.serviceItems.slice(0, 3) : getBenefitTags(params.industry);
-    overlayUrl.searchParams.set("benefits", benefits.join("|"));
-  }
+  const benefits =
+    params.serviceItems && params.serviceItems.length > 0 ? params.serviceItems.slice(0, 3) : getBenefitTags(params.industry);
+  overlayUrl.searchParams.set("benefits", benefits.join("|"));
   if (params.accentGradient) {
     overlayUrl.searchParams.set("accentFrom", params.accentGradient.from);
     overlayUrl.searchParams.set("accentTo", params.accentGradient.to);
@@ -543,14 +526,9 @@ async function renderSatoriOverlay(origin: string, backgroundBuffer: Buffer, par
  * Demande à GPT Image 2 de dessiner directement la mise en page complète (texte, prix, contact,
  * CTA, tags) sur l'image déjà composée — au lieu d'un gabarit fixe qu'on superpose nous-mêmes.
  * Plus créatif et varié, mais le texte est produit par un modèle génératif, donc jamais garanti
- * exact : c'est à `checkTextAccuracy` de trancher si le résultat est fiable.
- *
- * Exclusivement réservée au palier Premium (`renderFinalPoster` court-circuite Basique et
- * Medium vers le bandeau satori) — c'est le palier "effet waouh", celui où l'investissement
- * GPT Image 2 se justifie et où le design doit vraiment impressionner.
+ * exact : c'est à `checkTextAccuracy` de trancher si le résultat est fiable (repli sur le
+ * bandeau satori sinon, voir `renderFinalPoster`).
  */
-const JAARLE_LOGO_PATH = path.join(process.cwd(), "public/images/logo-icon.png");
-
 async function generateTemplatedPoster(backgroundBuffer: Buffer, params: FinalPosterParams) {
   try {
     const priceLabel = params.price != null ? `${params.price.toLocaleString("fr-FR")} FCFA` : null;
@@ -583,17 +561,6 @@ async function generateTemplatedPoster(backgroundBuffer: Buffer, params: FinalPo
       ? `\n\nThe merchant asked for these specific changes compared to the previous version — prioritize honoring this request while still respecting the accuracy rules below: "${params.customInstructions}"`
       : "";
 
-    // Le placement n'est PAS laissé au libre choix du modèle : sans contrainte explicite, GPT
-    // Image 2 converge presque toujours vers la même composition (texte à gauche/en bas). On
-    // impose le gabarit déjà tiré au hasard en amont pour garantir une vraie variété 50/50.
-    const layoutInstruction =
-      params.layout === "side-panel"
-        ? `Layout (mandatory, this is a deliberate art-direction choice — follow it exactly): place the product name, price, contact and CTA in a solid or dark panel occupying roughly the LEFT THIRD of the frame, vertically stacked. Compose and frame the product within the RIGHT two-thirds of the image, not centered.`
-        : `Layout (mandatory, this is a deliberate art-direction choice — follow it exactly): place the product name, price, contact and CTA in a horizontal band along the BOTTOM of the frame (roughly the bottom quarter). Keep the product the main focus of the upper two-thirds.`;
-
-    // Sans direction de couleur explicite, le modèle retombe souvent sur une teinte neutre/beige
-    // par défaut. On lui impose la palette déjà calculée (logo du marchand si disponible, sinon
-    // l'analyse du produit, sinon une teinte propre au secteur) pour une vraie diversité visuelle.
     // Point corrigé après retour utilisateur : imposer l'accent SANS dire quoi faire du panneau/
     // fond derrière le texte produisait des combinaisons qui juraient (ex: panneau noir brut +
     // accent bleu vif, sans lien de teinte entre les deux) — l'instruction précise maintenant
@@ -604,7 +571,7 @@ async function generateTemplatedPoster(backgroundBuffer: Buffer, params: FinalPo
       if (logoAccent) accent = logoAccent;
     }
     const colorInstruction = accent
-      ? `\n\nColor palette (mandatory): use this exact 2-color accent — ${accent.from} to ${accent.to} — for the CTA button, benefit tags and typography highlights. This was chosen specifically for this ${hasMerchantLogo ? "merchant's brand" : "product/service"} — do NOT default to a generic neutral, beige or pastel scheme instead. Critically, the panel or gradient background BEHIND the text (the dark panel in a side-panel layout, or the bottom gradient in a bottom-bar layout) must be chosen to harmonize with this exact accent — e.g. a deep, desaturated tint of the same hue family, rather than a plain, unrelated black or grey. Treat the background, the accent and the typography as ONE deliberate color story, never as independent, clashing choices.`
+      ? `\n\nColor palette (mandatory): use this exact 2-color accent — ${accent.from} to ${accent.to} — as the dominant/accent colors for the CTA button, benefit tags and typography highlights. This was chosen specifically for this ${hasMerchantLogo ? "merchant's brand" : "product/service"} — do NOT default to a generic neutral, beige or pastel scheme instead. Critically, whatever panel, strip or backdrop sits BEHIND the text must be chosen to harmonize with this exact accent — e.g. a deep, desaturated tint of the same hue family, rather than a plain, unrelated black or grey. Treat the background, the accent and the typography as ONE deliberate color story, never as independent, clashing choices.`
       : "";
 
     const toneInstruction = industry ? `\n\nOverall tone to match this category: ${industry.toneHint}` : "";
@@ -614,10 +581,14 @@ async function generateTemplatedPoster(backgroundBuffer: Buffer, params: FinalPo
     // pour que la typographie elle-même varie d'une génération à l'autre.
     const typographyMood = pickTypographyMood();
     const creativeBriefBlock = params.creativeBrief
-      ? `\n\nThe scene behind you was already composed with this exact creative direction — the layout, typography and finishing touches you add now must feel like they belong to the SAME unified vision, not a mismatched addition:\n- Direction: "${params.creativeBrief.archetypeName}" (${params.creativeBrief.cues.join(", ")})\n- Typography mood for this generation: ${typographyMood}.`
+      ? `\n\nThe scene behind you was already composed with this exact Creative DNA — the layout, typography and finishing touches you add now must feel like they belong to the SAME unified vision, not a mismatched addition:\n${formatCreativeBrief(params.creativeBrief, { typographyMood })}`
       : `\n\nTypography mood for this generation: ${typographyMood}.`;
 
-    const prompt = `You are a senior, award-winning advertising creative director at a world-class agency, designing the flagship, top-of-the-line tier of this product — the client paid a premium price specifically for a breathtaking result, and expects it to look like it came from a top international ad agency, not a template. You constantly explore new ideas and never repeat yourself. You are given a professional, already-composed product photo${hasMerchantLogo ? " as the first reference image" : ""}.
+    const prompt = `${CREATIVE_DIRECTOR_OPENING}
+
+You are designing the flagship, top-of-the-line tier of this product — the client paid a premium price specifically for a breathtaking result, and expects it to look like it came from a top international ad agency, not a template. You are given a professional, already-composed product photo${hasMerchantLogo ? " as the first reference image" : ""}.
+
+${CONCEPT_FIRST_INSTRUCTION}
 
 Add a complete, professional marketing poster layout on top of this exact image — do not alter the photo itself, only add design elements around/over it (price tag, contact info, typography). Do NOT add any badge, ribbon, tier label or stamp of any kind.
 
@@ -626,9 +597,16 @@ ${creativeBriefBlock}
 
 ${CREATIVITY_RULES}
 
+${VISUAL_SURPRISE_RULE}
+
+${ASYMMETRY_RULE}
+
 ${DESIGN_PRINCIPLES}
-${layoutInstruction}
+
+${LAYOUT_FREEDOM_INSTRUCTION}
 ${colorInstruction}
+
+${COLOR_HIERARCHY_INSTRUCTION}
 ${toneInstruction}
 
 Text that MUST appear, spelled and written EXACTLY as given below (this is real business information — accuracy is critical, never invent, alter or truncate any digit or character):
@@ -638,11 +616,13 @@ ${merchantLogoInstruction}
 ${customInstructionsBlock}
 
 Design rules:
-- Choose typography and finer layout details that genuinely complement this specific image — elegant, modern, magazine-cover quality, like a real advertising agency poster — while strictly respecting the mandatory layout and color palette above.
+- Choose typography and finer layout details that genuinely complement this specific image — elegant, modern, magazine-cover quality, like a real advertising agency poster — while strictly respecting the mandatory color palette above.
 - All the text listed above as "MUST appear" must be 100% accurate and fully legible.
 - Do not add any other invented text, numbers or logos beyond what's explicitly requested above.
 - No badge, ribbon, tier name or stamp anywhere on the poster.
-- Keep the product itself fully visible, not obstructed by text or UI elements.`;
+- Keep the product itself fully visible, not obstructed by text or UI elements.
+
+${SELF_CRITIQUE_INSTRUCTION}`;
 
     const backgroundBase64 = backgroundBuffer.toString("base64");
     const inputReferences: { type: "image_url"; image_url: { url: string } }[] = [
@@ -678,28 +658,12 @@ Design rules:
  * Étape "Export" / mise en page finale : GPT Image 2 dessine la mise en page en priorité
  * (créative, varie à chaque génération). Si le texte généré (prix, contact) n'est pas
  * vérifié exact, repli automatique sur le bandeau satori fiable.
- *
- * Seul le palier Premium appelle GPT Image 2 pour cette étape — c'est le palier "effet waouh",
- * celui où l'investissement se justifie. Basique et Medium restent tous les deux sur le bandeau
- * satori (fiable, gratuit à générer) pour rester les plus accessibles possible : Basique avec
- * le logo Jaarle en filigrane, Medium sans logo (pas de marque à afficher à ce palier).
  */
 export async function renderFinalPoster(
   origin: string,
   backgroundBuffer: Buffer,
   params: FinalPosterParams
 ): Promise<{ finalBuffer: Buffer; usedAiTemplate: boolean }> {
-  if (params.tier === "basic") {
-    const jaarleLogo = readFileSync(JAARLE_LOGO_PATH);
-    const finalBuffer = await renderSatoriOverlay(origin, backgroundBuffer, { ...params, logoBuffer: jaarleLogo });
-    return { finalBuffer, usedAiTemplate: false };
-  }
-
-  if (params.tier === "medium") {
-    const finalBuffer = await renderSatoriOverlay(origin, backgroundBuffer, params);
-    return { finalBuffer, usedAiTemplate: false };
-  }
-
   const { imageBase64 } = await generateTemplatedPoster(backgroundBuffer, params);
 
   if (imageBase64) {

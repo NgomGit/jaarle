@@ -92,7 +92,6 @@ export async function POST(request: Request, { params }: { params: { id: string 
       mediaType,
       creation.product_name,
       creation.industry,
-      "gold",
       trimmedInstructions,
       extraPhotos,
       opposingLayout,
@@ -104,7 +103,6 @@ export async function POST(request: Request, { params }: { params: { id: string 
       creation.service_description,
       creation.service_items ?? [],
       creation.industry,
-      "gold",
       trimmedInstructions,
       opposingLayout
     );
@@ -127,7 +125,6 @@ export async function POST(request: Request, { params }: { params: { id: string 
   try {
     const origin = new URL(request.url).origin;
     const { finalBuffer } = await renderFinalPoster(origin, backgroundBuffer, {
-      tier: "gold",
       layout,
       productName: creation.product_name,
       price: creation.price,

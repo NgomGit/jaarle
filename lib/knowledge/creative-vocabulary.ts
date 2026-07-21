@@ -39,6 +39,133 @@ export const compositionStyles = [
   "converging leading-lines composition",
 ];
 
+// Philosophies de composition au sens large (mouvements/genres esthétiques), distinctes des
+// techniques de composition ci-dessus — c'est l'axe "composition philosophy" du Creative DNA.
+export const COMPOSITION_PHILOSOPHIES = [
+  "Editorial",
+  "Luxury fashion",
+  "Museum",
+  "Architecture",
+  "Minimal Swiss",
+  "Japanese minimalism",
+  "Contemporary African",
+  "High fashion",
+  "Brutalist",
+  "Luxury packaging",
+  "Gallery",
+  "Conceptual advertising",
+  "Apple keynote",
+  "Premium magazine cover",
+  "Nike campaign",
+  "Art installation",
+  "Future luxury",
+  "Quiet luxury",
+  "Scandinavian",
+  "Industrial premium",
+  "Organic minimalism",
+  "Sculptural",
+  "Monolithic",
+  "Dynamic asymmetry",
+  "Floating composition",
+  "Architectural framing",
+  "Negative-space driven",
+  "Graphic storytelling",
+  "Luxury retail display",
+];
+
+// Dispositifs visuels ponctuels — l'IA en choisit exactement 2 par génération, jamais plus.
+export const VISUAL_DEVICES = [
+  "Geometric masks",
+  "Broken grids",
+  "Architectural cutouts",
+  "Paper layers",
+  "Glass panels",
+  "Floating reflections",
+  "Premium gradients",
+  "Material transitions",
+  "Framing windows",
+  "Dynamic diagonals",
+  "Light beams",
+  "Soft particles",
+  "Volumetric shadows",
+  "Premium ribbons",
+  "Perspective distortion",
+  "Cinematic haze",
+  "Liquid reflections",
+  "Oversized crops",
+  "Layered geometry",
+  "Editorial overlaps",
+  "Glass morphism",
+  "Depth stacking",
+  "Floating panels",
+  "Premium borders",
+  "Sculptural blocks",
+  "Radial composition",
+  "Editorial whitespace",
+  "Premium framing",
+  "Organic curves",
+  "Abstract planes",
+];
+
+// Stratégies d'éclairage nommées — la lumière comme outil narratif, pas juste "premium lighting".
+export const LIGHTING_STRATEGIES = [
+  "Golden hour",
+  "Museum lighting",
+  "Luxury retail",
+  "Editorial fashion",
+  "Architectural daylight",
+  "Cinematic contrast",
+  "Soft directional light",
+  "Volumetric light",
+  "Backlighting",
+  "Studio spotlight",
+  "Luxury window light",
+  "Premium ambient glow",
+  "Natural luxury",
+];
+
+// Effet visuel ponctuel — un axe distinct du "visual device" (plus proche d'un traitement optique
+// que d'un élément graphique ajouté).
+export const VISUAL_EFFECTS = [
+  "subtle lens flare",
+  "chromatic light dispersion",
+  "double-exposure blending",
+  "holographic sheen",
+  "prism light refraction",
+  "motion-blur energy trail",
+  "light-leak overlay",
+  "particle dust in light beams",
+  "heat-haze distortion",
+  "iridescent surface shimmer",
+  "soft bloom glow",
+  "long-exposure light trails",
+  "liquid metal ripple",
+  "smoke-diffusion atmosphere",
+  "crystalline light refraction",
+  "ghosted double-image layering",
+  "underwater light caustics",
+  "fine atmospheric grain",
+];
+
+// Comment la profondeur est construite dans l'image.
+export const DEPTH_STRATEGIES = [
+  "shallow depth-of-field isolation",
+  "deep layered focus stacking",
+  "atmospheric aerial perspective",
+  "foreground framing depth",
+  "parallax layered planes",
+  "macro-to-wide depth compression",
+  "selective focus falloff",
+  "layered silhouette depth",
+  "tilt-shift miniature depth",
+  "receding scale depth",
+  "fog-diffused depth layering",
+  "overlapping plane depth",
+  "vertical depth stacking",
+  "diagonal depth recession",
+  "focal-point depth isolation",
+];
+
 export const artDirections = [
   "editorial fashion direction",
   "minimalist Scandinavian direction",
@@ -779,169 +906,6 @@ export const visualStorytellingConcepts = [
   "cultural-pride narrative",
 ];
 
-/**
- * Archétypes créatifs : chacun est un bundle de 6 choix cohérents, curatés à la main comme le
- * ferait un directeur artistique senior — pas une liste de mots au hasard. Le tirage se fait
- * sur l'archétype ENTIER (pas mot par mot), pour garantir une direction unique et intentionnelle
- * plutôt qu'un patchwork de concepts qui ne vont pas ensemble.
- */
-interface Archetype {
-  name: string;
-  cues: string[];
-}
-
-const ARCHETYPES: Archetype[] = [
-  {
-    name: "Editorial Architectural",
-    cues: [
-      "asymmetric editorial grid",
-      "architectural doorway framing",
-      "low-angle heroic angle",
-      "warm golden-hour lighting",
-      "raw concrete material",
-      "muted tonal analogous harmony",
-    ],
-  },
-  {
-    name: "Minimalist Luxury Studio",
-    cues: [
-      "abundant negative space",
-      "geometric polygon mask",
-      "soft diffused studio lighting",
-      "floating centered framing",
-      "monochromatic tonal harmony",
-      "marble surface backdrop",
-    ],
-  },
-  {
-    name: "Bold Geometric Graphic",
-    cues: [
-      "bold color-block shapes",
-      "hexagonal grid shapes",
-      "high-contrast dramatic look",
-      "diagonal dynamic composition",
-      "triadic vibrant harmony",
-      "duotone color overlay",
-    ],
-  },
-  {
-    name: "Warm Organic Botanical",
-    cues: [
-      "lush tropical garden environment",
-      "fresh botanical sprigs",
-      "natural window light",
-      "organic freeform mask",
-      "analogous soft harmony",
-      "woven raffia texture",
-    ],
-  },
-  {
-    name: "African Contemporary Editorial",
-    cues: [
-      "contemporary wax-print color stories",
-      "Sahelian mudbrick architecture",
-      "Pan-African color palette cues",
-      "asymmetric composition",
-      "warm golden-hour lighting",
-      "indigo-dye textile inspiration",
-    ],
-  },
-  {
-    name: "Cinematic Dramatic",
-    cues: [
-      "dramatic chiaroscuro lighting",
-      "low-key moody lighting",
-      "long dramatic shadow",
-      "cinematic widescreen composition",
-      "deep jewel-tone cues",
-      "charcoal-and-metallic harmony",
-    ],
-  },
-  {
-    name: "Soft Studio Premium",
-    cues: [
-      "soft diffused studio lighting",
-      "floating shadow framing",
-      "blush-and-gold harmony",
-      "soft gradient shadow falloff",
-      "velvet texture cues",
-      "abundant negative space",
-    ],
-  },
-  {
-    name: "Industrial Modern",
-    cues: [
-      "brutalist concrete architecture",
-      "raw concrete material",
-      "hard directional spotlight",
-      "oxidized copper material",
-      "industrial texture backdrop",
-      "high-contrast dramatic look",
-    ],
-  },
-  {
-    name: "Flagship Retail Premium",
-    cues: [
-      "flagship boutique window display",
-      "elevated pedestal framing",
-      "polished brass material",
-      "gold foil accents",
-      "reflective surface backdrop",
-      "understated logo placement",
-    ],
-  },
-  {
-    name: "Avant-Garde Artistic",
-    cues: [
-      "abstract painterly backdrop",
-      "asymmetric polygon clusters",
-      "radial spotlight mask",
-      "bold pop-art direction",
-      "kinetic motion-line accents",
-      "split-complementary harmony",
-    ],
-  },
-  {
-    name: "Coastal Natural Light",
-    cues: [
-      "sun-drenched beach environment",
-      "natural window light",
-      "rippled water texture",
-      "ocean-tone harmony",
-      "wind-blown movement cues",
-      "soft gradient negative space",
-    ],
-  },
-  {
-    name: "Heritage Craftsmanship",
-    cues: [
-      "artisan workshop interior",
-      "hand-woven textile material",
-      "warm golden-hour lighting",
-      "craftsmanship-in-progress narrative",
-      "terracotta-and-cream harmony",
-      "woven basket accents",
-    ],
-  },
-];
-
-const GARNISH_POOLS: string[][] = [
-  graphicElements,
-  geometricShapes,
-  maskStyles,
-  decorativeObjects,
-  negativeSpaceLayouts,
-  gridSystems,
-  layeringTechniques,
-  shadowStyles,
-  reflectionStyles,
-  glassEffects,
-  framingTechniques,
-  motionEnergyCues,
-  contrastStyles,
-  surfaceTextures,
-];
-
 const REFERENCE_WORLD_POOLS: string[][] = [
   premiumRetailInspiration,
   editorialMagazineInspiration,
@@ -961,75 +925,121 @@ function pickRandom<T>(arr: T[], n: number): T[] {
   return result;
 }
 
+/**
+ * "Creative DNA" : 9 axes choisis INDÉPENDAMMENT (pas un bundle pré-assorti à la main) + 2
+ * dispositifs visuels (jamais plus) + une phrase de référence. L'IA elle-même est chargée de
+ * combiner ces choix en une direction cohérente (voir formatCreativeBrief) — plutôt que nous
+ * pré-assortissions des archétypes, on lui fait confiance pour l'assemblage créatif final, ce
+ * qui donne un espace combinatoire bien plus large et évite que deux générations se ressemblent.
+ */
 export interface CreativeBrief {
-  archetypeName: string;
-  cues: string[];
+  compositionPhilosophy: string;
+  cameraLanguage: string;
+  lightingStrategy: string;
+  storytellingDirection: string;
+  materialLanguage: string;
+  visualEffect: string;
+  depthStrategy: string;
+  framingTechnique: string;
+  contrastStrategy: string;
+  visualDevices: string[];
   referenceWorld: string;
 }
 
 /**
- * Tire un brief créatif cohérent : un archétype entier (6 choix déjà assortis) + 3 pioches de
- * "garniture" indépendantes (accents graphiques/textures/ombres...) + une phrase de référence
- * ("cela doit ressembler à..."). Zéro appel API supplémentaire — pure logique aléatoire, donc
- * aucun coût additionnel, applicable à tous les paliers.
+ * Tire un Creative DNA complet : 9 pioches indépendantes + exactement 2 dispositifs visuels +
+ * une phrase de référence. Zéro appel API supplémentaire — pure logique aléatoire.
  */
 export function buildCreativeBrief(): CreativeBrief {
-  const archetype = pickRandom(ARCHETYPES, 1)[0];
-  const chosenPools = pickRandom(GARNISH_POOLS, 3);
-  const garnish = chosenPools.map((pool) => pickRandom(pool, 1)[0]);
   const referencePool = pickRandom(REFERENCE_WORLD_POOLS, 1)[0];
-  const referenceWorld = pickRandom(referencePool, 1)[0];
 
   return {
-    archetypeName: archetype.name,
-    cues: [...archetype.cues, ...garnish],
-    referenceWorld,
+    compositionPhilosophy: pickRandom(COMPOSITION_PHILOSOPHIES, 1)[0],
+    cameraLanguage: pickRandom(cameraAngles, 1)[0],
+    lightingStrategy: pickRandom(LIGHTING_STRATEGIES, 1)[0],
+    storytellingDirection: pickRandom(visualStorytellingConcepts, 1)[0],
+    materialLanguage: pickRandom(materials, 1)[0],
+    visualEffect: pickRandom(VISUAL_EFFECTS, 1)[0],
+    depthStrategy: pickRandom(DEPTH_STRATEGIES, 1)[0],
+    framingTechnique: pickRandom(framingTechniques, 1)[0],
+    contrastStrategy: pickRandom(contrastStyles, 1)[0],
+    visualDevices: pickRandom(VISUAL_DEVICES, 2),
+    referenceWorld: pickRandom(referencePool, 1)[0],
   };
 }
 
 /**
  * Choisit une humeur typographique indépendante — utilisée uniquement à l'étape de mise en
- * page complète (Premium/Gold), pour que la typographie varie elle aussi d'une génération à
- * l'autre, indépendamment du décor.
+ * page complète (Standard/Advanced), pour que la typographie varie elle aussi d'une génération
+ * à l'autre, indépendamment du décor.
  */
 export function pickTypographyMood(): string {
   return pickRandom(typographyMoods, 1)[0];
 }
 
 /**
- * Met en forme le brief pour l'injecter dans le prompt d'un modèle de génération d'image.
- * Insiste explicitement sur la cohérence (traiter la liste comme une seule direction, pas un
- * patchwork) — c'est le point qui différencie "créatif" de "n'importe quoi".
+ * Met en forme le Creative DNA pour l'injecter dans le prompt. Précise explicitement que ces
+ * 9+2 choix doivent être combinés NATURELLEMENT en un seul concept cohérent — c'est ce qui
+ * différencie "créatif" d'un patchwork de mots-clés sans lien.
  */
 export function formatCreativeBrief(brief: CreativeBrief, opts?: { typographyMood?: string }): string {
   const lines = [
-    `Creative direction for THIS generation only (a senior art director's brief — never reuse this exact combination for another generation):`,
-    `- Overall direction: "${brief.archetypeName}"`,
-    ...brief.cues.map((c) => `- ${c}`),
+    `Creative DNA for THIS generation only (never reuse this exact combination for another generation):`,
+    `- Composition philosophy: ${brief.compositionPhilosophy}`,
+    `- Camera language: ${brief.cameraLanguage}`,
+    `- Lighting strategy: ${brief.lightingStrategy}`,
+    `- Storytelling direction: ${brief.storytellingDirection}`,
+    `- Premium material language: ${brief.materialLanguage}`,
+    `- Visual effect: ${brief.visualEffect}`,
+    `- Depth strategy: ${brief.depthStrategy}`,
+    `- Framing technique: ${brief.framingTechnique}`,
+    `- Contrast strategy: ${brief.contrastStrategy}`,
+    `- Visual devices (use exactly these two, never more): ${brief.visualDevices.join(", ")}`,
     `- Reference world: this should feel like it belongs in a ${brief.referenceWorld}.`,
   ];
   if (opts?.typographyMood) {
     lines.push(`- Typography mood: ${opts.typographyMood}.`);
   }
   lines.push(
-    `Blend these cues into ONE coherent, intentional visual direction — never apply them as a disconnected checklist. A senior art director looking at this list would understand exactly what unified mood to create, and would still make dozens of small independent judgment calls to bring it to life.`
+    `Combine these choices naturally into ONE coherent, intentional visual concept — never apply them as a disconnected checklist. A senior art director looking at this list would understand exactly what unified mood to create, and would still make dozens of small independent judgment calls to bring it to life.`
   );
   return lines.join("\n");
 }
 
+export const CREATIVE_DIRECTOR_OPENING = `You are the Creative Director of the world's most awarded advertising agency. Your work competes every year at Cannes Lions, D&AD, The One Show and ADC. You are famous for creating advertising visuals that people instantly remember. Every campaign begins with an original visual idea, never with a template. You never repeat compositions. You never produce generic AI-looking images. Every image must feel handcrafted, intentional and creatively art-directed. The objective is not simply to create a beautiful advertisement — the objective is to create an advertisement that immediately captures attention, creates emotion and makes people stop scrolling. Think like an Art Director first. Think like a Photographer second. Think like a Designer third.`;
+
+export const CONCEPT_FIRST_INSTRUCTION = `Before creating anything, silently invent a unique advertising concept. Ask yourself: "What is the one visual idea that makes this advertisement unforgettable?" Everything else must support this single idea. Never begin with a layout — begin with the concept. If the concept could easily be confused with a generic template, reject it and invent another one.`;
+
+export const VISUAL_SURPRISE_RULE = `Visual surprise is mandatory: every poster must introduce at least one unexpected premium visual idea — for example the product emerging from architecture, shadows becoming graphic elements, geometric masks revealing the product, premium reflections, sculptural lighting, editorial cropping, oversized perspective, material transitions, premium framing, or dramatic negative space. The surprise should feel elegant rather than flashy.`;
+
+export const ASYMMETRY_RULE = `Avoid visual symmetry by default — perfect symmetry often looks artificial. Prefer carefully balanced asymmetry; the eye should naturally travel through the composition.`;
+
+export const COLOR_HIERARCHY_INSTRUCTION = `Build a deliberate color hierarchy: a dominant color, a supporting color, an accent color, and a neutral balance. The palette should guide the viewer's attention naturally toward the subject.`;
+
+export const SELF_CRITIQUE_INSTRUCTION = `Before finalizing the image, evaluate it internally: would this visual deserve to appear in Behance Featured, Awwwards, D&AD or Cannes Lions? If not, increase the originality, improve the composition, strengthen the concept, simplify the layout, and introduce one stronger memorable visual idea. Only stop once the result feels premium enough to be mistaken for work from an elite international creative agency.`;
+
 /**
- * Règles de créativité — verbatim l'esprit demandé : jamais la même composition, éviter
- * l'esthétique IA générique, éviter les mises en page prévisibles, varier cadrage/angle/rythme,
- * introduire ponctuellement des éléments graphiques ou masques audacieux, risque créatif
- * maîtrisé sans jamais sacrifier l'élégance.
+ * Utilisée uniquement pour l'étape de mise en page finale (voir generateTemplatedPoster) — plus
+ * de gabarit imposé (side-panel/bottom-bar) pour CETTE passe, l'IA choisit librement dans une
+ * liste riche. `getNegativeSpaceInstruction`/le gabarit tiré au hasard restent utilisés en amont
+ * pour composer le fond ET comme filet de secours déterministe (bandeau satori) si cette passe
+ * échoue — seule la mise en page FINALE dessinée par l'IA n'est plus contrainte à un binaire.
+ */
+export const LAYOUT_FREEDOM_INSTRUCTION = `The layout must prioritize readability while allowing creative freedom. Choose the typography placement that best serves this specific composition. Possible layouts include: editorial left column, floating typography, architectural frame, integrated typography, premium bottom strip, luxury side panel, split composition, magazine cover, minimalist overlay, asymmetrical information block. Never repeat the same layout strategy. Typography should feel designed for this image, not placed on top of it.`;
+
+export function formatLightingInstruction(strategy: string): string {
+  return `Lighting is one of the primary storytelling tools — never default to generic studio lighting. Choose lighting that reinforces the concept. For THIS generation, use: ${strategy} lighting.`;
+}
+
+/**
+ * Règles de créativité : jamais deux compositions qui se ressemblent, en variant explicitement
+ * chacun de ces axes plutôt qu'une injonction vague de "ne pas se répéter".
  */
 export const CREATIVITY_RULES = `Creativity rules (non-negotiable):
+- No composition may resemble a previous one. Vary: camera angle, negative space, subject placement, framing, light direction, depth, materials, visual rhythm, color hierarchy, background construction, creative device, shape language.
+- No two posters should look like variations of the same template.
 - Never default to a centered, safe, generic product-photo layout — that is the single most common failure mode to avoid.
-- Avoid generic AI-generated aesthetics: no plain pastel gradient with a soft cast shadow and nothing else, no default "floating product on seamless backdrop" unless that specific choice was deliberately made above.
-- Avoid predictable, interchangeable layouts — this composition must feel like it was designed specifically for this subject, not applied from a template.
-- Vary framing, perspective and visual rhythm rather than repeating the same safe choice.
-- Where it fits the direction above, introduce a bold geometric element, a mask, a frame, an overlay or an abstract shape to create genuine visual interest — but only where it serves the composition, never gratuitously.
-- Take a controlled creative risk while preserving elegance and legibility — ambition without chaos.
+- Avoid generic AI-generated aesthetics: no plain pastel gradient with a soft cast shadow and nothing else.
 - The result must feel intentionally designed by a senior art director, not randomly assembled.`;
 
 /**

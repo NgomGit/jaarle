@@ -77,7 +77,6 @@ function wrapText(text: string, maxCharsPerLine: number, maxLines: number): stri
 
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
-  const tier = params.get("tier") || "basic";
   const layout = params.get("layout") === "side-panel" ? "side-panel" : "bottom-bar";
   const productName = params.get("productName") || "";
   const price = params.get("price") || "";
@@ -97,7 +96,6 @@ export async function GET(request: NextRequest) {
       : DEFAULT_ACCENT;
   const accentGradient = `linear-gradient(135deg, ${accent.from}, ${accent.to})`;
 
-  const isRichTier = tier === "premium" || tier === "gold";
   const showContact = !!phone;
 
   const contactPill = (
@@ -187,25 +185,24 @@ export async function GET(request: NextRequest) {
                 </div>
                 <span style={{ display: "flex", color: COLORS.white, fontSize: 26, fontWeight: 800 }}>{price}</span>
               </div>
-              {isRichTier &&
-                benefits.map((b) => (
-                  <div key={b} style={{ display: "flex", alignItems: "center", gap: 8, color: COLORS.white, fontSize: 14, fontWeight: 600 }}>
-                    <CheckIcon size={14} color={accent.from} />
-                    {b}
-                  </div>
-                ))}
+              {benefits.map((b) => (
+                <div key={b} style={{ display: "flex", alignItems: "center", gap: 8, color: COLORS.white, fontSize: 14, fontWeight: 600 }}>
+                  <CheckIcon size={14} color={accent.from} />
+                  {b}
+                </div>
+              ))}
             </div>
 
             {showContact && (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {contactPill}
-                {isRichTier && ctaButton}
+                {ctaButton}
               </div>
             )}
           </div>
         ) : (
           <div style={{ display: "flex", width: "100%", height: "100%", position: "relative" }}>
-            {isRichTier && benefits.length > 0 && (
+            {benefits.length > 0 && (
               <div style={{ position: "absolute", top: 28, right: 28, display: "flex", flexDirection: "column", gap: 10 }}>
                 {benefits.map((b) => (
                   <div
@@ -244,7 +241,7 @@ export async function GET(request: NextRequest) {
             >
               <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", width: "100%" }}>
                 <div style={{ display: "flex", flexDirection: "column" }}>
-                  <div style={{ display: "flex", color: COLORS.white, fontSize: isRichTier ? 36 : 26, fontWeight: 800 }}>
+                  <div style={{ display: "flex", color: COLORS.white, fontSize: 36, fontWeight: 800 }}>
                     {productName}
                   </div>
                   {businessName && (
@@ -252,8 +249,8 @@ export async function GET(request: NextRequest) {
                   )}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  {isRichTier && <TagIcon size={20} color={COLORS.white} />}
-                  <div style={{ display: "flex", color: COLORS.white, fontSize: isRichTier ? 32 : 24, fontWeight: 700 }}>
+                  <TagIcon size={20} color={COLORS.white} />
+                  <div style={{ display: "flex", color: COLORS.white, fontSize: 32, fontWeight: 700 }}>
                     {price}
                   </div>
                 </div>
@@ -262,7 +259,7 @@ export async function GET(request: NextRequest) {
               {showContact && (
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 18 }}>
                   {contactPill}
-                  {isRichTier && ctaButton}
+                  {ctaButton}
                 </div>
               )}
             </div>

@@ -64,10 +64,6 @@
     "desc": "No mandatory subscription, no expiring credits. Pay with Wave or Orange Money.",
     "freeTitle": "Generation",
     "freeUnit": "up to 5 tries, before you pay",
-    "simpleTitle": "Basic",
-    "simpleUnit": "per poster",
-    "campaignTitle": "Medium",
-    "campaignUnit": "image + copy, all included",
     "campaignTag": "Most popular",
     "packTitle": "Standard",
     "packUnit": "the wow effect, no compromise",
@@ -220,14 +216,6 @@
     "stepCustomize": "Customize",
     "tierLabel": "Poster quality",
     "tier": {
-      "basic": {
-        "name": "Basic",
-        "desc": "Styled background, name, price and contact."
-      },
-      "medium": {
-        "name": "Medium",
-        "desc": "+ style badge."
-      },
       "premium": {
         "name": "Standard",
         "desc": "Our most polished design, built for the wow effect."

@@ -148,13 +148,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Champs manquants." }, { status: 400 });
   }
 
-  const normalizedTier: Tier = (tier as Tier) || "basic";
+  const normalizedTier: Tier = (tier as Tier) || "premium";
   const isGold = normalizedTier === "gold";
-  const hasBranding = normalizedTier === "premium" || isGold;
   const normalizedShowSecondaryPhotos = isGold && !!showSecondaryPhotos;
 
   let logoBuffer: Buffer | null = null;
-  if (hasBranding && logoPath) {
+  if (logoPath) {
     const { data: logoBlob } = await supabase.storage.from("creations").download(logoPath);
     if (logoBlob) logoBuffer = Buffer.from(await logoBlob.arrayBuffer());
   }
@@ -200,18 +199,16 @@ export async function POST(request: Request) {
             mediaType,
             productName,
             industry,
-            normalizedTier,
             null,
             extraPhotos,
             undefined,
             normalizedShowSecondaryPhotos
           )
-        : await buildServiceBackground(productName, serviceDescription, normalizedItems, industry, normalizedTier);
+        : await buildServiceBackground(productName, serviceDescription, normalizedItems, industry);
 
     const { backgroundBuffer, imageError, layout, accentGradient, creativeBrief } = backgroundResult;
 
     const { finalBuffer } = await renderFinalPoster(new URL(request.url).origin, backgroundBuffer, {
-      tier: normalizedTier,
       layout,
       productName,
       price,
@@ -283,8 +280,8 @@ export async function POST(request: Request) {
       unlocked: false,
       tier: normalizedTier,
       regenerations_used: 0,
-      logo_path: hasBranding ? logoPath : null,
-      business_name: hasBranding ? businessName : null,
+      logo_path: logoPath,
+      business_name: businessName,
       contact_phone: phone || null,
       subject_type: normalizedSubjectType,
       service_description: normalizedSubjectType === "service" ? serviceDescription : null,

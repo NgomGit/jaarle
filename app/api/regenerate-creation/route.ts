@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getTierConfig, type Tier } from "@/lib/pricing";
+import { getTierConfig } from "@/lib/pricing";
 import {
   ALLOWED_MEDIA_TYPES,
   type AllowedMediaType,
@@ -69,7 +69,6 @@ export async function POST(request: Request) {
       mediaType,
       creation.product_name,
       creation.industry,
-      creation.tier as Tier,
       trimmedInstructions
     );
   } else {
@@ -78,7 +77,6 @@ export async function POST(request: Request) {
       creation.service_description,
       creation.service_items ?? [],
       creation.industry,
-      creation.tier as Tier,
       trimmedInstructions
     );
   }
@@ -87,7 +85,7 @@ export async function POST(request: Request) {
   const phone = creation.contact_phone || (user.user_metadata?.whatsapp_number as string | undefined) || user.phone || "";
 
   let logoBuffer: Buffer | null = null;
-  if ((creation.tier === "premium" || creation.tier === "gold") && creation.logo_path) {
+  if (creation.logo_path) {
     const { data: logoBlob } = await supabase.storage.from("creations").download(creation.logo_path);
     if (logoBlob) logoBuffer = Buffer.from(await logoBlob.arrayBuffer());
   }
@@ -96,7 +94,6 @@ export async function POST(request: Request) {
   try {
     const origin = new URL(request.url).origin;
     const { finalBuffer } = await renderFinalPoster(origin, backgroundBuffer, {
-      tier: creation.tier as Tier,
       layout,
       productName: creation.product_name,
       price: creation.price,
