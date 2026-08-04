@@ -12,8 +12,10 @@ import {
   type LayoutVariant,
   buildPosterBackground,
   buildServiceBackground,
+  buildArtisanPoster,
   renderFinalPoster,
 } from "@/lib/poster-pipeline";
+import { ARTISAN_INDUSTRIES } from "@/lib/art-directions";
 
 // La génération enchaîne plusieurs appels IA séquentiels (fond + mise en page + vérifications)
 // — sans ceci, la fonction serverless expire avant la fin sur la plupart des plans Vercel (15s
@@ -191,6 +193,27 @@ export async function POST(request: Request) {
   const phone = contactPhone?.trim() || (user.user_metadata?.whatsapp_number as string | undefined) || user.phone || "";
 
   async function renderVariation() {
+    // Chemin "artisan" : décor à motifs africains rendu par sharp (aucun appel IA
+    // image), produit fidèle, texte exact — pour les catégories artisanales avec
+    // photo. En cas d'indisponibilité du détourage (remove.bg), on retombe
+    // silencieusement sur le flux standard ci-dessous.
+    if (photoBuffer && ARTISAN_INDUSTRIES.has(industry ?? "")) {
+      try {
+        const artisan = await buildArtisanPoster(new URL(request.url).origin, photoBuffer, {
+          productName,
+          price,
+          phone,
+          industry,
+          businessName,
+          logoBuffer,
+          seed: Date.now(),
+        });
+        return { finalBuffer: artisan.finalBuffer, imageError: null as string | null, layout: artisan.layout };
+      } catch {
+        // détourage indisponible ou erreur — bascule sur le pipeline standard
+      }
+    }
+
     const backgroundResult =
       photoBuffer && photoBase64
         ? await buildPosterBackground(

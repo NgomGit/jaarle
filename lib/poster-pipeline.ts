@@ -23,6 +23,8 @@ import {
   type CreativeBrief,
 } from "@/lib/knowledge/creative-vocabulary";
 import { ALLOWED_MEDIA_TYPES, type AllowedMediaType } from "@/lib/media-types";
+import { pickArtDirection } from "@/lib/art-directions";
+import { buildDesignedBackground, placeProduct } from "@/lib/designed-background";
 
 export { ALLOWED_MEDIA_TYPES, type AllowedMediaType };
 
@@ -681,4 +683,61 @@ export async function renderFinalPoster(
 
   const finalBuffer = await renderSatoriOverlay(origin, backgroundBuffer, params);
   return { finalBuffer, usedAiTemplate: false };
+}
+
+/** Assombrit une couleur hex (amt négatif) — pour dériver un dégradé d'accent. */
+function shade(hex: string, amt: number): string {
+  const n = parseInt(hex.replace("#", ""), 16);
+  const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v * (1 + amt))));
+  const r = clamp((n >> 16) & 255);
+  const g = clamp((n >> 8) & 255);
+  const b = clamp(n & 255);
+  return "#" + ((r << 16) | (g << 8) | b).toString(16).padStart(6, "0");
+}
+
+/**
+ * Chemin "artisan" — décor à motifs africains (bogolan / adinkra / kente) rendu
+ * par sharp, SANS aucun appel IA image. Le produit est détouré (pixels intacts,
+ * comme le reste du pipeline) et posé sur le décor, puis le texte prix/contact est
+ * ajouté par le bandeau satori fiable (texte toujours exact). Alternative rapide et
+ * économique à buildPosterBackground + renderFinalPoster, réservée aux catégories
+ * artisanales (mode, sacs, chaussures...). Lève une erreur si le détourage n'est pas
+ * disponible (REMOVEBG_API_KEY absent) — l'appelant retombe alors sur le flux standard.
+ */
+export async function buildArtisanPoster(
+  origin: string,
+  photoBuffer: Buffer,
+  params: {
+    productName: string;
+    price: number | null;
+    phone: string;
+    industry: string | null;
+    businessName?: string | null;
+    logoBuffer?: Buffer | null;
+    seed?: number;
+  }
+): Promise<{ finalBuffer: Buffer; layout: LayoutVariant }> {
+  const dir = pickArtDirection(params.industry, params.seed ?? 1);
+
+  // Détourage produit — laissé remonter en cas d'échec (voir docstring).
+  const cutout = await removeBackground(photoBuffer);
+
+  // Décor 1024×1024 (format du pipeline satori) + produit dans la moitié haute,
+  // bande basse laissée calme pour le bandeau texte (layout bottom-bar).
+  let bg = await buildDesignedBackground(dir, 1024, 1024);
+  bg = await placeProduct(bg, cutout, { width: 760, top: 120, left: 132 });
+
+  const finalBuffer = await renderSatoriOverlay(origin, bg, {
+    layout: "bottom-bar",
+    productName: params.productName,
+    price: params.price,
+    phone: params.phone,
+    industry: params.industry,
+    accentGradient: { from: dir.palette.accent, to: shade(dir.palette.accent, -0.35) },
+    businessName: params.businessName ?? null,
+    logoBuffer: params.logoBuffer ?? null,
+    creativeBrief: null,
+  });
+
+  return { finalBuffer, layout: "bottom-bar" };
 }
