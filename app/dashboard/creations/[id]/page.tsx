@@ -1,6 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getCreation } from "@/lib/supabase/creations";
+import { getCreation, getCreationVersions } from "@/lib/supabase/creations";
 import { getTierConfig } from "@/lib/pricing";
 import { CreationDetail } from "@/components/dashboard/creation-detail";
 
@@ -19,5 +19,7 @@ export default async function CreationDetailPage({ params }: { params: { id: str
     notFound();
   }
 
-  return <CreationDetail creation={creation} tierPrice={getTierConfig(creation.tier).price} />;
+  const versions = await getCreationVersions(supabase, creation.id);
+
+  return <CreationDetail creation={creation} versions={versions} tierPrice={getTierConfig(creation.tier).price} />;
 }

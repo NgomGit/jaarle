@@ -28,11 +28,27 @@ export async function GET(request: Request, { params }: { params: { id: string }
     return new NextResponse("Introuvable.", { status: 404 });
   }
 
-  const variant = new URL(request.url).searchParams.get("variant");
-  // La variante 2 est toujours une affiche générée : on ne retombe JAMAIS sur la photo produit
-  // (sinon on afficherait l'image d'origine au lieu de l'affiche). La variante 1 garde son repli
-  // sur la photo tant que l'affiche n'est pas prête.
-  const displayPath = variant === "2" ? creation.poster_path_2 : creation.poster_path || creation.photo_path;
+  const search = new URL(request.url).searchParams;
+  const variant = search.get("variant");
+  const versionId = search.get("version");
+
+  // `?version=<id>` sert une version précise de l'historique (creation_versions) — RLS + filtre
+  // explicite garantissent que l'utilisateur n'accède qu'à ses propres versions.
+  // Sinon : variante 2 = affiche générée uniquement (jamais de repli sur la photo produit),
+  // variante 1 = poster courant avec repli sur la photo tant que l'affiche n'est pas prête.
+  let displayPath: string | null;
+  if (versionId) {
+    const { data: version } = await supabase
+      .from("creation_versions")
+      .select("poster_path")
+      .eq("id", versionId)
+      .eq("creation_id", params.id)
+      .eq("user_id", user.id)
+      .single();
+    displayPath = version?.poster_path ?? null;
+  } else {
+    displayPath = variant === "2" ? creation.poster_path_2 : creation.poster_path || creation.photo_path;
+  }
   if (!displayPath) {
     return new NextResponse("Image introuvable.", { status: 404 });
   }

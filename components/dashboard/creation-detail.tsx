@@ -4,25 +4,62 @@ import * as React from "react";
 import Link from "next/link";
 import { ArrowLeft, Copy, Check, Download, Lock, Share2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { useLocale } from "@/lib/locale-context";
-import type { Creation } from "@/lib/supabase/creations";
+import type { Creation, CreationVersion } from "@/lib/supabase/creations";
+import { getTierConfig } from "@/lib/pricing";
 import { PosterCarousel } from "@/components/dashboard/poster-carousel";
 
 function formatHashtags(hashtags: string[]): string {
   return hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ");
 }
 
-export function CreationDetail({ creation, tierPrice }: { creation: Creation; tierPrice: number }) {
+export function CreationDetail({
+  creation,
+  versions = [],
+  tierPrice,
+}: {
+  creation: Creation;
+  versions?: CreationVersion[];
+  tierPrice: number;
+}) {
   const { t } = useLocale();
   const [unlocking, setUnlocking] = React.useState(false);
   const [sharing, setSharing] = React.useState(false);
   const [copied, setCopied] = React.useState<"text" | "hashtags" | null>(null);
   const [canNativeShare, setCanNativeShare] = React.useState(false);
-  const [imageUrl2, setImageUrl2] = React.useState<string | null>(creation.photoUrl2);
-  const [generatingVariant, setGeneratingVariant] = React.useState(false);
+  // Historique des versions : si la migration a peuplé creation_versions, on part de là ;
+  // sinon repli sur les anciens champs (poster_path / poster_path_2) pour les vieilles créations.
+  const initialItems: { url: string; kind?: string }[] =
+    versions.length > 0
+      ? versions.map((v) => ({ url: v.url, kind: v.kind }))
+      : [
+          ...(creation.photoUrl ? [{ url: creation.photoUrl, kind: "principale" }] : []),
+          ...(creation.photoUrl2 ? [{ url: creation.photoUrl2, kind: "declinaison" }] : []),
+        ];
 
-  const images = [creation.photoUrl, imageUrl2].filter((u): u is string => !!u);
-  const canGenerateSecond = creation.tier === "gold" && !imageUrl2;
+  const [items, setItems] = React.useState<{ url: string; kind?: string }[]>(initialItems);
+  const [currentIndex, setCurrentIndex] = React.useState(0);
+  const [focus, setFocus] = React.useState<number | undefined>(undefined);
+  const [hasDeclination, setHasDeclination] = React.useState(
+    versions.some((v) => v.kind === "declinaison") || !!creation.photoUrl2
+  );
+  const [generatingVariant, setGeneratingVariant] = React.useState(false);
+  const [declinationInstructions, setDeclinationInstructions] = React.useState("");
+  const [regenerating, setRegenerating] = React.useState(false);
+  const [regenInstructions, setRegenInstructions] = React.useState("");
+  const [regenRemaining, setRegenRemaining] = React.useState(
+    Math.max(0, getTierConfig(creation.tier).maxRegenerations - (creation.regenerations_used ?? 0))
+  );
+
+  const images = items.map((it) => it.url);
+  const currentUrl = images[currentIndex] ?? images[images.length - 1] ?? "";
+  const canGenerateSecond = creation.tier === "gold" && !hasDeclination;
+
+  function appendVersion(url: string, kind: string) {
+    setFocus(items.length); // index de la nouvelle version (items.length AVANT ajout)
+    setItems((prev) => [...prev, { url, kind }]);
+  }
 
   async function generateSecondVariant() {
     if (generatingVariant) return;
@@ -31,14 +68,40 @@ export function CreationDetail({ creation, tierPrice }: { creation: Creation; ti
       const res = await fetch(`/api/creations/${creation.id}/declination`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customInstructions: null }),
+        body: JSON.stringify({ customInstructions: declinationInstructions.trim() || null }),
       });
       const data = (await res.json()) as { imageUrl2?: string; error?: string };
-      if (res.ok && data.imageUrl2) setImageUrl2(data.imageUrl2);
+      if (res.ok && data.imageUrl2) {
+        appendVersion(data.imageUrl2, "declinaison");
+        setHasDeclination(true);
+        setDeclinationInstructions("");
+      }
     } catch {
       // silencieux : l'utilisateur peut réessayer
     } finally {
       setGeneratingVariant(false);
+    }
+  }
+
+  async function regenerate() {
+    if (regenerating || regenRemaining <= 0) return;
+    setRegenerating(true);
+    try {
+      const res = await fetch("/api/regenerate-creation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ creationId: creation.id, customInstructions: regenInstructions.trim() || null }),
+      });
+      const data = (await res.json()) as { imageUrl?: string; regenerationsRemaining?: number; error?: string };
+      if (res.ok && data.imageUrl) {
+        appendVersion(data.imageUrl, "regeneration");
+        setRegenInstructions("");
+        if (typeof data.regenerationsRemaining === "number") setRegenRemaining(data.regenerationsRemaining);
+      }
+    } catch {
+      // silencieux : l'utilisateur peut réessayer
+    } finally {
+      setRegenerating(false);
     }
   }
 
@@ -78,10 +141,10 @@ export function CreationDetail({ creation, tierPrice }: { creation: Creation; ti
   }
 
   async function share() {
-    if (!creation.photoUrl) return;
+    if (!currentUrl) return;
     setSharing(true);
     try {
-      const res = await fetch(creation.photoUrl);
+      const res = await fetch(currentUrl);
       const blob = await res.blob();
       const file = new File([blob], "affiche.jpg", { type: "image/jpeg" });
 
@@ -111,15 +174,45 @@ export function CreationDetail({ creation, tierPrice }: { creation: Creation; ti
             images={images}
             alt={creation.product_name}
             locked={!creation.unlocked}
-            focusIndex={images.length > 1 ? images.length - 1 : undefined}
+            focusIndex={focus}
+            onIndexChange={setCurrentIndex}
             labelFor={images.length > 1 ? (i) => t("creation.variation").replace("{n}", String(i + 1)) : undefined}
           />
         </div>
+
+        {regenRemaining > 0 && (
+          <div className="mb-4 flex flex-col gap-2 rounded-xl border border-dashed border-border p-3.5">
+            <label htmlFor="detail-regenerate-instructions" className="text-sm font-medium">
+              {t("creation.regenerateInstructionsLabel")}
+            </label>
+            <Textarea
+              id="detail-regenerate-instructions"
+              rows={2}
+              maxLength={300}
+              value={regenInstructions}
+              onChange={(e) => setRegenInstructions(e.target.value)}
+              placeholder={t("creation.regenerateInstructionsPlaceholder")}
+            />
+            <Button variant="secondary" className="gap-1.5 self-start" onClick={regenerate} disabled={regenerating}>
+              <RefreshCw className={regenerating ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
+              {regenerating
+                ? t("creation.declinationGenerating")
+                : t("creation.regenerate").replace("{count}", String(regenRemaining))}
+            </Button>
+          </div>
+        )}
 
         {canGenerateSecond && (
           <div className="mb-4 flex flex-col gap-2 rounded-xl border border-dashed border-border p-3.5">
             <span className="text-sm font-medium">{t("creation.declinationTitle")}</span>
             <span className="-mt-1 text-[11px] text-muted-foreground">{t("creation.declinationHint")}</span>
+            <Textarea
+              rows={2}
+              maxLength={300}
+              value={declinationInstructions}
+              onChange={(e) => setDeclinationInstructions(e.target.value)}
+              placeholder={t("creation.declinationPlaceholder")}
+            />
             <Button
               variant="secondary"
               className="gap-1.5 self-start"
@@ -188,20 +281,14 @@ export function CreationDetail({ creation, tierPrice }: { creation: Creation; ti
                   {t("creation.shareWhatsapp")}
                 </a>
               </Button>
-              <Button variant="secondary" className="gap-1.5" asChild>
-                <a href={creation.photoUrl ?? "#"} download={imageUrl2 ? "affiche-1.jpg" : "affiche.jpg"}>
+              <Button variant="secondary" className="flex-1 gap-1.5" asChild>
+                <a href={currentUrl || "#"} download={`affiche-${currentIndex + 1}.jpg`}>
                   <Download className="h-3.5 w-3.5" />
-                  {imageUrl2 ? t("creation.downloadVariation").replace("{n}", "1") : t("creation.download")}
+                  {images.length > 1
+                    ? t("creation.downloadVariation").replace("{n}", String(currentIndex + 1))
+                    : t("creation.download")}
                 </a>
               </Button>
-              {imageUrl2 && (
-                <Button variant="secondary" className="gap-1.5" asChild>
-                  <a href={imageUrl2} download="affiche-2.jpg">
-                    <Download className="h-3.5 w-3.5" />
-                    {t("creation.downloadVariation").replace("{n}", "2")}
-                  </a>
-                </Button>
-              )}
             </div>
             <p className="mt-2.5 text-[11px] text-muted-foreground">{t("creation.shareWhatsappHint")}</p>
           </>

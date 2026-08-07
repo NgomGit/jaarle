@@ -348,6 +348,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: insertError?.message ?? "Échec de l'enregistrement." }, { status: 500 });
   }
 
+  // Historique : on enregistre l'affiche comme 1ʳᵉ version (variante principale).
+  if (posterPath) {
+    await supabase.from("creation_versions").insert({
+      creation_id: creation.id,
+      user_id: user.id,
+      poster_path: posterPath,
+      kind: "principale",
+    });
+  }
+
   return NextResponse.json({
     salesCopy,
     hashtags,

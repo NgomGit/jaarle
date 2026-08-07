@@ -16,6 +16,7 @@ export function PosterCarousel({
   labelFor,
   focusIndex,
   firstSlideOverlay,
+  onIndexChange,
 }: {
   images: string[];
   alt: string;
@@ -23,6 +24,7 @@ export function PosterCarousel({
   labelFor?: (i: number) => string;
   focusIndex?: number;
   firstSlideOverlay?: React.ReactNode;
+  onIndexChange?: (i: number) => void;
 }) {
   const count = images.length;
   const [index, setIndex] = React.useState(0);
@@ -35,6 +37,11 @@ export function PosterCarousel({
   React.useEffect(() => {
     if (index > count - 1) setIndex(Math.max(0, count - 1));
   }, [count, index]);
+
+  React.useEffect(() => {
+    onIndexChange?.(index);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index]);
 
   if (count === 0) return null;
   const go = (d: number) => setIndex((i) => (i + d + count) % count);

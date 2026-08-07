@@ -10,6 +10,7 @@ export interface Creation {
   poster_path: string | null;
   poster_path_2: string | null;
   show_secondary_photos: boolean;
+  regenerations_used: number;
   industry: string | null;
   language: string;
   generated_copy: string | null;
@@ -62,6 +63,32 @@ export async function countCreationsSince(supabase: SupabaseClient, since: Date)
  * anti-abus : au-delà d'un certain nombre, on demande de payer au moins une création existante
  * avant d'en générer une nouvelle (voir MAX_UNPAID_CREATIONS dans generate-creation/route.ts).
  */
+export interface CreationVersion {
+  id: string;
+  kind: string; // 'principale' | 'declinaison' | 'regeneration'
+  createdAt: string;
+  url: string;
+}
+
+/**
+ * Historique des versions d'une affiche (variante principale, déclinaison, régénérations),
+ * de la plus ancienne à la plus récente. RLS garantit qu'on ne lit que ses propres versions.
+ */
+export async function getCreationVersions(supabase: SupabaseClient, creationId: string): Promise<CreationVersion[]> {
+  const { data, error } = await supabase
+    .from("creation_versions")
+    .select("id, kind, created_at")
+    .eq("creation_id", creationId)
+    .order("created_at", { ascending: true });
+  if (error || !data) return [];
+  return data.map((v) => ({
+    id: v.id as string,
+    kind: v.kind as string,
+    createdAt: v.created_at as string,
+    url: `/api/creations/${creationId}/preview?version=${v.id}`,
+  }));
+}
+
 export async function countUnpaidCreations(supabase: SupabaseClient, userId: string): Promise<number> {
   const { count } = await supabase
     .from("creations")

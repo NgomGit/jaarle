@@ -130,6 +130,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
+  // Historique : la régénération est conservée comme une nouvelle version (l'ancienne reste,
+  // son fichier n'est pas écrasé — chaque génération crée un nouveau chemin).
+  await supabase.from("creation_versions").insert({
+    creation_id: creation.id,
+    user_id: user.id,
+    poster_path: posterPath,
+    kind: "regeneration",
+  });
+
   return NextResponse.json({
     imageUrl: `/api/creations/${creation.id}/preview?v=${Date.now()}`,
     imageError,

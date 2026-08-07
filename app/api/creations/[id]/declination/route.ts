@@ -156,6 +156,14 @@ export async function POST(request: Request, { params }: { params: { id: string 
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
+  // Historique : la déclinaison est conservée comme une version à part entière.
+  await supabase.from("creation_versions").insert({
+    creation_id: creation.id,
+    user_id: user.id,
+    poster_path: posterPath2,
+    kind: "declinaison",
+  });
+
   return NextResponse.json({
     imageUrl2: `/api/creations/${creation.id}/preview?variant=2&v=${Date.now()}`,
   });
