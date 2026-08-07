@@ -175,12 +175,12 @@ export async function POST(request: Request) {
     mediaType = ALLOWED_MEDIA_TYPES.includes(photoBlob.type as AllowedMediaType) ? (photoBlob.type as AllowedMediaType) : "image/jpeg";
   }
 
-  // Palier Gold uniquement : jusqu'à 2 photos supplémentaires du même produit, données en
+  // Palier Gold uniquement : jusqu'à 3 photos supplémentaires du même produit, données en
   // référence en plus de la principale pour une composition plus riche et plus fidèle.
   const extraPhotos: { base64: string; mediaType: AllowedMediaType }[] = [];
   const extraDownloadedPaths: string[] = [];
   if (isGold && extraPhotoPaths?.length) {
-    for (const extraPath of extraPhotoPaths.slice(0, 2)) {
+    for (const extraPath of extraPhotoPaths.slice(0, 3)) {
       const { data: extraBlob } = await supabase.storage.from("creations").download(extraPath);
       if (extraBlob) {
         const buf = Buffer.from(await extraBlob.arrayBuffer());
@@ -323,7 +323,7 @@ export async function POST(request: Request) {
       price,
       style: AUTO_STYLE,
       photo_path: effectivePhotoPath,
-      extra_photo_paths: isGold && effectiveExtraPaths.length ? effectiveExtraPaths.slice(0, 2) : null,
+      extra_photo_paths: isGold && effectiveExtraPaths.length ? effectiveExtraPaths.slice(0, 3) : null,
       show_secondary_photos: normalizedShowSecondaryPhotos,
       poster_path: posterPath,
       layout: usedLayout,

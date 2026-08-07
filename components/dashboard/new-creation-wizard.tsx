@@ -32,6 +32,8 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
   const [extraPreview2, setExtraPreview2] = React.useState<string | null>(null);
   const [extraFile3, setExtraFile3] = React.useState<File | null>(null);
   const [extraPreview3, setExtraPreview3] = React.useState<string | null>(null);
+  const [extraFile4, setExtraFile4] = React.useState<File | null>(null);
+  const [extraPreview4, setExtraPreview4] = React.useState<string | null>(null);
   const [showSecondaryPhotos, setShowSecondaryPhotos] = React.useState(false);
   const [productName, setProductName] = React.useState("");
   const [serviceDescription, setServiceDescription] = React.useState("");
@@ -90,15 +92,19 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
     if (input) input.value = "";
   }
 
-  function removeExtraFile(slot: 2 | 3) {
+  function removeExtraFile(slot: 2 | 3 | 4) {
     if (slot === 2) {
       if (extraPreview2) URL.revokeObjectURL(extraPreview2);
       setExtraFile2(null);
       setExtraPreview2(null);
-    } else {
+    } else if (slot === 3) {
       if (extraPreview3) URL.revokeObjectURL(extraPreview3);
       setExtraFile3(null);
       setExtraPreview3(null);
+    } else {
+      if (extraPreview4) URL.revokeObjectURL(extraPreview4);
+      setExtraFile4(null);
+      setExtraPreview4(null);
     }
     const input = document.getElementById(`extra-photo-${slot}`) as HTMLInputElement | null;
     if (input) input.value = "";
@@ -162,15 +168,19 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
     setLogoPreviewUrl(URL.createObjectURL(f));
   }
 
-  function handleExtraFileChange(slot: 2 | 3, e: React.ChangeEvent<HTMLInputElement>) {
+  function handleExtraFileChange(slot: 2 | 3 | 4, e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
+    const url = URL.createObjectURL(f);
     if (slot === 2) {
       setExtraFile2(f);
-      setExtraPreview2(URL.createObjectURL(f));
-    } else {
+      setExtraPreview2(url);
+    } else if (slot === 3) {
       setExtraFile3(f);
-      setExtraPreview3(URL.createObjectURL(f));
+      setExtraPreview3(url);
+    } else {
+      setExtraFile4(f);
+      setExtraPreview4(url);
     }
   }
 
@@ -206,7 +216,7 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
 
       const extraPhotoPaths: string[] = [];
       if (tier === "gold") {
-        for (const extraFile of [extraFile2, extraFile3]) {
+        for (const extraFile of [extraFile2, extraFile3, extraFile4]) {
           if (!extraFile) continue;
           const extraPath = `${userId}/${Date.now()}-${extraFile.name}`;
           const { error: extraUploadError } = await supabase.storage.from("creations").upload(extraPath, extraFile);
@@ -401,6 +411,8 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
     setExtraPreview2(null);
     setExtraFile3(null);
     setExtraPreview3(null);
+    setExtraFile4(null);
+    setExtraPreview4(null);
     setShowSecondaryPhotos(false);
     setGenStepIndex(0);
     setError(null);
@@ -665,9 +677,9 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
               <div className="flex flex-col gap-2.5 rounded-xl border border-dashed border-border p-3.5">
                 <span className="text-sm font-medium">{t("creation.goldExtraPhotosTitle")}</span>
                 <span className="-mt-2 text-[11px] text-muted-foreground">{t("creation.goldExtraPhotosHint")}</span>
-                <div className="grid grid-cols-2 gap-2.5">
-                  {([2, 3] as const).map((slot) => {
-                    const preview = slot === 2 ? extraPreview2 : extraPreview3;
+                <div className="grid grid-cols-3 gap-2.5">
+                  {([2, 3, 4] as const).map((slot) => {
+                    const preview = slot === 2 ? extraPreview2 : slot === 3 ? extraPreview3 : extraPreview4;
                     const inputId = `extra-photo-${slot}`;
                     return (
                       <label
@@ -708,7 +720,7 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
                     );
                   })}
                 </div>
-                {(extraFile2 || extraFile3) && (
+                {(extraFile2 || extraFile3 || extraFile4) && (
                   <label className="flex items-center gap-2 text-xs text-muted-foreground">
                     <input
                       type="checkbox"
