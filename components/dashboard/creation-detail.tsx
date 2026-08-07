@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowLeft, Copy, Check, Download, Lock, Share2 } from "lucide-react";
+import { ArrowLeft, Copy, Check, Download, Lock, Share2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/lib/locale-context";
 import type { Creation } from "@/lib/supabase/creations";
@@ -18,6 +18,29 @@ export function CreationDetail({ creation, tierPrice }: { creation: Creation; ti
   const [sharing, setSharing] = React.useState(false);
   const [copied, setCopied] = React.useState<"text" | "hashtags" | null>(null);
   const [canNativeShare, setCanNativeShare] = React.useState(false);
+  const [imageUrl2, setImageUrl2] = React.useState<string | null>(creation.photoUrl2);
+  const [generatingVariant, setGeneratingVariant] = React.useState(false);
+
+  const images = [creation.photoUrl, imageUrl2].filter((u): u is string => !!u);
+  const canGenerateSecond = creation.tier === "gold" && !imageUrl2;
+
+  async function generateSecondVariant() {
+    if (generatingVariant) return;
+    setGeneratingVariant(true);
+    try {
+      const res = await fetch(`/api/creations/${creation.id}/declination`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customInstructions: null }),
+      });
+      const data = (await res.json()) as { imageUrl2?: string; error?: string };
+      if (res.ok && data.imageUrl2) setImageUrl2(data.imageUrl2);
+    } catch {
+      // silencieux : l'utilisateur peut réessayer
+    } finally {
+      setGeneratingVariant(false);
+    }
+  }
 
   const salesCopy = creation.generated_copy ?? "";
   const hashtagsLine = creation.generated_hashtags?.length ? formatHashtags(creation.generated_hashtags) : "";
@@ -85,12 +108,29 @@ export function CreationDetail({ creation, tierPrice }: { creation: Creation; ti
       <div className="rounded-[20px] border border-border bg-card p-6">
         <div className="mb-4">
           <PosterCarousel
-            images={[creation.photoUrl, creation.photoUrl2].filter((u): u is string => !!u)}
+            images={images}
             alt={creation.product_name}
             locked={!creation.unlocked}
-            labelFor={creation.photoUrl2 ? (i) => t("creation.variation").replace("{n}", String(i + 1)) : undefined}
+            focusIndex={images.length > 1 ? images.length - 1 : undefined}
+            labelFor={images.length > 1 ? (i) => t("creation.variation").replace("{n}", String(i + 1)) : undefined}
           />
         </div>
+
+        {canGenerateSecond && (
+          <div className="mb-4 flex flex-col gap-2 rounded-xl border border-dashed border-border p-3.5">
+            <span className="text-sm font-medium">{t("creation.declinationTitle")}</span>
+            <span className="-mt-1 text-[11px] text-muted-foreground">{t("creation.declinationHint")}</span>
+            <Button
+              variant="secondary"
+              className="gap-1.5 self-start"
+              onClick={generateSecondVariant}
+              disabled={generatingVariant}
+            >
+              <RefreshCw className={generatingVariant ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
+              {generatingVariant ? t("creation.declinationGenerating") : t("creation.declinationButton")}
+            </Button>
+          </div>
+        )}
 
         <div className="mb-4 flex items-center justify-between">
           <h1 className="text-lg font-bold">{creation.product_name}</h1>
@@ -149,14 +189,14 @@ export function CreationDetail({ creation, tierPrice }: { creation: Creation; ti
                 </a>
               </Button>
               <Button variant="secondary" className="gap-1.5" asChild>
-                <a href={creation.photoUrl ?? "#"} download={creation.photoUrl2 ? "affiche-1.jpg" : "affiche.jpg"}>
+                <a href={creation.photoUrl ?? "#"} download={imageUrl2 ? "affiche-1.jpg" : "affiche.jpg"}>
                   <Download className="h-3.5 w-3.5" />
-                  {creation.photoUrl2 ? t("creation.downloadVariation").replace("{n}", "1") : t("creation.download")}
+                  {imageUrl2 ? t("creation.downloadVariation").replace("{n}", "1") : t("creation.download")}
                 </a>
               </Button>
-              {creation.photoUrl2 && (
+              {imageUrl2 && (
                 <Button variant="secondary" className="gap-1.5" asChild>
-                  <a href={creation.photoUrl2} download="affiche-2.jpg">
+                  <a href={imageUrl2} download="affiche-2.jpg">
                     <Download className="h-3.5 w-3.5" />
                     {t("creation.downloadVariation").replace("{n}", "2")}
                   </a>
