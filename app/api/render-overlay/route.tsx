@@ -80,7 +80,10 @@ export async function GET(request: NextRequest) {
   const layout = params.get("layout") === "side-panel" ? "side-panel" : "bottom-bar";
   const productName = params.get("productName") || "";
   const price = params.get("price") || "";
-  const phone = params.get("phone") || "";
+  const phones = (params.get("phone") || "")
+    .split("|")
+    .map((p) => p.trim())
+    .filter(Boolean);
   const businessName = params.get("businessName") || "";
   const benefits = (params.get("benefits") || "")
     .split("|")
@@ -96,7 +99,7 @@ export async function GET(request: NextRequest) {
       : DEFAULT_ACCENT;
   const accentGradient = `linear-gradient(135deg, ${accent.from}, ${accent.to})`;
 
-  const showContact = !!phone;
+  const showContact = phones.length > 0;
 
   const contactPill = (
     <div
@@ -115,7 +118,13 @@ export async function GET(request: NextRequest) {
       }}
     >
       <WhatsAppIcon size={22} />
-      {phone}
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        {phones.map((p) => (
+          <span key={p} style={{ display: "flex" }}>
+            {p}
+          </span>
+        ))}
+      </div>
     </div>
   );
 

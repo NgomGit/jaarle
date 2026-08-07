@@ -546,7 +546,12 @@ async function generateTemplatedPoster(backgroundBuffer: Buffer, params: FinalPo
     } else {
       requirements.push(`No fixed price — instead include a short "Prix sur devis" / "Contactez-nous pour le prix" call-to-action in place of a price`);
     }
-    if (showContact) requirements.push(`WhatsApp contact: "${params.phone}"`);
+    const phonesLabel = params.phone
+      .split("|")
+      .map((p) => p.trim())
+      .filter(Boolean)
+      .join(" / ");
+    if (showContact) requirements.push(`WhatsApp contact (afficher chaque numéro): "${phonesLabel}"`);
     if (params.businessName) requirements.push(`Business name: "${params.businessName}"`);
     requirements.push(`A short call-to-action, e.g. "Commander sur WhatsApp"`);
 
@@ -674,7 +679,7 @@ export async function renderFinalPoster(
   if (imageBase64) {
     const check = await checkTextAccuracy(imageBase64, {
       price: params.price != null ? params.price.toLocaleString("fr-FR") : undefined,
-      phone: params.phone || undefined,
+      phone: params.phone ? params.phone.split("|")[0].trim() || undefined : undefined,
       productName: params.productName,
       businessName: params.businessName ?? undefined,
     });

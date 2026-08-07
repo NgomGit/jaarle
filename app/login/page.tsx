@@ -70,7 +70,7 @@ export default function LoginPage({
                   autoComplete="current-password"
                 />
               </div>
-              <Button type="submit" variant="accent" size="lg" className="mt-2 w-full">
+              <Button type="submit" variant="accent" size="lg" className="mt-2 w-full" disabled={phone.trim() === ""}>
                 {t("auth.loginSubmit")}
               </Button>
             </form>

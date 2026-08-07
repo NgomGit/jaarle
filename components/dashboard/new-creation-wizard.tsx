@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { UploadCloud, CheckCircle2, Circle, Sparkles, X } from "lucide-react";
+import { UploadCloud, CheckCircle2, Circle, Sparkles, X, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -43,6 +43,8 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
   const [language, setLanguage] = React.useState<Language>("fr");
   const [tier, setTier] = React.useState<Tier>("premium");
   const [contactPhone, setContactPhone] = React.useState(defaultPhone);
+  const [extraPhones, setExtraPhones] = React.useState<string[]>([]);
+  const [polishingItems, setPolishingItems] = React.useState(false);
   const [businessName, setBusinessName] = React.useState("");
   const [logoFile, setLogoFile] = React.useState<File | null>(null);
   const [logoPreviewUrl, setLogoPreviewUrl] = React.useState<string | null>(null);
@@ -121,6 +123,38 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
     setServiceItems((prev) => prev.filter((_, i) => i !== index));
   }
 
+  // Numéros de téléphone additionnels (jusqu'à 2 en plus du principal).
+  function addPhoneField() {
+    setExtraPhones((prev) => (prev.length >= 2 ? prev : [...prev, ""]));
+  }
+  function updateExtraPhone(index: number, value: string) {
+    setExtraPhones((prev) => prev.map((p, i) => (i === index ? value : p)));
+  }
+  function removeExtraPhone(index: number) {
+    setExtraPhones((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  // Correction + amélioration des items par l'IA (orthographe + reformulation vendeuse).
+  async function improveItems() {
+    if (serviceItems.length === 0 || polishingItems) return;
+    setPolishingItems(true);
+    try {
+      const res = await fetch("/api/polish-items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: serviceItems, language, industry: industry || null, subjectType }),
+      });
+      const data = (await res.json()) as { items?: string[] };
+      if (res.ok && Array.isArray(data.items) && data.items.length > 0) {
+        setServiceItems(data.items.slice(0, 10));
+      }
+    } catch {
+      // silencieux : en cas d'échec, on garde les items saisis tels quels
+    } finally {
+      setPolishingItems(false);
+    }
+  }
+
   function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -194,7 +228,7 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
           tier,
           logoPath,
           businessName: hasBranding && businessName.trim() ? businessName.trim() : null,
-          contactPhone: contactPhone.trim() || null,
+          contactPhone: [contactPhone, ...extraPhones].map((p) => p.trim()).filter(Boolean).join(" | ") || null,
           subjectType,
           serviceDescription: subjectType === "service" && serviceDescription.trim() ? serviceDescription.trim() : null,
           serviceItems,
@@ -358,6 +392,8 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
     setLanguage("fr");
     setTier("premium");
     setContactPhone(defaultPhone);
+    setExtraPhones([]);
+    setPolishingItems(false);
     setBusinessName("");
     setLogoFile(null);
     setLogoPreviewUrl(null);
@@ -500,6 +536,17 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
                 </Button>
               </div>
               {serviceItems.length > 0 && (
+                <button
+                  type="button"
+                  onClick={improveItems}
+                  disabled={polishingItems}
+                  className="flex items-center gap-1.5 self-start rounded-full border border-primary/40 px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-accent disabled:opacity-60"
+                >
+                  <Sparkles className={cn("h-3.5 w-3.5", polishingItems && "animate-pulse")} />
+                  {polishingItems ? "Amélioration…" : "Corriger & améliorer avec l'IA"}
+                </button>
+              )}
+              {serviceItems.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {serviceItems.map((item, i) => (
                     <span
@@ -589,6 +636,28 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
                 onChange={(e) => setContactPhone(e.target.value)}
                 placeholder="77 123 45 67"
               />
+              {extraPhones.map((p, i) => (
+                <div key={i} className="flex gap-2">
+                  <Input
+                    value={p}
+                    onChange={(e) => updateExtraPhone(i, e.target.value)}
+                    placeholder="77 987 65 43"
+                  />
+                  <Button type="button" variant="secondary" size="icon" onClick={() => removeExtraPhone(i)} aria-label="Retirer ce numéro">
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              {extraPhones.length < 2 && (
+                <button
+                  type="button"
+                  onClick={addPhoneField}
+                  className="flex items-center gap-1.5 self-start text-xs font-semibold text-primary hover:underline"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Ajouter un numéro
+                </button>
+              )}
               <span className="text-[11px] text-muted-foreground">{t("creation.contactPhoneHint")}</span>
             </div>
 
