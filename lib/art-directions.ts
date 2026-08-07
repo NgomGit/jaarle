@@ -103,3 +103,43 @@ export function pickArtDirection(industryKey: string | null, seed = 1): ArtDirec
       : NEUTRAL_DIRECTIONS;
   return pool[Math.abs(seed) % pool.length];
 }
+
+/** Éclaircit (amt > 0) ou assombrit (amt < 0) une couleur hex. */
+function shade(hex: string, amt: number): string {
+  const n = parseInt(hex.replace("#", ""), 16);
+  if (Number.isNaN(n)) return hex;
+  const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v * (1 + amt))));
+  const r = clamp((n >> 16) & 255);
+  const g = clamp((n >> 8) & 255);
+  const b = clamp(n & 255);
+  return "#" + ((r << 16) | (g << 8) | b).toString(16).padStart(6, "0");
+}
+
+/**
+ * Construit une direction artistique dont la PALETTE est dérivée du SUJET (via le
+ * dégradé d'accent renvoyé par l'analyse vision), au lieu d'un preset figé — le décor
+ * et le texte partagent ainsi les mêmes couleurs, cohérentes avec le produit
+ * (ex : poisson -> bleu mer, karité -> or chaud). Le TYPE de motif reste piloté par
+ * la catégorie (motifs africains pour l'artisanat, halo neutre sinon).
+ */
+export function artDirectionFromAnalysis(
+  accent: { from: string; to: string },
+  industryKey: string | null,
+  seed = 1
+): ArtDirection {
+  const motif: MotifKind = industryKey && ARTISAN_INDUSTRIES.has(industryKey) ? "bogolan" : "wax-sun";
+  return {
+    key: "subject-derived",
+    labelFr: "Dérivée du sujet",
+    mood: "dark-statement",
+    motif,
+    headlineFont: "bebas",
+    useCutout: true,
+    palette: {
+      bg: [shade(accent.to, -0.7), shade(accent.from, -0.82)],
+      ink: "#F3EAD7",
+      accent: accent.from,
+      motif: shade(accent.from, 0.22),
+    },
+  };
+}

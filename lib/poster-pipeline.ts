@@ -23,7 +23,7 @@ import {
   type CreativeBrief,
 } from "@/lib/knowledge/creative-vocabulary";
 import { ALLOWED_MEDIA_TYPES, type AllowedMediaType } from "@/lib/media-types";
-import { pickArtDirection } from "@/lib/art-directions";
+import { pickArtDirection, artDirectionFromAnalysis } from "@/lib/art-directions";
 import { buildDesignedBackground, placeProduct } from "@/lib/designed-background";
 
 export { ALLOWED_MEDIA_TYPES, type AllowedMediaType };
@@ -42,6 +42,9 @@ const INDUSTRY_ACCENTS: Record<string, { from: string; to: string }> = {
   fashion: { from: "#C2185B", to: "#6D28D9" },
   beauty: { from: "#DB2777", to: "#D97706" },
   restaurant: { from: "#DC2626", to: "#EA580C" },
+  poissonnerie: { from: "#2E8FB8", to: "#0A2740" },
+  agriculture: { from: "#4B9B3A", to: "#7A5A22" },
+  services: { from: "#2563EB", to: "#EA580C" },
   electronics: { from: "#1E3A8A", to: "#0891B2" },
   furniture: { from: "#92400E", to: "#166534" },
   "real-estate": { from: "#1E3A5F", to: "#B45309" },
@@ -717,10 +720,18 @@ export async function buildArtisanPoster(
     seed?: number;
   }
 ): Promise<{ finalBuffer: Buffer; layout: LayoutVariant }> {
-  const dir = pickArtDirection(params.industry, params.seed ?? 1);
+  // Analyse vision (couleurs du sujet) en parallèle du détourage : la palette du décor
+  // et du texte est dérivée du produit lui-même plutôt que d'un preset figé. Si l'analyse
+  // échoue, repli sur le preset curaté par catégorie. Le détourage est laissé remonter en
+  // cas d'échec (voir docstring) — comme avant.
+  const [analysis, cutout] = await Promise.all([
+    analyzeProduct(photoBuffer.toString("base64"), "image/jpeg", params.productName),
+    removeBackground(photoBuffer),
+  ]);
 
-  // Détourage produit — laissé remonter en cas d'échec (voir docstring).
-  const cutout = await removeBackground(photoBuffer);
+  const dir = analysis?.accentGradient
+    ? artDirectionFromAnalysis(analysis.accentGradient, params.industry, params.seed ?? 1)
+    : pickArtDirection(params.industry, params.seed ?? 1);
 
   // Décor 1024×1024 (format du pipeline satori) + produit dans la moitié haute,
   // bande basse laissée calme pour le bandeau texte (layout bottom-bar).

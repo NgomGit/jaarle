@@ -80,6 +80,36 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
     setError(null);
   }
 
+  function removeMainPhoto() {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setFile(null);
+    setPreviewUrl(null);
+    const input = document.getElementById("creation-photo") as HTMLInputElement | null;
+    if (input) input.value = "";
+  }
+
+  function removeExtraFile(slot: 2 | 3) {
+    if (slot === 2) {
+      if (extraPreview2) URL.revokeObjectURL(extraPreview2);
+      setExtraFile2(null);
+      setExtraPreview2(null);
+    } else {
+      if (extraPreview3) URL.revokeObjectURL(extraPreview3);
+      setExtraFile3(null);
+      setExtraPreview3(null);
+    }
+    const input = document.getElementById(`extra-photo-${slot}`) as HTMLInputElement | null;
+    if (input) input.value = "";
+  }
+
+  function removeLogo() {
+    if (logoPreviewUrl) URL.revokeObjectURL(logoPreviewUrl);
+    setLogoFile(null);
+    setLogoPreviewUrl(null);
+    const input = document.getElementById("businessLogo") as HTMLInputElement | null;
+    if (input) input.value = "";
+  }
+
   function addServiceItem() {
     const trimmed = newItemInput.trim();
     if (!trimmed || serviceItems.length >= 10) return;
@@ -389,7 +419,21 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
               className="cursor-pointer rounded-2xl border border-dashed border-input bg-muted p-9 text-center transition-colors hover:border-primary"
             >
               {previewUrl ? (
-                <img src={previewUrl} alt="" className="mx-auto max-h-[220px] rounded-xl object-contain" />
+                <div className="relative mx-auto w-fit">
+                  <img src={previewUrl} alt="" className="mx-auto max-h-[220px] rounded-xl object-contain" />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      removeMainPhoto();
+                    }}
+                    aria-label="Supprimer l'image"
+                    className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-destructive text-white shadow-md transition-colors hover:bg-destructive/90"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
               ) : (
                 <>
                   <div className="mx-auto mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary text-white">
@@ -560,10 +604,24 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
                       <label
                         key={slot}
                         htmlFor={inputId}
-                        className="flex aspect-square cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-input bg-card text-center transition-colors hover:border-primary"
+                        className="relative flex aspect-square cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border border-dashed border-input bg-card text-center transition-colors hover:border-primary"
                       >
                         {preview ? (
-                          <img src={preview} alt="" className="h-full w-full rounded-xl object-cover" />
+                          <>
+                            <img src={preview} alt="" className="h-full w-full rounded-xl object-cover" />
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                removeExtraFile(slot);
+                              }}
+                              aria-label="Supprimer l'image"
+                              className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-destructive text-white shadow transition-colors hover:bg-destructive/90"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </>
                         ) : (
                           <>
                             <UploadCloud className="mb-1 h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
@@ -626,6 +684,20 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
                       <UploadCloud className="h-4 w-4 shrink-0" strokeWidth={1.75} />
                     )}
                     <span className="truncate">{logoFile ? logoFile.name : t("creation.businessLogoPlaceholder")}</span>
+                    {logoFile && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          removeLogo();
+                        }}
+                        aria-label="Retirer le logo"
+                        className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted-foreground/15 transition-colors hover:bg-destructive hover:text-white"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </label>
                   <input
                     id="businessLogo"

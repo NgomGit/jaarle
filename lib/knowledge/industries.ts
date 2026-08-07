@@ -46,6 +46,28 @@ export const industries: Industry[] = [
     culturalHeritage: true,
   },
   {
+    key: "poissonnerie",
+    labelFr: "Poissonnerie / Produits de la mer",
+    colors: ["bleu mer", "argent", "or"],
+    toneHint: "Frais, iodé, confiance et qualité du jour.",
+    ctaExamples: ["Pêche du jour", "En gros et au détail", "Livraison fraîcheur garantie"],
+    hashtags: ["#PoissonFrais", "#Dakar", "#ProduitsDeLaMer", "#Teranga"],
+    visualDirection:
+      "fresh catch on crushed ice, deep sea-blue and teal palette, water droplets and splashes, silver fish scales catching light, coastal Senegalese market mood",
+    culturalHeritage: true,
+  },
+  {
+    key: "agriculture",
+    labelFr: "Agriculture / Élevage",
+    colors: ["vert nature", "terre", "jaune récolte"],
+    toneHint: "Naturel, local, généreux, produit du terroir.",
+    ctaExamples: ["Récolte fraîche", "Direct producteur", "Livraison en gros"],
+    hashtags: ["#AgricultureSenegal", "#ConsommerLocal", "#Terroir", "#Dakar"],
+    visualDirection:
+      "sunlit harvest, rich earth and foliage greens, woven baskets and burlap, golden-hour field light, abundant natural produce",
+    culturalHeritage: true,
+  },
+  {
     key: "electronics",
     labelFr: "Électronique",
     colors: ["bleu", "noir", "gris technologique"],
@@ -89,6 +111,16 @@ export const industries: Industry[] = [
     ctaExamples: ["Prix imbattable", "Frais du jour"],
     hashtags: ["#EpicerieSenegal", "#Dakar", "#BonPrix"],
     visualDirection: "fresh market setting, natural daylight, wooden crates or woven baskets, vibrant natural colors",
+  },
+  {
+    key: "services",
+    labelFr: "Services & artisans",
+    colors: ["bleu confiance", "orange énergie", "gris pro"],
+    toneHint: "Fiable, professionnel, rapide, prix clair.",
+    ctaExamples: ["Devis gratuit", "Intervention rapide", "Contactez-nous sur WhatsApp"],
+    hashtags: ["#ServiceDakar", "#Artisan221", "#Senegal"],
+    visualDirection:
+      "clean professional scene of the trade in action, confident tools-of-the-trade props, bold contrasting accent color, trustworthy modern mood",
   },
   {
     key: "pharmacy",
