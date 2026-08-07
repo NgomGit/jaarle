@@ -31,7 +31,9 @@ export async function listCreations(supabase: SupabaseClient, limit?: number): P
     (row) =>
       ({
         ...row,
-        photoUrl: `/api/creations/${row.id}/preview`,
+        // `v` change à chaque régénération (poster_path est réécrit) → force le navigateur à
+        // recharger la nouvelle affiche au lieu de servir l'ancienne depuis le cache.
+        photoUrl: `/api/creations/${row.id}/preview?v=${row.regenerations_used ?? 0}`,
         photoUrl2: row.poster_path_2 ? `/api/creations/${row.id}/preview?variant=2` : null,
       }) as Creation
   );
@@ -42,7 +44,7 @@ export async function getCreation(supabase: SupabaseClient, id: string, userId: 
   if (error || !data) return null;
   return {
     ...data,
-    photoUrl: `/api/creations/${data.id}/preview`,
+    photoUrl: `/api/creations/${data.id}/preview?v=${data.regenerations_used ?? 0}`,
     photoUrl2: data.poster_path_2 ? `/api/creations/${data.id}/preview?variant=2` : null,
   } as Creation;
 }
