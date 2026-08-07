@@ -16,6 +16,7 @@ import {
   renderFinalPoster,
 } from "@/lib/poster-pipeline";
 import { ARTISAN_INDUSTRIES } from "@/lib/art-directions";
+import { selectHeroAndSecondaries } from "@/lib/product-analyzer";
 
 // La génération enchaîne plusieurs appels IA séquentiels (fond + mise en page + vérifications)
 // — sans ceci, la fonction serverless expire avant la fin sur la plupart des plans Vercel (15s
@@ -177,6 +178,7 @@ export async function POST(request: Request) {
   // Palier Gold uniquement : jusqu'à 2 photos supplémentaires du même produit, données en
   // référence en plus de la principale pour une composition plus riche et plus fidèle.
   const extraPhotos: { base64: string; mediaType: AllowedMediaType }[] = [];
+  const extraDownloadedPaths: string[] = [];
   if (isGold && extraPhotoPaths?.length) {
     for (const extraPath of extraPhotoPaths.slice(0, 2)) {
       const { data: extraBlob } = await supabase.storage.from("creations").download(extraPath);
@@ -186,6 +188,35 @@ export async function POST(request: Request) {
           ? (extraBlob.type as AllowedMediaType)
           : "image/jpeg";
         extraPhotos.push({ base64: buf.toString("base64"), mediaType: extraMediaType });
+        extraDownloadedPaths.push(extraPath);
+      }
+    }
+  }
+
+  // Sélection IA (Gold multi-photos) : l'IA choisit la meilleure photo comme image principale
+  // et ordonne les autres comme secondaires. On réordonne buffers ET chemins pour que l'affiche
+  // ET les métadonnées (régénération, aperçu) utilisent bien la photo choisie comme hero.
+  let effectivePhotoPath = photoPath;
+  let effectiveExtraPaths = extraDownloadedPaths.slice();
+  if (isGold && photoBuffer && photoBase64 && extraPhotos.length > 0) {
+    const allImages = [{ base64: photoBase64, mediaType }, ...extraPhotos];
+    const allPaths: (string | null)[] = [photoPath, ...extraDownloadedPaths];
+    const selection = await selectHeroAndSecondaries(allImages, productName);
+    if (selection) {
+      const hero = allImages[selection.heroIndex];
+      const secondaries = selection.secondaryIndexes
+        .map((i) => allImages[i])
+        .filter((x): x is { base64: string; mediaType: AllowedMediaType } => !!x);
+      if (hero) {
+        photoBase64 = hero.base64;
+        mediaType = hero.mediaType;
+        photoBuffer = Buffer.from(hero.base64, "base64");
+        extraPhotos.length = 0;
+        extraPhotos.push(...secondaries);
+        effectivePhotoPath = allPaths[selection.heroIndex] ?? photoPath;
+        effectiveExtraPaths = selection.secondaryIndexes
+          .map((i) => allPaths[i])
+          .filter((p): p is string => !!p);
       }
     }
   }
@@ -291,8 +322,8 @@ export async function POST(request: Request) {
       product_name: productName,
       price,
       style: AUTO_STYLE,
-      photo_path: photoPath,
-      extra_photo_paths: isGold && extraPhotoPaths?.length ? extraPhotoPaths.slice(0, 2) : null,
+      photo_path: effectivePhotoPath,
+      extra_photo_paths: isGold && effectiveExtraPaths.length ? effectiveExtraPaths.slice(0, 2) : null,
       show_secondary_photos: normalizedShowSecondaryPhotos,
       poster_path: posterPath,
       layout: usedLayout,

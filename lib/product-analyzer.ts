@@ -56,6 +56,61 @@ export async function analyzeProduct(
   }
 }
 
+type SelectionContentPart =
+  | { type: "image"; source: { type: "base64"; media_type: AllowedMediaType; data: string } }
+  | { type: "text"; text: string };
+
+const PhotoSelectionSchema = z.object({
+  heroIndex: z.number().int(),
+  secondaryIndexes: z.array(z.number().int()).max(3),
+});
+
+/**
+ * Palier multi-photos : parmi plusieurs photos du MÊME produit, l'IA choisit la meilleure
+ * comme image PRINCIPALE (la plus nette / la mieux cadrée / la plus vendeuse) et ordonne les
+ * autres comme images SECONDAIRES (angles et détails complémentaires). Renvoie null en cas
+ * d'échec ou de <2 photos — l'appelant garde alors l'ordre d'origine.
+ */
+export async function selectHeroAndSecondaries(
+  images: { base64: string; mediaType: AllowedMediaType }[],
+  productName: string
+): Promise<{ heroIndex: number; secondaryIndexes: number[] } | null> {
+  if (images.length < 2) return null;
+  try {
+    const anthropic = new Anthropic();
+    const content: SelectionContentPart[] = [];
+    images.forEach((img, i) => {
+      content.push({ type: "text", text: `Image ${i} :` });
+      content.push({ type: "image", source: { type: "base64", media_type: img.mediaType, data: img.base64 } });
+    });
+    content.push({
+      type: "text",
+      text: `Produit : "${productName}". Ces ${images.length} photos montrent le MÊME produit. Choisis l'index (0 à ${
+        images.length - 1
+      }) de la meilleure photo comme image PRINCIPALE (produit net, bien cadré, bien éclairé, le plus attractif), puis la liste ordonnée des index des autres photos à réutiliser comme images SECONDAIRES (angles ou détails complémentaires, de la plus utile à la moins utile). N'inclus jamais l'index principal dans les secondaires.`,
+    });
+
+    const message = await anthropic.messages.parse({
+      model: "claude-sonnet-5",
+      max_tokens: 200,
+      thinking: { type: "disabled" },
+      messages: [{ role: "user", content }],
+      output_config: { format: zodOutputFormat(PhotoSelectionSchema) },
+    });
+
+    const out = message.parsed_output;
+    if (!out) return null;
+    const n = images.length;
+    const heroIndex = out.heroIndex >= 0 && out.heroIndex < n ? out.heroIndex : 0;
+    const secondaryIndexes = [
+      ...new Set((out.secondaryIndexes ?? []).filter((i) => Number.isInteger(i) && i >= 0 && i < n && i !== heroIndex)),
+    ];
+    return { heroIndex, secondaryIndexes };
+  } catch {
+    return null;
+  }
+}
+
 const LogoColorsSchema = z.object({
   from: HEX_COLOR,
   to: HEX_COLOR,
