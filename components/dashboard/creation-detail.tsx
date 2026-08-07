@@ -5,8 +5,8 @@ import Link from "next/link";
 import { ArrowLeft, Copy, Check, Download, Lock, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/lib/locale-context";
-import { cn } from "@/lib/utils";
 import type { Creation } from "@/lib/supabase/creations";
+import { PosterCarousel } from "@/components/dashboard/poster-carousel";
 
 function formatHashtags(hashtags: string[]): string {
   return hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ");
@@ -83,24 +83,13 @@ export function CreationDetail({ creation, tierPrice }: { creation: Creation; ti
       </Link>
 
       <div className="rounded-[20px] border border-border bg-card p-6">
-        <div className={cn("mb-4 grid gap-3", creation.photoUrl2 ? "grid-cols-2" : "grid-cols-1")}>
-          {[creation.photoUrl, creation.photoUrl2].filter(Boolean).map((url, i) => (
-            <div key={url} className="relative overflow-hidden rounded-2xl border border-border">
-              <img
-                src={url!}
-                alt={creation.product_name}
-                className="max-h-[420px] w-full select-none object-contain bg-muted [-webkit-touch-callout:none]"
-                draggable={creation.unlocked ? undefined : false}
-                onContextMenu={creation.unlocked ? undefined : (e) => e.preventDefault()}
-                onDragStart={creation.unlocked ? undefined : (e) => e.preventDefault()}
-              />
-              {creation.photoUrl2 && (
-                <span className="absolute left-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white">
-                  {t("creation.variation").replace("{n}", String(i + 1))}
-                </span>
-              )}
-            </div>
-          ))}
+        <div className="mb-4">
+          <PosterCarousel
+            images={[creation.photoUrl, creation.photoUrl2].filter((u): u is string => !!u)}
+            alt={creation.product_name}
+            locked={!creation.unlocked}
+            labelFor={creation.photoUrl2 ? (i) => t("creation.variation").replace("{n}", String(i + 1)) : undefined}
+          />
         </div>
 
         <div className="mb-4 flex items-center justify-between">

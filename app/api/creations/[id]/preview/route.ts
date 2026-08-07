@@ -29,7 +29,10 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }
 
   const variant = new URL(request.url).searchParams.get("variant");
-  const displayPath = (variant === "2" ? creation.poster_path_2 : creation.poster_path) || creation.photo_path;
+  // La variante 2 est toujours une affiche générée : on ne retombe JAMAIS sur la photo produit
+  // (sinon on afficherait l'image d'origine au lieu de l'affiche). La variante 1 garde son repli
+  // sur la photo tant que l'affiche n'est pas prête.
+  const displayPath = variant === "2" ? creation.poster_path_2 : creation.poster_path || creation.photo_path;
   if (!displayPath) {
     return new NextResponse("Image introuvable.", { status: 404 });
   }

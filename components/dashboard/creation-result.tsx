@@ -6,7 +6,7 @@ import { Download, Lock, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useLocale } from "@/lib/locale-context";
-import { cn } from "@/lib/utils";
+import { PosterCarousel } from "@/components/dashboard/poster-carousel";
 
 export function CreationResult({
   imageUrl,
@@ -54,33 +54,31 @@ export function CreationResult({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className={cn("grid gap-3", images.length > 1 ? "grid-cols-2" : "grid-cols-1")}>
-        {images.map((url, i) => (
-          <div key={url} className="relative overflow-hidden rounded-2xl border border-border">
-            <img
-              src={url}
-              alt={productName}
-              className="max-h-[360px] w-full select-none object-contain bg-muted [-webkit-touch-callout:none]"
-              draggable={locked ? false : undefined}
-              onContextMenu={locked ? (e) => e.preventDefault() : undefined}
-              onDragStart={locked ? (e) => e.preventDefault() : undefined}
-            />
-            <span className="absolute left-3 top-3 rounded-full bg-white px-2.5 py-1 text-[10px] font-bold text-primary shadow-glow-sm">
-              {images.length > 1 ? t("creation.variation").replace("{n}", String(i + 1)) : imageFallback ? t("creation.imageFallbackLabel") : t("creation.aiLabel")}
-            </span>
-            {!posterReady && i === 0 && (
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
-                <div className="flex items-end justify-between">
-                  <span className="text-sm font-bold text-white">{productName}</span>
-                  <span className="font-mono text-sm font-bold text-white">
-                    {formattedPrice ? `${formattedPrice} FCFA` : t("creation.priceOnRequestLabel")}
-                  </span>
-                </div>
+      <PosterCarousel
+        images={images}
+        alt={productName}
+        locked={locked}
+        focusIndex={images.length > 1 ? images.length - 1 : undefined}
+        labelFor={(i) =>
+          images.length > 1
+            ? t("creation.variation").replace("{n}", String(i + 1))
+            : imageFallback
+              ? t("creation.imageFallbackLabel")
+              : t("creation.aiLabel")
+        }
+        firstSlideOverlay={
+          !posterReady ? (
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+              <div className="flex items-end justify-between">
+                <span className="text-sm font-bold text-white">{productName}</span>
+                <span className="font-mono text-sm font-bold text-white">
+                  {formattedPrice ? `${formattedPrice} FCFA` : t("creation.priceOnRequestLabel")}
+                </span>
               </div>
-            )}
-          </div>
-        ))}
-      </div>
+            </div>
+          ) : undefined
+        }
+      />
 
       {imageFallback && <p className="text-xs text-muted-foreground">{t("creation.imageFallbackNote")}</p>}
 
