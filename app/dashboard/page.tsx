@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { listCreations, countCreationsSince } from "@/lib/supabase/creations";
 import { DashboardHome } from "@/components/dashboard/dashboard-home";
+import { getMyShop } from "@/lib/shops/queries";
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -14,10 +15,18 @@ export default async function DashboardPage() {
   startOfMonth.setDate(1);
   startOfMonth.setHours(0, 0, 0, 0);
 
-  const [recentCreations, createdThisMonth] = await Promise.all([
+  const [recentCreations, createdThisMonth, shop] = await Promise.all([
     listCreations(supabase, 4),
     countCreationsSince(supabase, startOfMonth),
+    user ? getMyShop(supabase, user.id) : Promise.resolve(null),
   ]);
 
-  return <DashboardHome displayName={displayName} recentCreations={recentCreations} createdThisMonth={createdThisMonth} />;
+  return (
+    <DashboardHome
+      displayName={displayName}
+      recentCreations={recentCreations}
+      createdThisMonth={createdThisMonth}
+      shop={shop ? { name: shop.name, slug: shop.slug, status: shop.status } : null}
+    />
+  );
 }

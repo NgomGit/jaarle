@@ -15,7 +15,7 @@ const navItems = [
   { icon: Home, key: "dashboard", href: "/dashboard" },
   { icon: Sparkles, key: "new", href: "/dashboard/new" },
   { icon: LayoutGrid, key: "creations", href: "/dashboard/creations" },
-  { icon: Store, key: "brands", href: "/dashboard/brands" },
+  { icon: Store, key: "shop", href: "/dashboard/boutique" },
   { icon: Settings, key: "settings", href: "/dashboard/settings" },
 ];
 

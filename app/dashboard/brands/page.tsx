@@ -1,8 +1,8 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { Store } from "lucide-react";
-import { ComingSoon } from "@/components/dashboard/coming-soon";
-
+// L'ancien placeholder « Marques » (écran « Bientôt ») est remplacé par la boutique Jaarle 2.0,
+// qui porte désormais l'identité de marque (nom, logo, activité, contact). Redirection conservée
+// pour ne casser aucun ancien lien.
 export default function BrandsPage() {
-  return <ComingSoon icon={Store} titleKey="dashboard.nav_brands" />;
+  redirect("/dashboard/boutique");
 }

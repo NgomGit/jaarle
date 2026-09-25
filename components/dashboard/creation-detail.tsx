@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Copy, Check, Download, Lock, Share2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,6 +25,7 @@ export function CreationDetail({
   tierPrice: number;
 }) {
   const { t } = useLocale();
+  const router = useRouter();
   const [unlocking, setUnlocking] = React.useState(false);
   const [sharing, setSharing] = React.useState(false);
   const [copied, setCopied] = React.useState<"text" | "hashtags" | null>(null);
@@ -61,6 +63,20 @@ export function CreationDetail({
     setItems((prev) => [...prev, { url, kind }]);
   }
 
+  // Réconciliation avec le serveur : quand `versions` change (après router.refresh, ou parce que
+  // la génération a abouti côté serveur même si la réponse client s'est perdue sur une connexion
+  // lente), on resynchronise le carrousel sur la vérité serveur — plus besoin d'actualiser à la main.
+  const prevVersionsLen = React.useRef(versions.length);
+  React.useEffect(() => {
+    if (versions.length > 0) {
+      setItems(versions.map((v) => ({ url: v.url, kind: v.kind })));
+      setHasDeclination(versions.some((v) => v.kind === "declinaison"));
+    }
+    if (versions.length > prevVersionsLen.current) setFocus(versions.length - 1);
+    prevVersionsLen.current = versions.length;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [versions]);
+
   async function generateSecondVariant() {
     if (generatingVariant) return;
     setGeneratingVariant(true);
@@ -80,6 +96,7 @@ export function CreationDetail({
       // silencieux : l'utilisateur peut réessayer
     } finally {
       setGeneratingVariant(false);
+      router.refresh(); // recharge la vérité serveur (versions) même si la réponse s'est perdue
     }
   }
 
@@ -102,6 +119,7 @@ export function CreationDetail({
       // silencieux : l'utilisateur peut réessayer
     } finally {
       setRegenerating(false);
+      router.refresh(); // recharge la vérité serveur (versions) même si la réponse s'est perdue
     }
   }
 

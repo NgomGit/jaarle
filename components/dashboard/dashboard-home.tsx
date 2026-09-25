@@ -7,15 +7,19 @@ import { Button } from "@/components/ui/button";
 import { useLocale } from "@/lib/locale-context";
 import { cn } from "@/lib/utils";
 import type { Creation } from "@/lib/supabase/creations";
+import { ShopBanner, type ShopBannerInfo } from "@/components/dashboard/shop-banner";
 
 export function DashboardHome({
   displayName,
   recentCreations,
   createdThisMonth,
+  shop,
 }: {
   displayName: string;
   recentCreations: Creation[];
   createdThisMonth: number;
+  /** Jaarle 2.0 : boutique du commerçant (null = pas encore créée). Optionnel → rétro-compatible. */
+  shop?: ShopBannerInfo | null;
 }) {
   const { t } = useLocale();
 
@@ -29,6 +33,8 @@ export function DashboardHome({
           {createdThisMonth} · {t("dashboard.created")}
         </Badge>
       </div>
+
+      {shop !== undefined && <ShopBanner shop={shop} />}
 
       <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <StatCard icon={Target} value={String(createdThisMonth)} label={t("dashboard.created")} />
