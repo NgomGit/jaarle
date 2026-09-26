@@ -14,8 +14,6 @@ import {
   Package,
   PartyPopper,
   Pencil,
-  Download,
-  Printer,
   BarChart3,
   Rocket,
   Sparkles,
@@ -24,6 +22,7 @@ import { setShopPublished } from "@/app/dashboard/boutique/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ErrorNote, ShopMonogram } from "@/components/shop/shop-fields";
+import { ShopQrKit } from "@/components/shop/shop-qr-kit";
 import { formatSenegalPhone, shopDisplayUrl, shopPublicUrl } from "@/lib/shops/format";
 import type { Shop } from "@/lib/shops/types";
 import { useLocale } from "@/lib/locale-context";
@@ -148,7 +147,7 @@ export function ShopOverview({
               href={`https://wa.me/?text=${encodeURIComponent(shareText)}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#25D366] text-sm font-semibold text-white"
+              className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 text-sm font-semibold text-white sm:flex-1"
             >
               <MessageCircle className="h-4 w-4" />
               {t("shop.ov_share")}
@@ -182,35 +181,8 @@ export function ShopOverview({
         <ErrorNote message={error} className="mt-3" />
       </section>
 
-      {/* QR code (phase 5) */}
-      {qrSvg && shop.status !== "suspended" && (
-        <section className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:p-5">
-          <div
-            className="mx-auto h-36 w-36 shrink-0 rounded-xl border border-border bg-white p-1.5 sm:mx-0 [&>svg]:h-full [&>svg]:w-full"
-            aria-label={t("shop.qrTitle")}
-            dangerouslySetInnerHTML={{ __html: qrSvg }}
-          />
-          <div className="flex-1">
-            <h2 className="text-sm font-semibold">{t("shop.qrTitle")}</h2>
-            <p className="mt-0.5 text-sm text-muted-foreground">{t("shop.qrDesc")}</p>
-            {!isPublished && <p className="mt-1 text-xs text-muted-foreground">{t("shop.qrDraftNote")}</p>}
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button variant="secondary" size="sm" asChild>
-                <a href="/api/shop-qr?format=png" download>
-                  <Download className="h-3.5 w-3.5" />
-                  {t("shop.qrDownload")}
-                </a>
-              </Button>
-              <Button variant="secondary" size="sm" asChild>
-                <a href="/api/shop-qr?format=card" download>
-                  <Printer className="h-3.5 w-3.5" />
-                  {t("shop.qrCard")}
-                </a>
-              </Button>
-            </div>
-          </div>
-        </section>
-      )}
+      {/* QR code : visuel pour le statut WhatsApp, carte à imprimer, QR seul */}
+      {qrSvg && shop.status !== "suspended" && <ShopQrKit slug={shop.slug} isPublished={isPublished} />}
 
       {/* Prochaines étapes */}
       <section className="rounded-2xl border border-border bg-card p-4 sm:p-5">

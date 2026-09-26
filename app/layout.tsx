@@ -8,9 +8,9 @@ import { WhatsAppFloatButton } from "@/components/whatsapp-float-button";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
-const title = "Jaarle — Vendez comme une grande marque.";
+const title = "Jaarle — Ta boutique en ligne, tes affiches et tes publications.";
 const description =
-  "L'assistant marketing IA pour les commerçants africains. Crée ton affiche, ta story et ton texte de vente en 30 secondes.";
+  "Crée ta boutique en ligne gratuitement. Jaarle fait tes affiches, prépare tes publications Instagram, Facebook, TikTok et WhatsApp, et tes clients commandent sur WhatsApp.";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://jaarle.com"),
@@ -27,6 +27,8 @@ export const metadata: Metadata = {
     "Dakar",
     "réseaux sociaux",
     "publicité",
+    "boutique en ligne",
+    "WhatsApp",
   ],
   openGraph: {
     title,

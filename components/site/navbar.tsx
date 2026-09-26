@@ -10,11 +10,11 @@ import { LanguageToggle } from "@/components/language-toggle";
 import { MobileDrawer } from "@/components/ui/mobile-drawer";
 import { useLocale } from "@/lib/locale-context";
 
+// Jaarle 2.0 : liens absolus (« /#… ») pour fonctionner aussi depuis /tarifs.
 const NAV_LINKS = [
-  { href: "#how", key: "nav.how" },
-  { href: "#preview", key: "nav.app" },
+  { href: "/#how", key: "nav.how" },
+  { href: "/#features", key: "nav.features" },
   { href: "/tarifs", key: "nav.pricing" },
-  { href: "#dashboard", key: "nav.dashboard" },
 ] as const;
 
 export function Navbar() {

@@ -11,27 +11,27 @@ export function PremiumShowcase() {
   const { t } = useLocale();
 
   return (
-    <section className="pb-24">
+    <section className="pb-20 sm:pb-24">
       <div className="container">
         <div className="mx-auto mb-12 max-w-xl text-center">
           <div className="mx-auto mb-3 flex w-fit items-center gap-1.5 rounded-full bg-accent px-3 py-1 text-xs font-semibold text-accent-foreground">
-            <Sparkles className="h-3 w-3" /> Standard
+            <Sparkles className="h-3 w-3" /> IA
           </div>
-          <h2 className="mb-3 text-3xl font-bold tracking-tight sm:text-4xl">{t("showcase.title")}</h2>
-          <p className="text-muted-foreground">{t("showcase.desc")}</p>
+          <h2 className="mb-3 text-3xl font-bold tracking-tight sm:text-4xl">{t("home.showcaseTitle")}</h2>
+          <p className="text-muted-foreground">{t("home.showcaseDesc")}</p>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {examples.map((file) => (
             <div key={file} className="overflow-hidden rounded-2xl border border-border shadow-glow-md">
-              <img src={`/images/premium-examples/${file}`} alt={t("showcase.imageAlt")} className="aspect-square w-full object-cover" />
+              <img src={`/images/premium-examples/${file}`} alt={t("showcase.imageAlt")} loading="lazy" className="aspect-square w-full object-cover" />
             </div>
           ))}
         </div>
 
         <div className="mt-8 text-center">
           <Button variant="accent" size="lg" asChild>
-            <Link href="#pricing">{t("showcase.cta")}</Link>
+            <Link href="/register">{t("home.ctaPrimary")}</Link>
           </Button>
         </div>
       </div>

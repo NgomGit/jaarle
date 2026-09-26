@@ -1,31 +1,51 @@
 import { Navbar } from "@/components/site/navbar";
 import { Hero } from "@/components/site/hero";
 import { HowItWorks } from "@/components/site/how-it-works";
-import { AppPreview } from "@/components/site/app-preview";
+import { Features } from "@/components/site/features";
 import { PremiumShowcase } from "@/components/site/premium-showcase";
 import { Pricing } from "@/components/site/pricing";
-import { DashboardPreview } from "@/components/site/dashboard-preview";
-import { Testimonials } from "@/components/site/testimonials";
+import { MadeForSenegal } from "@/components/site/made-for-senegal";
 import { FinalCta } from "@/components/site/final-cta";
 import { Footer } from "@/components/site/footer";
+import { createPublicClient } from "@/lib/supabase/public";
+import type { PlanRow, PublicPromotion } from "@/lib/billing/types";
 
-export default function Home() {
+// Page d'accueil Jaarle 2.0 : boutique en ligne + affiches IA + Studio réseaux + clients WhatsApp.
+// Les offres affichées viennent de la base (plans / promotions), rafraîchies toutes les 5 minutes.
+// (Anciennes sections AppPreview / DashboardPreview / Testimonials retirées de la page : elles
+// décrivaient le paiement à l'affiche. Les fichiers restent dans components/site.)
+export const revalidate = 300;
+
+async function loadOffers(): Promise<{ plans: PlanRow[]; promos: PublicPromotion[] }> {
+  try {
+    const pub = createPublicClient();
+    const [plans, promos] = await Promise.all([
+      pub.from("plans").select("*").eq("is_public", true).order("sort").then((r) => (r.data ?? []) as PlanRow[]),
+      pub.rpc("public_promotions").then((r) => (r.data ?? []) as PublicPromotion[]),
+    ]);
+    return { plans, promos };
+  } catch {
+    return { plans: [], promos: [] };
+  }
+}
+
+export default async function Home() {
+  const { plans, promos } = await loadOffers();
   return (
     <main>
       <Navbar />
       <Hero />
-      <div className="border-y border-border py-8">
-        <div className="container flex flex-wrap justify-center gap-10 text-xs font-semibold tracking-wide text-muted-foreground">
-          <span>FACEBOOK</span><span>INSTAGRAM</span><span>TIKTOK</span>
-          <span>WHATSAPP</span><span>WAVE</span><span>ORANGE MONEY</span>
+      <div className="border-y border-border py-7">
+        <div className="container flex flex-wrap justify-center gap-x-8 gap-y-3 text-xs font-semibold tracking-wide text-muted-foreground sm:gap-10">
+          <span>WHATSAPP</span><span>INSTAGRAM</span><span>FACEBOOK</span><span>TIKTOK</span>
+          <span>WAVE</span><span>ORANGE MONEY</span>
         </div>
       </div>
       <HowItWorks />
-      <AppPreview />
+      <Features />
       <PremiumShowcase />
-      <Pricing />
-      <DashboardPreview />
-      <Testimonials />
+      <Pricing plans={plans} promos={promos} />
+      <MadeForSenegal />
       <FinalCta />
       <Footer />
     </main>

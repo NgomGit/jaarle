@@ -1,78 +1,94 @@
 "use client";
 
-import { Check } from "lucide-react";
 import Link from "next/link";
+import { Check, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { useLocale } from "@/lib/locale-context";
-import { TIERS } from "@/lib/pricing";
+import { formatFcfa } from "@/lib/billing/format";
+import type { PlanRow, PublicPromotion } from "@/lib/billing/types";
 import { cn } from "@/lib/utils";
 
-export function Pricing() {
+// Résumé des offres sur la page d'accueil. Les prix, arguments et offres viennent de la base
+// (tables plans / promotions) : rien n'est codé en dur. Le détail complet est sur /tarifs.
+export function Pricing({ plans, promos }: { plans: PlanRow[]; promos: PublicPromotion[] }) {
   const { t } = useLocale();
+  const promo = promos[0] ?? null;
+  const promoPlan = promo ? plans.find((p) => p.key === promo.plan_key) : null;
 
   return (
-    <section id="pricing" className="py-24">
+    <section id="pricing" className="scroll-mt-20 pb-20 sm:pb-24">
       <div className="container">
-        <div className="mx-auto mb-12 max-w-xl text-center">
-          <h2 className="mb-3 text-3xl font-bold tracking-tight sm:text-4xl">{t("pricing.title")}</h2>
-          <p className="text-muted-foreground">{t("pricing.desc")}</p>
+        <div className="mx-auto mb-10 max-w-xl text-center">
+          <h2 className="mb-3 text-3xl font-bold tracking-tight sm:text-4xl">{t("home.pricingTitle")}</h2>
+          <p className="text-muted-foreground">{t("home.pricingDesc")}</p>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <PlanCard title={t("pricing.freeTitle")} amount="0" unit={t("pricing.freeUnit")}
-            items={["Jusqu'à 5 créations en attente", "Aperçu HD avant de payer", "Tu ne payes qu'au téléchargement"]}
-            ctaLabel={t("pricing.start")} variant="secondary" href="/register" />
+        {promo && (
+          <Link
+            href="/tarifs"
+            className="mx-auto mb-6 flex max-w-2xl items-center gap-3 rounded-2xl border border-primary/30 bg-accent/60 px-4 py-3 text-sm font-semibold text-accent-foreground transition-colors hover:bg-accent"
+          >
+            <Gift className="h-5 w-5 shrink-0" />
+            {t("home.launch")
+              .replace("{plan}", promoPlan?.name ?? "Pro")
+              .replace("{price}", formatFcfa(promo.promo_price_fcfa))
+              .replace("{months}", String(promo.duration_periods))}
+          </Link>
+        )}
 
-          <PlanCard title={t("pricing.packTitle")} amount={TIERS.premium.price.toLocaleString("fr-FR")} unit={t("pricing.packUnit")}
-            items={["Design pensé pour convertir", "Mise en avant premium", "Un rendu pensé pour l'effet waouh"]}
-            ctaLabel={t("pricing.choose")} variant="accent" mono featured tag={t("pricing.campaignTag")} href="/register" />
+        {plans.length > 0 && (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            {plans.map((plan) => {
+              const featured = plan.key === "pro";
+              return (
+                <div
+                  key={plan.key}
+                  className={cn(
+                    "relative flex flex-col rounded-[22px] border bg-card p-6",
+                    featured ? "border-primary shadow-[0_20px_50px_-18px_hsl(var(--primary)/0.35)]" : "border-border"
+                  )}
+                >
+                  {featured && (
+                    <span className="absolute -top-3 left-6 rounded-full bg-gradient-to-br from-primary to-secondary px-3 py-1 text-[11px] font-bold text-white">
+                      {t("tarifs.recommended")}
+                    </span>
+                  )}
+                  {!plan.is_purchasable && (
+                    <span className="absolute -top-3 left-6 rounded-full border border-border bg-muted px-3 py-1 text-[11px] font-bold text-muted-foreground">
+                      {t("tarifs.soon")}
+                    </span>
+                  )}
+                  <h3 className="text-base font-bold">{plan.name}</h3>
+                  {plan.tagline && <p className="text-sm text-muted-foreground">{plan.tagline}</p>}
+                  <p className="my-4 font-mono text-3xl font-bold">
+                    {formatFcfa(plan.price_fcfa)}
+                    {plan.price_fcfa > 0 && <span className="ml-1 font-sans text-sm font-medium text-muted-foreground">{t("tarifs.perMonth")}</span>}
+                  </p>
+                  <ul className="mb-6 flex flex-col gap-2 text-sm">
+                    {plan.highlights.slice(0, 4).map((h) => (
+                      <li key={h} className="flex gap-2">
+                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                        {h}
+                      </li>
+                    ))}
+                  </ul>
+                  <Button variant={featured ? "accent" : "secondary"} className="mt-auto w-full" asChild>
+                    <Link href={plan.price_fcfa === 0 ? "/register" : "/tarifs"}>
+                      {plan.price_fcfa === 0 ? t("tarifs.ctaFree") : plan.is_purchasable ? t("tarifs.ctaPro") : t("home.pricingMore")}
+                    </Link>
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
-          <PlanCard title={t("pricing.goldTitle")} amount={TIERS.gold.price.toLocaleString("fr-FR")} unit={t("pricing.goldUnit")}
-            items={["Jusqu'à 3 photos produit", "2 déclinaisons de design au choix", "Qualité la plus poussée"]}
-            ctaLabel={t("pricing.choose")} variant="secondary" mono href="/register" />
-        </div>
-        {/* Jaarle 2.0 : offres Gratuit / Pro / Business détaillées sur /tarifs. */}
         <p className="mt-8 text-center">
           <Link href="/tarifs" className="text-sm font-semibold text-primary hover:underline">
-            {t("tarifs.title")} →
+            {t("home.pricingMore")} →
           </Link>
         </p>
       </div>
     </section>
-  );
-}
-
-function PlanCard({
-  title, amount, unit, items, ctaLabel, variant, mono, featured, tag, href,
-}: {
-  title: string; amount: string; unit: string; items: string[];
-  ctaLabel: string; variant: "accent" | "secondary"; mono?: boolean; featured?: boolean; tag?: string; href: string;
-}) {
-  return (
-    <Card className={cn("relative flex flex-col p-7", featured && "border-primary shadow-[0_20px_50px_-18px_hsl(var(--primary)/0.35)]")}>
-      {tag && (
-        <span className="absolute -top-3 left-6 rounded-full bg-gradient-to-br from-primary to-secondary px-3 py-1 text-[11px] font-bold text-white">
-          {tag}
-        </span>
-      )}
-      <h4 className="mb-1.5 text-sm font-semibold text-muted-foreground">{title}</h4>
-      <div className={cn("mb-1 text-3xl font-bold", mono && "font-mono")}>
-        {amount}
-        <sub className="ml-1 text-xs font-medium text-muted-foreground">FCFA</sub>
-      </div>
-      <div className="mb-5 text-xs text-muted-foreground">{unit}</div>
-      <ul className="mb-6 flex-grow">
-        {items.map((item, i) => (
-          <li key={item} className={cn("flex gap-2.5 py-2 text-[13px] text-muted-foreground", i !== 0 && "border-t border-border")}>
-            <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" strokeWidth={2} />
-            {item}
-          </li>
-        ))}
-      </ul>
-      <Button variant={variant} className="w-full" asChild>
-        <Link href={href}>{ctaLabel}</Link>
-      </Button>
-    </Card>
   );
 }

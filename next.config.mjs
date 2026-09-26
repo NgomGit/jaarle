@@ -11,6 +11,7 @@ const nextConfig = {
     outputFileTracingIncludes: {
       "/api/studio/visual/[id]": ["./public/fonts/**/*", "./public/images/logo-icon.png"],
       "/api/creations/[id]/preview": ["./public/fonts/**/*", "./public/images/logo-icon.png"],
+      "/api/shop-qr": ["./public/fonts/**/*", "./public/images/logo-icon.png"],
     },
   },
 };
