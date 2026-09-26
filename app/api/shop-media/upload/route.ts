@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import sharp from "sharp";
 import { createClient } from "@/lib/supabase/server";
-import { shopMediaUrl } from "@/lib/shops/media";
+import { shopMediaUrl, thumbPath } from "@/lib/shops/media";
 import { SHOP_MEDIA_BUCKET } from "@/lib/shops/types";
 
 // Upload d'une image de boutique (logo, bannière, photo produit) vers le bucket PUBLIC `shop-media`.
@@ -68,6 +68,19 @@ export async function POST(request: Request) {
   if (uploadError) {
     console.error("[shop-media/upload] upload failed:", uploadError);
     return NextResponse.json({ error: "Échec de l'enregistrement de l'image." }, { status: 500 });
+  }
+
+  // Photos produit : miniature 400 px à côté ({uuid}_400.webp) pour les grilles de la boutique
+  // publique — bien plus légère sur connexion mobile. Best-effort : sans miniature, on affiche l'originale.
+  if (kind === "product") {
+    try {
+      const thumb = await sharp(output.data).resize({ width: 400, height: 400, fit: "inside" }).webp({ quality: 75 }).toBuffer();
+      await supabase.storage
+        .from(SHOP_MEDIA_BUCKET)
+        .upload(thumbPath(path), thumb, { contentType: "image/webp", cacheControl: "31536000" });
+    } catch (err) {
+      console.error("[shop-media/upload] thumbnail failed:", err);
+    }
   }
 
   return NextResponse.json({

@@ -17,6 +17,10 @@ import {
 } from "@/lib/poster-pipeline";
 import { ARTISAN_INDUSTRIES } from "@/lib/art-directions";
 import { selectHeroAndSecondaries } from "@/lib/product-analyzer";
+import { getEntitlements } from "@/lib/billing/entitlements";
+import { attachUsage, consumeUsage, limitPayload, refundUsage } from "@/lib/billing/consume";
+import { logAiCall } from "@/lib/billing/ai-cost";
+import { AI_COST_ESTIMATES_USD, usageUnits } from "@/lib/billing/usage";
 
 // La génération enchaîne plusieurs appels IA séquentiels (fond + mise en page + vérifications)
 // — sans ceci, la fonction serverless expire avant la fin sur la plupart des plans Vercel (15s
@@ -127,6 +131,7 @@ export async function POST(request: Request) {
     subjectType,
     serviceDescription,
     serviceItems,
+    productId,
   } = (await request.json()) as {
     photoPath: string | null;
     extraPhotoPaths: string[] | null;
@@ -142,6 +147,7 @@ export async function POST(request: Request) {
     subjectType: "product" | "service";
     serviceDescription: string | null;
     serviceItems: string[] | null;
+    productId?: string | null; // Jaarle 2.0 : affiche créée depuis un produit de la boutique (facultatif)
   };
 
   const normalizedSubjectType: "product" | "service" = subjectType === "service" ? "service" : "product";
@@ -154,6 +160,24 @@ export async function POST(request: Request) {
   const normalizedTier: Tier = (tier as Tier) || "premium";
   const isGold = normalizedTier === "gold";
   const normalizedShowSecondaryPhotos = isGold && !!showSecondaryPhotos;
+
+  // Jaarle 2.0 — quota de générations du plan (puis crédits), décompté AVANT les appels IA et
+  // remboursé si l'affiche n'a pas pu être produite. Pro / Business (ou paiement en crédit) :
+  // l'affiche est livrée débloquée, sans filigrane. Gratuit : comportement historique (aperçu
+  // filigrané, déblocage à l'unité via PayTech).
+  const entitlements = await getEntitlements();
+  const usage = await consumeUsage({
+    userId: user.id,
+    action: "poster_generate",
+    units: usageUnits("poster_generate", normalizedTier),
+    meta: { tier: normalizedTier },
+  });
+  if (!usage.ok && usage.reason === "limit") {
+    return NextResponse.json(limitPayload("generations"), { status: 403 });
+  }
+  // Erreur technique de facturation : on ne bloque pas le générateur (mesure perdue, pas le client).
+  const usageEventId = usage.ok ? usage.eventId : null;
+  const unlockedByPlan = entitlements.posterUnlockIncluded || (usage.ok && usage.source === "credits");
 
   let logoBuffer: Buffer | null = null;
   if (logoPath) {
@@ -315,6 +339,19 @@ export async function POST(request: Request) {
     posterPath = null;
   }
 
+  // Jaarle 2.0 : lien optionnel vers le produit (et sa boutique), vérifié côté propriétaire.
+  // Sans productId, l'enregistrement est strictement identique à avant.
+  let productLink: { product_id: string; shop_id: string } | null = null;
+  if (productId) {
+    const { data: product } = await supabase
+      .from("products")
+      .select("id, shop_id")
+      .eq("id", productId)
+      .eq("owner_id", user.id)
+      .maybeSingle();
+    if (product) productLink = { product_id: product.id as string, shop_id: product.shop_id as string };
+  }
+
   const { data: creation, error: insertError } = await supabase
     .from("creations")
     .insert({
@@ -331,7 +368,7 @@ export async function POST(request: Request) {
       language,
       generated_copy: salesCopy,
       generated_hashtags: hashtags,
-      unlocked: false,
+      unlocked: unlockedByPlan,
       tier: normalizedTier,
       regenerations_used: 0,
       logo_path: logoPath,
@@ -340,13 +377,29 @@ export async function POST(request: Request) {
       subject_type: normalizedSubjectType,
       service_description: normalizedSubjectType === "service" ? serviceDescription : null,
       service_items: normalizedItems.length > 0 ? normalizedItems : null,
+      ...(productLink ?? {}),
     })
     .select()
     .single();
 
   if (insertError || !creation) {
+    await refundUsage(usageEventId);
     return NextResponse.json({ error: insertError?.message ?? "Échec de l'enregistrement." }, { status: 500 });
   }
+
+  // Affiche non produite (erreur IA / stockage) : la génération n'est pas décomptée.
+  if (!posterPath) await refundUsage(usageEventId);
+  else await attachUsage(usageEventId, { creationId: creation.id as string });
+  void logAiCall({
+    userId: user.id,
+    feature: "poster_generate",
+    estCostUsd: AI_COST_ESTIMATES_USD.poster_generate[normalizedTier === "gold" ? "gold" : "premium"],
+    images: 1,
+    usageEventId,
+    shopId: productLink?.shop_id ?? null,
+    creationId: creation.id as string,
+    meta: { tier: normalizedTier, posterReady: !!posterPath },
+  });
 
   // Historique : on enregistre l'affiche comme 1ʳᵉ version (variante principale).
   if (posterPath) {
@@ -369,5 +422,6 @@ export async function POST(request: Request) {
     productName,
     price,
     tier: creation.tier,
+    unlocked: unlockedByPlan, // Jaarle 2.0 : affiche livrée débloquée (Pro / crédits)
   });
 }

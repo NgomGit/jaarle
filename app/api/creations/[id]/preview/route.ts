@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { applyPreviewWatermark } from "@/lib/image-compose";
+import { applyJaarleSignature } from "@/lib/studio/signature";
 
 /**
  * Sert l'image d'une création sans jamais exposer le chemin/URL de stockage Supabase au
- * client. Tant que la création n'est pas débloquée, l'image est filigranée et réduite en
- * résolution — la version propre pleine résolution n'est servie qu'après paiement.
+ * client. Tant que la création n'est pas débloquée, l'image est signée du logo Jaarle et réduite en
+ * résolution — la version pleine résolution sans signature n'est servie qu'après paiement.
  */
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -67,7 +67,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }
 
   try {
-    const watermarked = await applyPreviewWatermark(buffer);
+    // Affiche non débloquée : aperçu en résolution réduite, signé du logo Jaarle (façon CapCut) —
+    // le même rendu que les visuels du Studio téléchargés en Gratuit.
+    const watermarked = await applyJaarleSignature(buffer);
     return new NextResponse(new Uint8Array(watermarked), {
       headers: { "Content-Type": "image/jpeg", "Cache-Control": "private, no-store" },
     });

@@ -6,6 +6,8 @@ export type ProductStatus = "draft" | "active" | "sold_out" | "hidden";
 export type SubjectType = "product" | "service";
 
 export interface ShopBrand {
+  /** Template de vitrine (voir components/storefront/templates). Défaut : "moderne". */
+  template?: string;
   accentFrom?: string;
   accentTo?: string;
   tone?: string;
@@ -77,7 +79,7 @@ export interface ProductImage {
   created_at: string;
 }
 
-export type ShopEventType = "shop_view" | "product_view" | "whatsapp_click" | "share_click" | "qr_scan" | "order_click";
+export type ShopEventType = "shop_view" | "product_view" | "whatsapp_click" | "share_click" | "qr_scan" | "order_click" | "call_click";
 
 /** Bucket public des images de boutique (≠ bucket privé `creations` du générateur). */
 export const SHOP_MEDIA_BUCKET = "shop-media";

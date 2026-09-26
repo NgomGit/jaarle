@@ -3,12 +3,21 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LayoutGrid, Lock, Download, Trash2 } from "lucide-react";
+import { LayoutGrid, Lock, Download, Trash2, Megaphone, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/lib/locale-context";
 import type { Creation } from "@/lib/supabase/creations";
 
-export function CreationsGallery({ creations: initialCreations, canceled }: { creations: Creation[]; canceled?: boolean }) {
+export function CreationsGallery({
+  creations: initialCreations,
+  canceled,
+  billingEnabled = false,
+}: {
+  creations: Creation[];
+  canceled?: boolean;
+  /** Jaarle 2.0 : le cadenas ouvre la page de l'affiche (abonnement / crédits) au lieu du paiement à l'unité. */
+  billingEnabled?: boolean;
+}) {
   const { t } = useLocale();
   const router = useRouter();
   const [creations, setCreations] = React.useState(initialCreations);
@@ -45,7 +54,22 @@ export function CreationsGallery({ creations: initialCreations, canceled }: { cr
 
   return (
     <div>
-      <h1 className="mb-5 text-lg font-bold">{t("creation.galleryTitle")}</h1>
+      {/* Studio : toutes les affiches du commerçant + point d'entrée unique pour en créer une. */}
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+            <Megaphone className="h-5 w-5 text-primary" />
+            {t("studio.title")}
+          </h1>
+          <p className="text-sm text-muted-foreground">{t("studio.homeDesc")}</p>
+        </div>
+        <Button variant="accent" size="lg" className="w-full gap-1.5 sm:w-auto" asChild>
+          <Link href="/dashboard/new">
+            <Plus className="h-4 w-4" />
+            {t("studio.createPoster")}
+          </Link>
+        </Button>
+      </div>
 
       {canceled && (
         <p className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">
@@ -113,7 +137,8 @@ export function CreationsGallery({ creations: initialCreations, canceled }: { cr
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        unlock(c.id);
+                        if (billingEnabled) router.push(`/dashboard/creations/${c.id}`);
+                        else unlock(c.id);
                       }}
                       disabled={unlockingId === c.id}
                       className="flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-primary shadow-glow-sm disabled:opacity-60"
@@ -128,6 +153,14 @@ export function CreationsGallery({ creations: initialCreations, canceled }: { cr
                   <span className="block font-mono text-[10px] text-white/80">
                     {c.price != null ? `${c.price.toLocaleString("fr-FR")} FCFA` : t("creation.priceOnRequestLabel")}
                   </span>
+                  <Link
+                    href={`/dashboard/creations/${c.id}#reseaux`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="mt-1.5 flex items-center justify-center gap-1 rounded-full bg-white/95 px-2 py-1.5 text-[11px] font-semibold text-primary shadow-glow-sm"
+                  >
+                    <Megaphone className="h-3 w-3" />
+                    {t("studio.publishShort")}
+                  </Link>
                 </div>
               </div>
             </div>

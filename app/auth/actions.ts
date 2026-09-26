@@ -26,13 +26,18 @@ export async function signup(formData: FormData) {
   const phone = formData.get("phone") as string;
   const whatsapp = (formData.get("whatsapp") as string) || phone;
   const password = formData.get("password") as string;
+  // Jaarle 2.0 : code de parrainage (lu par le trigger SQL handle_new_account) et offre choisie.
+  const ref = String(formData.get("ref") || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 40);
+  const plan = String(formData.get("plan") || "");
+  const code = String(formData.get("code") || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 30);
+  const next = plan === "pro" ? `/dashboard/abonnement${code ? `?code=${encodeURIComponent(code)}` : ""}` : "/dashboard";
 
   const supabase = createClient();
   const { data, error } = await supabase.auth.signUp({
     phone,
     password,
     options: {
-      data: { full_name: fullName, whatsapp_number: whatsapp },
+      data: { full_name: fullName, whatsapp_number: whatsapp, ...(ref ? { ref } : {}) },
     },
   });
 
@@ -46,7 +51,7 @@ export async function signup(formData: FormData) {
   }
 
   revalidatePath("/", "layout");
-  redirect("/dashboard");
+  redirect(next);
 }
 
 export async function updateProfile(formData: FormData) {

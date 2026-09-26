@@ -14,3 +14,12 @@ export function shopInitials(name: string): string {
   const letters = words.length >= 2 ? words[0][0] + words[1][0] : (words[0] ?? "J").slice(0, 2);
   return letters.toUpperCase();
 }
+
+/** Chemin de la miniature 400 px d'une photo produit (générée à l'upload). */
+export function thumbPath(path: string): string {
+  return path.replace(/\.webp$/, "_400.webp");
+}
+
+export function shopMediaThumbUrl(path: string | null | undefined): string | null {
+  return path ? shopMediaUrl(thumbPath(path)) : null;
+}

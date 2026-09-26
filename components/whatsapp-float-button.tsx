@@ -1,14 +1,24 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+
 const WHATSAPP_NUMBER = "221771350203";
 const WHATSAPP_MESSAGE = "Bonjour, j'ai une question sur Jaarle.";
 
 export function WhatsAppFloatButton() {
+  const pathname = usePathname();
+  // Sur une boutique publique, le visiteur doit contacter le COMMERÇANT, pas Jaarle.
+  if (pathname?.startsWith("/boutique")) return null;
+  // Dans le tableau de bord mobile, on remonte le bouton au-dessus de la barre d'onglets.
+  const dashboard = pathname?.startsWith("/dashboard") ?? false;
+
   return (
     <a
       href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Contacter Jaarle sur WhatsApp"
-      className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] shadow-lg shadow-black/20 transition-transform hover:scale-105"
+      className={`fixed ${dashboard ? "bottom-24 md:bottom-5" : "bottom-5"} right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] shadow-lg shadow-black/20 transition-transform hover:scale-105`}
     >
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
         <path

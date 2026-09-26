@@ -15,7 +15,7 @@ export function Footer() {
         </div>
         <div className="flex gap-5 text-[12.5px] text-muted-foreground">
           <Link href="#how" className="hover:text-foreground">{t("nav.how")}</Link>
-          <Link href="#pricing" className="hover:text-foreground">{t("nav.pricing")}</Link>
+          <Link href="/tarifs" className="hover:text-foreground">{t("nav.pricing")}</Link>
           <Link href="#">WhatsApp</Link>
         </div>
         <div className="text-xs text-muted-foreground">© 2026 Jaarle — Dakar, Sénégal</div>

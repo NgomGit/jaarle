@@ -1,19 +1,7 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { listCreations } from "@/lib/supabase/creations";
-import { CreationsGallery } from "@/components/dashboard/creations-gallery";
 
-export default async function CreationsPage({ searchParams }: { searchParams: { canceled?: string } }) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
-
-  const creations = await listCreations(supabase);
-
-  return <CreationsGallery creations={creations} canceled={!!searchParams.canceled} />;
+// « Mes créations » est désormais le Studio. L'ancienne adresse reste valable (liens existants,
+// retour d'annulation PayTech `?canceled=1`, favoris) et redirige en conservant le paramètre.
+export default function CreationsPage({ searchParams }: { searchParams: { canceled?: string } }) {
+  redirect(searchParams.canceled ? "/dashboard/studio?canceled=1" : "/dashboard/studio");
 }

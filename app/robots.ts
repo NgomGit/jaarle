@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/dashboard", "/api"],
+        disallow: ["/dashboard", "/api", "/r/", "/q/"],
       },
     ],
     sitemap: "https://jaarle.com/sitemap.xml",

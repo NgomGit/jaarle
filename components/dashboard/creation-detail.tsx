@@ -3,26 +3,64 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Copy, Check, Download, Lock, Share2, RefreshCw } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  ChevronDown,
+  Copy,
+  Download,
+  Loader2,
+  Lock,
+  Megaphone,
+  RefreshCw,
+  Share2,
+  ShieldCheck,
+  Wand2,
+  Type,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useLocale } from "@/lib/locale-context";
 import type { Creation, CreationVersion } from "@/lib/supabase/creations";
 import { getTierConfig } from "@/lib/pricing";
 import { PosterCarousel } from "@/components/dashboard/poster-carousel";
+import { CreationStudio } from "@/components/studio/creation-studio";
+import type { MockShop } from "@/components/studio/mockups";
+import type { MarketingPack } from "@/lib/studio/types";
+import { cn } from "@/lib/utils";
 
 function formatHashtags(hashtags: string[]): string {
   return hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ");
 }
 
+type Item = { url: string; kind?: string; versionId: string | null };
+
+/**
+ * Page d'une affiche. Structure (mobile d'abord) :
+ *  1. en-tête : nom, prix, statut ;
+ *  2. l'affiche (carrousel des versions) — la version affichée est celle téléchargée ET publiée ;
+ *  3. l'action principale : débloquer (avant paiement) ou télécharger / partager (après) ;
+ *  4. sections repliables : retoucher l'affiche, texte de vente ;
+ *  5. Studio « Publier sur mes réseaux » (réservé aux affiches débloquées).
+ * Toute la logique existante (régénération, déclinaison Gold, déblocage, partage, réconciliation
+ * avec le serveur) est conservée à l'identique.
+ */
 export function CreationDetail({
   creation,
   versions = [],
   tierPrice,
+  studioPack = null,
+  studioShop,
+  unlockOptions,
 }: {
   creation: Creation;
   versions?: CreationVersion[];
   tierPrice: number;
+  studioPack?: MarketingPack | null;
+  studioShop?: MockShop;
+  /** Jaarle 2.0 : déblocage sans paiement à l'unité (quota de l'abonnement ou crédits). */
+  unlockOptions?: { withPlan: boolean; withCredits: boolean; units: number; showProHint: boolean };
 }) {
   const { t } = useLocale();
   const router = useRouter();
@@ -32,17 +70,23 @@ export function CreationDetail({
   const [canNativeShare, setCanNativeShare] = React.useState(false);
   // Historique des versions : si la migration a peuplé creation_versions, on part de là ;
   // sinon repli sur les anciens champs (poster_path / poster_path_2) pour les vieilles créations.
-  const initialItems: { url: string; kind?: string }[] =
+  const toItems = (vs: CreationVersion[]): Item[] => vs.map((v) => ({ url: v.url, kind: v.kind, versionId: v.id }));
+  const initialItems: Item[] =
     versions.length > 0
-      ? versions.map((v) => ({ url: v.url, kind: v.kind }))
+      ? toItems(versions)
       : [
-          ...(creation.photoUrl ? [{ url: creation.photoUrl, kind: "principale" }] : []),
-          ...(creation.photoUrl2 ? [{ url: creation.photoUrl2, kind: "declinaison" }] : []),
+          ...(creation.photoUrl ? [{ url: creation.photoUrl, kind: "principale", versionId: null }] : []),
+          ...(creation.photoUrl2 ? [{ url: creation.photoUrl2, kind: "declinaison", versionId: null }] : []),
         ];
 
-  const [items, setItems] = React.useState<{ url: string; kind?: string }[]>(initialItems);
-  const [currentIndex, setCurrentIndex] = React.useState(0);
-  const [focus, setFocus] = React.useState<number | undefined>(undefined);
+  const [items, setItems] = React.useState<Item[]>(initialItems);
+  // On ouvre sur la version déjà utilisée par le Studio, sinon sur la première.
+  const initialIndex = Math.max(
+    0,
+    initialItems.findIndex((it) => it.versionId && it.versionId === studioPack?.creation_version_id)
+  );
+  const [currentIndex, setCurrentIndex] = React.useState(initialIndex);
+  const [focus, setFocus] = React.useState<number | undefined>(initialIndex > 0 ? initialIndex : undefined);
   const [hasDeclination, setHasDeclination] = React.useState(
     versions.some((v) => v.kind === "declinaison") || !!creation.photoUrl2
   );
@@ -55,12 +99,16 @@ export function CreationDetail({
   );
 
   const images = items.map((it) => it.url);
-  const currentUrl = images[currentIndex] ?? images[images.length - 1] ?? "";
+  const safeIndex = Math.min(currentIndex, Math.max(items.length - 1, 0));
+  const currentUrl = images[safeIndex] ?? images[images.length - 1] ?? "";
+  const currentVersionId = items[safeIndex]?.versionId ?? null;
   const canGenerateSecond = creation.tier === "gold" && !hasDeclination;
+  const canRetouch = regenRemaining > 0 || canGenerateSecond;
+  const locked = !creation.unlocked;
 
   function appendVersion(url: string, kind: string) {
     setFocus(items.length); // index de la nouvelle version (items.length AVANT ajout)
-    setItems((prev) => [...prev, { url, kind }]);
+    setItems((prev) => [...prev, { url, kind, versionId: null }]);
   }
 
   // Réconciliation avec le serveur : quand `versions` change (après router.refresh, ou parce que
@@ -69,7 +117,7 @@ export function CreationDetail({
   const prevVersionsLen = React.useRef(versions.length);
   React.useEffect(() => {
     if (versions.length > 0) {
-      setItems(versions.map((v) => ({ url: v.url, kind: v.kind })));
+      setItems(toItems(versions));
       setHasDeclination(versions.some((v) => v.kind === "declinaison"));
     }
     if (versions.length > prevVersionsLen.current) setFocus(versions.length - 1);
@@ -158,6 +206,26 @@ export function CreationDetail({
     }
   }
 
+  const [unlockingAlt, setUnlockingAlt] = React.useState(false);
+  const [unlockError, setUnlockError] = React.useState<string | null>(null);
+  async function unlockWithBalance() {
+    setUnlockingAlt(true);
+    setUnlockError(null);
+    try {
+      const res = await fetch("/api/billing/unlock-creation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ creationId: creation.id }),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string; message?: string };
+      if (!res.ok || !data.ok) throw new Error(data.message || data.error || t("creation.errorGeneric"));
+      router.refresh();
+    } catch (err) {
+      setUnlockError(err instanceof Error ? err.message : t("creation.errorGeneric"));
+      setUnlockingAlt(false);
+    }
+  }
+
   async function share() {
     if (!currentUrl) return;
     setSharing(true);
@@ -179,139 +247,303 @@ export function CreationDetail({
   }
 
   const whatsappHref = `https://wa.me/?text=${encodeURIComponent(fullCaption)}`;
+  const priceLabel = creation.price != null ? `${creation.price.toLocaleString("fr-FR")} FCFA` : t("creation.priceOnRequestLabel");
+  const payLabel = t("creation.unlockDownload").replace("{price}", tierPrice.toLocaleString("fr-FR"));
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <Link href="/dashboard/creations" className="mb-5 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
+    <div className="mx-auto w-full max-w-5xl pb-28 md:pb-8">
+      <Link href="/dashboard/studio" className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" /> {t("creation.detailBack")}
       </Link>
 
-      <div className="rounded-[20px] border border-border bg-card p-6">
-        <div className="mb-4">
+      {/* 1. En-tête */}
+      <header className="mb-4 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="truncate text-xl font-bold tracking-tight">{creation.product_name}</h1>
+          <p className="mt-0.5 font-mono text-sm font-bold text-primary">{priceLabel}</p>
+        </div>
+        {locked ? (
+          <Badge variant="warning" className="shrink-0">
+            <Lock className="h-3 w-3" /> {t("creation.statusPreview")}
+          </Badge>
+        ) : (
+          <Badge variant="success" className="shrink-0">
+            <Check className="h-3 w-3" /> {t("creation.statusUnlocked")}
+          </Badge>
+        )}
+      </header>
+
+      <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:items-start md:gap-8 lg:grid-cols-[minmax(0,460px)_1fr]">
+        {/* 2. Affiche */}
+        <div className="md:sticky md:top-6">
           <PosterCarousel
             images={images}
             alt={creation.product_name}
-            locked={!creation.unlocked}
+            locked={locked}
             focusIndex={focus}
             onIndexChange={setCurrentIndex}
             labelFor={images.length > 1 ? (i) => t("creation.variation").replace("{n}", String(i + 1)) : undefined}
           />
+          {images.length > 1 && (
+            <p className="mt-2 text-center text-xs text-muted-foreground">
+              {t("creation.versionHint").replace("{n}", String(safeIndex + 1)).replace("{count}", String(images.length))}
+            </p>
+          )}
         </div>
 
-        {regenRemaining > 0 && (
-          <div className="mb-4 flex flex-col gap-2 rounded-xl border border-dashed border-border p-3.5">
-            <label htmlFor="detail-regenerate-instructions" className="text-sm font-medium">
-              {t("creation.regenerateInstructionsLabel")}
-            </label>
-            <Textarea
-              id="detail-regenerate-instructions"
-              rows={2}
-              maxLength={300}
-              value={regenInstructions}
-              onChange={(e) => setRegenInstructions(e.target.value)}
-              placeholder={t("creation.regenerateInstructionsPlaceholder")}
-            />
-            <Button variant="secondary" className="gap-1.5 self-start" onClick={regenerate} disabled={regenerating}>
-              <RefreshCw className={regenerating ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
-              {regenerating
-                ? t("creation.declinationGenerating")
-                : t("creation.regenerate").replace("{count}", String(regenRemaining))}
-            </Button>
-          </div>
-        )}
-
-        {canGenerateSecond && (
-          <div className="mb-4 flex flex-col gap-2 rounded-xl border border-dashed border-border p-3.5">
-            <span className="text-sm font-medium">{t("creation.declinationTitle")}</span>
-            <span className="-mt-1 text-[11px] text-muted-foreground">{t("creation.declinationHint")}</span>
-            <Textarea
-              rows={2}
-              maxLength={300}
-              value={declinationInstructions}
-              onChange={(e) => setDeclinationInstructions(e.target.value)}
-              placeholder={t("creation.declinationPlaceholder")}
-            />
-            <Button
-              variant="secondary"
-              className="gap-1.5 self-start"
-              onClick={generateSecondVariant}
-              disabled={generatingVariant}
-            >
-              <RefreshCw className={generatingVariant ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
-              {generatingVariant ? t("creation.declinationGenerating") : t("creation.declinationButton")}
-            </Button>
-          </div>
-        )}
-
-        <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-lg font-bold">{creation.product_name}</h1>
-          <span className="font-mono text-sm font-bold text-primary">
-            {creation.price != null ? `${creation.price.toLocaleString("fr-FR")} FCFA` : t("creation.priceOnRequestLabel")}
-          </span>
-        </div>
-
-        {!creation.unlocked ? (
-          <Button variant="accent" className="w-full gap-1.5" onClick={unlock} disabled={unlocking}>
-            <Lock className="h-3.5 w-3.5" />
-            {t("creation.unlockDownload").replace("{price}", String(tierPrice))}
-          </Button>
-        ) : (
-          <>
-            <div className="mb-3 rounded-xl border border-border bg-muted px-4 py-3.5">
-              <div className="mb-1.5 flex items-center justify-between">
-                <span className="text-[11px] text-muted-foreground">{t("preview.resultText")}</span>
-                <button
-                  onClick={() => copy(salesCopy, "text")}
-                  className="flex items-center gap-1 text-[11px] font-semibold text-primary"
-                >
-                  {copied === "text" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                  {copied === "text" ? t("creation.copied") : t("creation.copyText")}
-                </button>
-              </div>
-              <p className="text-[13px] leading-relaxed">{salesCopy}</p>
-            </div>
-
-            {hashtagsLine && (
-              <div className="mb-4 rounded-xl border border-border bg-muted px-4 py-3.5">
-                <div className="mb-1.5 flex items-center justify-between">
-                  <span className="text-[11px] text-muted-foreground">{t("creation.hashtagsLabel")}</span>
-                  <button
-                    onClick={() => copy(hashtagsLine, "hashtags")}
-                    className="flex items-center gap-1 text-[11px] font-semibold text-primary"
-                  >
-                    {copied === "hashtags" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                    {copied === "hashtags" ? t("creation.copied") : t("creation.copyHashtags")}
-                  </button>
-                </div>
-                <p className="text-[13px] text-primary">{hashtagsLine}</p>
-              </div>
-            )}
-
-            <div className="flex flex-wrap gap-2.5">
-              {canNativeShare && (
-                <Button variant="accent" className="flex-1 gap-1.5" onClick={share} disabled={sharing}>
-                  <Share2 className="h-3.5 w-3.5" />
-                  {t("creation.share")}
+        <div className="flex flex-col gap-4">
+          {/* 3. Action principale */}
+          {locked && unlockOptions ? (
+            // Jaarle 2.0 (abonnement / crédits) : plus de prix à l'unité affiché. L'affiche est déjà
+            // utilisable avec le logo Jaarle ; on explique comment le retirer.
+            <div className="rounded-2xl border border-primary/25 bg-card p-5 shadow-sm">
+              <p className="text-base font-bold">{t("billing.removeLogoTitle")}</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">{t("billing.removeLogoDesc")}</p>
+              <ul className="my-4 flex flex-col gap-2 text-sm">
+                {["removeLogoPerk1", "removeLogoPerk2", "removeLogoPerk3"].map((k) => (
+                  <li key={k} className="flex items-start gap-2">
+                    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-success/15 text-success">
+                      <Check className="h-3 w-3" />
+                    </span>
+                    {t(`billing.${k}`)}
+                  </li>
+                ))}
+              </ul>
+              {unlockOptions.withPlan || unlockOptions.withCredits ? (
+                <Button variant="accent" size="lg" className="w-full gap-1.5" onClick={unlockWithBalance} disabled={unlockingAlt}>
+                  {unlockingAlt ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
+                  {(unlockOptions.withPlan ? t("billing.unlockWithPlan") : t("billing.unlockWithCredits")).replace("{units}", String(unlockOptions.units))}
+                </Button>
+              ) : (
+                <Button variant="accent" size="lg" className="w-full gap-1.5" asChild>
+                  <Link href="/dashboard/abonnement">
+                    <Lock className="h-4 w-4" />
+                    {t("billing.goPro")}
+                  </Link>
                 </Button>
               )}
-              <Button variant="secondary" className="flex-1 gap-1.5" asChild>
-                <a href={whatsappHref} target="_blank" rel="noopener noreferrer">
-                  {t("creation.shareWhatsapp")}
-                </a>
+              {unlockError && <p className="mt-2 text-center text-xs text-destructive">{unlockError}</p>}
+              <div className="mt-2.5 grid grid-cols-2 gap-2.5">
+                {unlockOptions.showProHint && (unlockOptions.withPlan || unlockOptions.withCredits) ? (
+                  <Button variant="secondary" className="gap-1.5" asChild>
+                    <Link href="/dashboard/abonnement">{t("billing.goPro")}</Link>
+                  </Button>
+                ) : (
+                  <Button variant="secondary" className="gap-1.5" asChild>
+                    <Link href="/dashboard/abonnement#credits">{t("billing.buyCredits")}</Link>
+                  </Button>
+                )}
+                <Button variant="secondary" className="gap-1.5" asChild>
+                  <a href="#reseaux">
+                    <Megaphone className="h-3.5 w-3.5" />
+                    {t("studio.publishShort")}
+                  </a>
+                </Button>
+              </div>
+              <p className="mt-2.5 text-center text-[11px] text-muted-foreground">{t("billing.removeLogoHint")}</p>
+            </div>
+          ) : locked ? (
+            <div className="rounded-2xl border border-primary/25 bg-card p-5 shadow-sm">
+              <p className="text-base font-bold">{t("creation.unlockTitle")}</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">{t("creation.unlockDesc")}</p>
+              <ul className="my-4 flex flex-col gap-2 text-sm">
+                {["unlockPerk1", "unlockPerk2", "unlockPerk3"].map((k) => (
+                  <li key={k} className="flex items-start gap-2">
+                    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-success/15 text-success">
+                      <Check className="h-3 w-3" />
+                    </span>
+                    {t(`creation.${k}`)}
+                  </li>
+                ))}
+              </ul>
+              <Button variant="accent" size="lg" className="w-full gap-1.5" onClick={unlock} disabled={unlocking}>
+                {unlocking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
+                {payLabel}
               </Button>
-              <Button variant="secondary" className="flex-1 gap-1.5" asChild>
-                <a href={currentUrl || "#"} download={`affiche-${currentIndex + 1}.jpg`}>
-                  <Download className="h-3.5 w-3.5" />
+              <p className="mt-2.5 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+                <ShieldCheck className="h-3.5 w-3.5" /> {t("creation.unlockSecure")}
+              </p>
+              {unlockOptions && (unlockOptions.withPlan || unlockOptions.withCredits) && (
+                <>
+                  <p className="my-2 text-center text-xs text-muted-foreground">{t("billing.unlockOr")}</p>
+                  <Button variant="secondary" size="lg" className="w-full gap-1.5" onClick={unlockWithBalance} disabled={unlockingAlt}>
+                    {unlockingAlt ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                    {(unlockOptions.withPlan ? t("billing.unlockWithPlan") : t("billing.unlockWithCredits")).replace(
+                      "{units}",
+                      String(unlockOptions.units)
+                    )}
+                  </Button>
+                  {unlockError && <p className="mt-2 text-center text-xs text-destructive">{unlockError}</p>}
+                </>
+              )}
+              {unlockOptions?.showProHint && (
+                <p className="mt-3 border-t border-border pt-3 text-center text-xs text-muted-foreground">
+                  {t("billing.unlockProHint")}{" "}
+                  <Link href="/dashboard/abonnement" className="font-semibold text-primary">
+                    {t("billing.seePlans")}
+                  </Link>
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+              <p className="mb-3 flex items-center gap-2 text-base font-bold">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-success/15 text-success">
+                  <Check className="h-3.5 w-3.5" />
+                </span>
+                {t("creation.readyTitle")}
+              </p>
+              <Button variant="accent" size="lg" className="w-full gap-1.5" asChild>
+                <a href={currentUrl || "#"} download={`affiche-${safeIndex + 1}.jpg`}>
+                  <Download className="h-4 w-4" />
                   {images.length > 1
-                    ? t("creation.downloadVariation").replace("{n}", String(currentIndex + 1))
+                    ? t("creation.downloadVariation").replace("{n}", String(safeIndex + 1))
                     : t("creation.download")}
                 </a>
               </Button>
+              <div className={cn("mt-2.5 grid gap-2.5", canNativeShare ? "grid-cols-2" : "grid-cols-1")}>
+                {canNativeShare && (
+                  <Button variant="secondary" className="gap-1.5" onClick={share} disabled={sharing}>
+                    <Share2 className="h-3.5 w-3.5" />
+                    {t("creation.share")}
+                  </Button>
+                )}
+                <Button variant="secondary" className="gap-1.5" asChild>
+                  <a href={whatsappHref} target="_blank" rel="noopener noreferrer">
+                    {t("creation.shareWhatsapp")}
+                  </a>
+                </Button>
+              </div>
+              <p className="mt-2.5 text-[11px] text-muted-foreground">{t("creation.shareWhatsappHint")}</p>
+              <Button variant="secondary" className="mt-3 w-full gap-1.5 border-primary/30 text-primary" asChild>
+                <a href="#reseaux">
+                  <Megaphone className="h-4 w-4" />
+                  {t("studio.publishOnNetworks")}
+                </a>
+              </Button>
             </div>
-            <p className="mt-2.5 text-[11px] text-muted-foreground">{t("creation.shareWhatsappHint")}</p>
-          </>
-        )}
+          )}
+
+          {/* 4a. Retoucher l'affiche (régénération / déclinaison Gold) */}
+          {canRetouch && (
+            <Collapsible icon={Wand2} title={t("creation.retouchTitle")} subtitle={t("creation.retouchSubtitle").replace("{count}", String(regenRemaining))}>
+              {regenRemaining > 0 && (
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="detail-regenerate-instructions" className="text-sm font-medium">
+                    {t("creation.regenerateInstructionsLabel")}
+                  </label>
+                  <Textarea
+                    id="detail-regenerate-instructions"
+                    rows={2}
+                    maxLength={300}
+                    value={regenInstructions}
+                    onChange={(e) => setRegenInstructions(e.target.value)}
+                    placeholder={t("creation.regenerateInstructionsPlaceholder")}
+                  />
+                  <Button variant="secondary" className="gap-1.5 sm:self-start" onClick={regenerate} disabled={regenerating}>
+                    <RefreshCw className={regenerating ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
+                    {regenerating
+                      ? t("creation.declinationGenerating")
+                      : t("creation.regenerate").replace("{count}", String(regenRemaining))}
+                  </Button>
+                </div>
+              )}
+
+              {canGenerateSecond && (
+                <div className={cn("flex flex-col gap-2", regenRemaining > 0 && "mt-4 border-t border-border pt-4")}>
+                  <span className="text-sm font-medium">{t("creation.declinationTitle")}</span>
+                  <span className="-mt-1 text-[11px] text-muted-foreground">{t("creation.declinationHint")}</span>
+                  <Textarea
+                    rows={2}
+                    maxLength={300}
+                    value={declinationInstructions}
+                    onChange={(e) => setDeclinationInstructions(e.target.value)}
+                    placeholder={t("creation.declinationPlaceholder")}
+                  />
+                  <Button variant="secondary" className="gap-1.5 sm:self-start" onClick={generateSecondVariant} disabled={generatingVariant}>
+                    <RefreshCw className={generatingVariant ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
+                    {generatingVariant ? t("creation.declinationGenerating") : t("creation.declinationButton")}
+                  </Button>
+                </div>
+              )}
+            </Collapsible>
+          )}
+
+          {/* 4b. Texte de vente (après paiement, comme avant) */}
+          {!locked && (salesCopy || hashtagsLine) && (
+            <Collapsible icon={Type} title={t("preview.resultText")} subtitle={t("creation.salesCopySubtitle")}>
+              {salesCopy && (
+                <div className="rounded-xl bg-muted px-4 py-3.5">
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <span className="text-[11px] text-muted-foreground">{t("preview.resultText")}</span>
+                    <CopyButton copied={copied === "text"} onClick={() => copy(salesCopy, "text")} label={t("creation.copyText")} doneLabel={t("creation.copied")} />
+                  </div>
+                  <p className="whitespace-pre-line text-[13px] leading-relaxed">{salesCopy}</p>
+                </div>
+              )}
+              {hashtagsLine && (
+                <div className="mt-2.5 rounded-xl bg-muted px-4 py-3.5">
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <span className="text-[11px] text-muted-foreground">{t("creation.hashtagsLabel")}</span>
+                    <CopyButton copied={copied === "hashtags"} onClick={() => copy(hashtagsLine, "hashtags")} label={t("creation.copyHashtags")} doneLabel={t("creation.copied")} />
+                  </div>
+                  <p className="text-[13px] text-primary">{hashtagsLine}</p>
+                </div>
+              )}
+            </Collapsible>
+          )}
+        </div>
       </div>
+
+      {/* 5. Studio : publier sur mes réseaux */}
+      {studioShop && (
+        <div className="mt-10 border-t border-border pt-8">
+          <CreationStudio
+            creationId={creation.id}
+            versionId={currentVersionId}
+            initialPack={studioPack}
+            locked={locked}
+            shop={studioShop}
+          />
+        </div>
+      )}
     </div>
+  );
+}
+
+function Collapsible({
+  icon: Icon,
+  title,
+  subtitle,
+  children,
+}: {
+  icon: React.ElementType;
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className="group rounded-2xl border border-border bg-card">
+      <summary className="flex cursor-pointer list-none items-center gap-3 p-4 [&::-webkit-details-marker]:hidden">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-foreground">
+          <Icon className="h-4 w-4" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold">{title}</span>
+          {subtitle && <span className="block text-xs text-muted-foreground">{subtitle}</span>}
+        </span>
+        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="px-4 pb-4">{children}</div>
+    </details>
+  );
+}
+
+function CopyButton({ copied, onClick, label, doneLabel }: { copied: boolean; onClick: () => void; label: string; doneLabel: string }) {
+  return (
+    <button onClick={onClick} className="flex items-center gap-1 text-[11px] font-semibold text-primary">
+      {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+      {copied ? doneLabel : label}
+    </button>
   );
 }

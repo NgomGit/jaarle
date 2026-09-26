@@ -13,7 +13,7 @@ import { useLocale } from "@/lib/locale-context";
 const NAV_LINKS = [
   { href: "#how", key: "nav.how" },
   { href: "#preview", key: "nav.app" },
-  { href: "#pricing", key: "nav.pricing" },
+  { href: "/tarifs", key: "nav.pricing" },
   { href: "#dashboard", key: "nav.dashboard" },
 ] as const;
 

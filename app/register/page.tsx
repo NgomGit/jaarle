@@ -13,7 +13,7 @@ import { useLocale } from "@/lib/locale-context";
 export default function RegisterPage({
   searchParams,
 }: {
-  searchParams: { error?: string };
+  searchParams: { error?: string; ref?: string; plan?: string; code?: string };
 }) {
   const { t } = useLocale();
   const [phone, setPhone] = React.useState("");
@@ -56,6 +56,10 @@ export default function RegisterPage({
             )}
             <form action={signup} onSubmit={handleSubmit} className="flex flex-col gap-4">
               <input type="hidden" name="phone" value={`+221${phone}`} />
+              {/* Jaarle 2.0 : parrainage (?ref=CODE) et offre choisie sur /tarifs (?plan=pro&code=…). */}
+              <input type="hidden" name="ref" value={(searchParams.ref ?? "").slice(0, 40)} />
+              <input type="hidden" name="plan" value={searchParams.plan === "pro" || searchParams.plan === "business" ? searchParams.plan : ""} />
+              <input type="hidden" name="code" value={(searchParams.code ?? "").slice(0, 30)} />
               <input type="hidden" name="whatsapp" value={`+221${whatsappValue}`} />
 
               <div className="flex flex-col gap-1.5">

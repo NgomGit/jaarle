@@ -167,3 +167,38 @@ export async function updateShop(input: ShopInput): Promise<ActionResult> {
   revalidatePath("/dashboard", "layout");
   return { ok: true, slug };
 }
+
+/** Met la boutique en ligne (au moins un produit visible requis) ou la repasse en brouillon. */
+export async function setShopPublished(published: boolean): Promise<ActionResult> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Session expirée. Reconnecte-toi." };
+
+  const shop = await getMyShop(supabase, user.id);
+  if (!shop) return { ok: false, error: "Boutique introuvable." };
+  if (shop.status === "suspended") return { ok: false, error: "Ta boutique est suspendue. Contacte le support Jaarle." };
+
+  if (published) {
+    const { count } = await supabase
+      .from("products")
+      .select("id", { count: "exact", head: true })
+      .eq("shop_id", shop.id)
+      .in("status", ["active", "sold_out"]);
+    if (!count) return { ok: false, error: "Ajoute au moins un produit disponible avant de publier." };
+  }
+
+  const { error } = await supabase
+    .from("shops")
+    .update({ status: published ? "published" : "draft" })
+    .eq("id", shop.id);
+  if (error) {
+    console.error("[boutique/setShopPublished] failed:", error);
+    return { ok: false, error: "Impossible de modifier la publication pour le moment." };
+  }
+
+  revalidatePath("/dashboard", "layout");
+  revalidatePath(`/boutique/${shop.slug}`, "layout");
+  return { ok: true, slug: shop.slug };
+}

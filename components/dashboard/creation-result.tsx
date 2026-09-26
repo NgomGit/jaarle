@@ -22,6 +22,7 @@ export function CreationResult({
   unlocking = false,
   onUnlock,
   tierPrice,
+  unlockLabel,
   regenerationsRemaining = 0,
   regenerating = false,
   onRegenerate,
@@ -41,6 +42,7 @@ export function CreationResult({
   unlocking?: boolean;
   onUnlock?: () => void;
   tierPrice: number;
+  unlockLabel?: string; // Jaarle 2.0 : libellé sans prix à l'unité
   regenerationsRemaining?: number;
   regenerating?: boolean;
   onRegenerate?: (instructions: string) => void;
@@ -148,7 +150,7 @@ export function CreationResult({
         {locked ? (
           <Button variant="accent" className="flex-1 gap-1.5" onClick={onUnlock} disabled={unlocking}>
             <Lock className="h-3.5 w-3.5" />
-            {t("creation.unlockDownload").replace("{price}", String(tierPrice))}
+            {unlockLabel ?? t("creation.unlockDownload").replace("{price}", String(tierPrice))}
           </Button>
         ) : (
           <>

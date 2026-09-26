@@ -32,6 +32,12 @@ export function Pricing() {
             items={["Jusqu'à 3 photos produit", "2 déclinaisons de design au choix", "Qualité la plus poussée"]}
             ctaLabel={t("pricing.choose")} variant="secondary" mono href="/register" />
         </div>
+        {/* Jaarle 2.0 : offres Gratuit / Pro / Business détaillées sur /tarifs. */}
+        <p className="mt-8 text-center">
+          <Link href="/tarifs" className="text-sm font-semibold text-primary hover:underline">
+            {t("tarifs.title")} →
+          </Link>
+        </p>
       </div>
     </section>
   );

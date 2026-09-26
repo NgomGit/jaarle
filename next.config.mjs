@@ -6,6 +6,12 @@ const nextConfig = {
   // On désactive ce cache pour les pages dynamiques : elles refetchent toujours à la navigation.
   experimental: {
     staleTimes: { dynamic: 0 },
+    // Studio Marketing : les polices Inter (public/fonts) sont lues par la fonction serverless
+    // qui rend les visuels — on s'assure qu'elles sont embarquées dans son bundle au déploiement.
+    outputFileTracingIncludes: {
+      "/api/studio/visual/[id]": ["./public/fonts/**/*", "./public/images/logo-icon.png"],
+      "/api/creations/[id]/preview": ["./public/fonts/**/*", "./public/images/logo-icon.png"],
+    },
   },
 };
 export default nextConfig;

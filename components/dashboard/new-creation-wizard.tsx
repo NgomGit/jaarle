@@ -15,13 +15,55 @@ import { CreationStepIndicator } from "@/components/dashboard/creation-step-indi
 import { CreationResult } from "@/components/dashboard/creation-result";
 import { CategoryPicker } from "@/components/dashboard/category-picker";
 import { cn } from "@/lib/utils";
+import { LimitDialog, type LimitReason } from "@/components/billing/upgrade-card";
 
 type Step = 0 | 1 | 2 | 3;
 type Language = "fr" | "wo";
 type SubjectType = "product" | "service";
 const TIER_ORDER: Tier[] = ["premium", "gold"];
 
-export function NewCreationWizard({ userId, defaultPhone }: { userId: string; defaultPhone: string }) {
+/**
+ * Valeurs par défaut issues de la boutique Jaarle 2.0 (null = pas de boutique → comportement
+ * d'origine inchangé). Le commerçant peut toujours les modifier pour une affiche donnée.
+ */
+export interface ShopDefaults {
+  businessName: string;
+  logoUrl: string | null;
+  industry: string | null;
+  language: Language;
+}
+
+/** Produit de la boutique à partir duquel on crée l'affiche (« Créer une affiche » sur un produit). */
+export interface ProductDefaults {
+  productId: string;
+  name: string;
+  price: number | null;
+  subjectType: SubjectType;
+  description: string | null;
+  imageUrls: string[];
+}
+
+export interface GenerationBudget {
+  units: Record<Tier, number>;
+  affordable: Record<Tier, boolean>;
+  remaining: number | null; // null = illimité
+  credits: number;
+}
+
+export function NewCreationWizard({
+  userId,
+  defaultPhone,
+  shopDefaults = null,
+  productDefaults = null,
+  generationBudget = null,
+}: {
+  userId: string;
+  defaultPhone: string;
+  shopDefaults?: ShopDefaults | null;
+  productDefaults?: ProductDefaults | null;
+  /** Jaarle 2.0 : coût en générations (abonnement / crédits). null = affichage historique en FCFA. */
+  generationBudget?: GenerationBudget | null;
+}) {
   const { t } = useLocale();
   const searchParams = useSearchParams();
   const [step, setStep] = React.useState<Step>(0);
@@ -41,20 +83,77 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
   const [newItemInput, setNewItemInput] = React.useState("");
   const [price, setPrice] = React.useState("");
   const [priceOnRequest, setPriceOnRequest] = React.useState(false);
-  const [industry, setIndustry] = React.useState("");
-  const [language, setLanguage] = React.useState<Language>("fr");
+  const [industry, setIndustry] = React.useState(shopDefaults?.industry ?? "");
+  const [language, setLanguage] = React.useState<Language>(shopDefaults?.language ?? "fr");
   const [tier, setTier] = React.useState<Tier>("premium");
   const [contactPhone, setContactPhone] = React.useState(defaultPhone);
   const [extraPhones, setExtraPhones] = React.useState<string[]>([]);
   const [polishingItems, setPolishingItems] = React.useState(false);
-  const [businessName, setBusinessName] = React.useState("");
+  const [businessName, setBusinessName] = React.useState(shopDefaults?.businessName ?? "");
   const [logoFile, setLogoFile] = React.useState<File | null>(null);
-  const [logoPreviewUrl, setLogoPreviewUrl] = React.useState<string | null>(null);
+  const [logoPreviewUrl, setLogoPreviewUrl] = React.useState<string | null>(shopDefaults?.logoUrl ?? null);
+  // Logo de la boutique utilisé tant que le commerçant n'en choisit pas un autre (ou ne le retire pas).
+  const [useShopLogo, setUseShopLogo] = React.useState(!!shopDefaults?.logoUrl);
+  const [productId, setProductId] = React.useState<string | null>(productDefaults?.productId ?? null);
+  const [loadingProductPhotos, setLoadingProductPhotos] = React.useState(false);
+
+  // Pré-remplissage depuis un produit de la boutique : infos + photos (récupérées depuis le bucket
+  // public shop-media et converties en fichiers, comme si le commerçant venait de les choisir).
+  React.useEffect(() => {
+    if (!productDefaults) return;
+    setProductName(productDefaults.name);
+    setSubjectType(productDefaults.subjectType);
+    if (productDefaults.price == null) setPriceOnRequest(true);
+    else setPrice(String(productDefaults.price));
+    if (productDefaults.subjectType === "service" && productDefaults.description) {
+      setServiceDescription(productDefaults.description.slice(0, 300));
+    }
+    if (productDefaults.imageUrls.length === 0) return;
+    let cancelled = false;
+    setLoadingProductPhotos(true);
+    (async () => {
+      const files = await Promise.all(
+        productDefaults.imageUrls.slice(0, 4).map(async (url, i) => {
+          try {
+            const res = await fetch(url);
+            if (!res.ok) return null;
+            const blob = await res.blob();
+            return new File([blob], `produit-${i + 1}.webp`, { type: blob.type || "image/webp" });
+          } catch {
+            return null;
+          }
+        })
+      );
+      if (cancelled) return;
+      const [main, ...extras] = files;
+      if (main) {
+        setFile(main);
+        setPreviewUrl(URL.createObjectURL(main));
+      }
+      const setters: [typeof setExtraFile2, typeof setExtraPreview2][] = [
+        [setExtraFile2, setExtraPreview2],
+        [setExtraFile3, setExtraPreview3],
+        [setExtraFile4, setExtraPreview4],
+      ];
+      extras.forEach((f, i) => {
+        if (f && setters[i]) {
+          setters[i][0](f);
+          setters[i][1](URL.createObjectURL(f));
+        }
+      });
+      setLoadingProductPhotos(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [genStepIndex, setGenStepIndex] = React.useState(0);
   const [error, setError] = React.useState<string | null>(
     searchParams.get("canceled") ? t("creation.paymentCanceled") : null
   );
   const [generationFailed, setGenerationFailed] = React.useState(false);
+  const [limitReason, setLimitReason] = React.useState<LimitReason | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [unlocking, setUnlocking] = React.useState(false);
   const [regenerating, setRegenerating] = React.useState(false);
@@ -70,6 +169,7 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
     hashtags: string[];
     tier: Tier;
     regenerationsRemaining: number;
+    unlocked?: boolean;
   } | null>(null);
 
   const canProceedStep0 =
@@ -111,7 +211,8 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
   }
 
   function removeLogo() {
-    if (logoPreviewUrl) URL.revokeObjectURL(logoPreviewUrl);
+    if (logoPreviewUrl && logoFile) URL.revokeObjectURL(logoPreviewUrl);
+    setUseShopLogo(false);
     setLogoFile(null);
     setLogoPreviewUrl(null);
     const input = document.getElementById("businessLogo") as HTMLInputElement | null;
@@ -164,6 +265,7 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
   function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
+    setUseShopLogo(false);
     setLogoFile(f);
     setLogoPreviewUrl(URL.createObjectURL(f));
   }
@@ -212,6 +314,15 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
         logoPath = `${userId}/${Date.now()}-logo-${logoFile.name}`;
         const { error: logoUploadError } = await supabase.storage.from("creations").upload(logoPath, logoFile);
         if (logoUploadError) logoPath = null;
+      } else if (hasBranding && useShopLogo) {
+        // Logo de la boutique (bucket public shop-media) copié dans le bucket `creations`, que le
+        // générateur lit — le pipeline d'affiche reste inchangé. En cas d'échec : affiche sans logo.
+        try {
+          const logoRes = await fetch("/api/shop-media/logo-for-poster", { method: "POST" });
+          if (logoRes.ok) logoPath = ((await logoRes.json()) as { path?: string }).path ?? null;
+        } catch {
+          logoPath = null;
+        }
       }
 
       const extraPhotoPaths: string[] = [];
@@ -242,6 +353,7 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
           subjectType,
           serviceDescription: subjectType === "service" && serviceDescription.trim() ? serviceDescription.trim() : null,
           serviceItems,
+          productId,
         }),
       });
       const data = await res.json();
@@ -257,6 +369,7 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
         hashtags: data.hashtags ?? [],
         tier: (data.tier as Tier) || "premium",
         regenerationsRemaining: TIERS[(data.tier as Tier) || "premium"].maxRegenerations,
+        unlocked: !!data.unlocked,
       };
     })();
 
@@ -270,6 +383,14 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
       setResult(generated);
       setStep(3);
     } catch (err) {
+      if (err instanceof Error && err.message === "limit_reached") {
+        // Jaarle 2.0 — quota de générations du plan atteint (vérifié avant tout appel IA).
+        setLimitReason("generations");
+        setError(t("billing.limit_generations"));
+        setGenerationFailed(true);
+        setStep(1);
+        return;
+      }
       if (err instanceof Error && err.message === "unpaid_limit_reached") {
         // Rejet explicite du serveur avant toute génération : pas de génération en cours dont
         // le résultat pourrait avoir abouti malgré l'erreur, donc pas besoin de tentative de
@@ -319,6 +440,7 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
         salesCopy: match.generated_copy,
         hashtags: match.generated_hashtags ?? [],
         tier: (match.tier as Tier) || "premium",
+        unlocked: !!match.unlocked,
         regenerationsRemaining: TIERS[(match.tier as Tier) || "premium"].maxRegenerations,
       };
     } catch {
@@ -389,6 +511,7 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
 
   function reset() {
     setStep(0);
+    setProductId(null);
     setSubjectType("product");
     setFile(null);
     setPreviewUrl(null);
@@ -398,15 +521,16 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
     setNewItemInput("");
     setPrice("");
     setPriceOnRequest(false);
-    setIndustry("");
-    setLanguage("fr");
+    setIndustry(shopDefaults?.industry ?? "");
+    setLanguage(shopDefaults?.language ?? "fr");
     setTier("premium");
     setContactPhone(defaultPhone);
     setExtraPhones([]);
     setPolishingItems(false);
-    setBusinessName("");
+    setBusinessName(shopDefaults?.businessName ?? "");
     setLogoFile(null);
-    setLogoPreviewUrl(null);
+    setLogoPreviewUrl(shopDefaults?.logoUrl ?? null);
+    setUseShopLogo(!!shopDefaults?.logoUrl);
     setExtraFile2(null);
     setExtraPreview2(null);
     setExtraFile3(null);
@@ -423,6 +547,7 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
   return (
     <div className="mx-auto max-w-3xl">
       <CreationStepIndicator step={step} />
+      <LimitDialog reason={limitReason} onClose={() => setLimitReason(null)} />
 
       {error && (
         <div className="mb-4 flex flex-col gap-2.5 rounded-lg border border-destructive/30 bg-destructive/10 px-3.5 py-2.5">
@@ -438,6 +563,12 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
       <div className="rounded-[20px] border border-border bg-card p-6">
         {step === 0 && (
           <div className="flex flex-col gap-4">
+            {productId && productDefaults && (
+              <p className="rounded-lg bg-accent px-3.5 py-2.5 text-sm text-accent-foreground">
+                {t("creation.fromProduct").replace("{name}", productDefaults.name)}
+                {loadingProductPhotos && ` ${t("creation.fromProductLoading")}`}
+              </p>
+            )}
             <div className="flex flex-col gap-1.5">
               <span className="text-sm font-medium">{t("creation.subjectTypeLabel")}</span>
               <div className="flex gap-2">
@@ -620,22 +751,40 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 {TIER_ORDER.map((key) => {
                   const cfg = TIERS[key];
+                  const units = generationBudget?.units[key] ?? 1;
+                  const disabled = !!generationBudget && !generationBudget.affordable[key];
                   return (
                     <button
                       key={key}
-                      onClick={() => setTier(key)}
+                      onClick={() => !disabled && setTier(key)}
+                      disabled={disabled}
                       className={cn(
-                        "flex flex-col items-start gap-1 rounded-xl border-2 px-4 py-3 text-left transition-colors",
+                        "flex flex-col items-start gap-1 rounded-xl border-2 px-4 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50",
                         tier === key ? "border-primary bg-accent" : "border-border"
                       )}
                     >
                       <span className="text-sm font-bold">{t(`creation.tier.${key}.name`)}</span>
-                      <span className="font-mono text-sm font-bold text-primary">{cfg.price} FCFA</span>
+                      {generationBudget ? (
+                        <span className="text-sm font-bold text-primary">
+                          {t(units > 1 ? "billing.generationsCount" : "billing.generationCount").replace("{n}", String(units))}
+                        </span>
+                      ) : (
+                        <span className="font-mono text-sm font-bold text-primary">{cfg.price} FCFA</span>
+                      )}
                       <span className="text-[11px] text-muted-foreground">{t(`creation.tier.${key}.desc`)}</span>
+                      {disabled && <span className="text-[11px] font-medium text-destructive">{t("billing.notEnoughGenerations")}</span>}
                     </button>
                   );
                 })}
               </div>
+              {generationBudget && (
+                <p className="text-xs text-muted-foreground">
+                  {generationBudget.remaining == null
+                    ? t("billing.generationsUnlimited")
+                    : t("billing.wizardGenerationsLeft").replace("{n}", String(generationBudget.remaining))}
+                  {generationBudget.credits > 0 && ` · ${t("billing.wizardCreditsLeft").replace("{n}", String(generationBudget.credits))}`}
+                </p>
+              )}
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -737,7 +886,9 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
             {(tier === "premium" || tier === "gold") && (
               <div className="flex flex-col gap-3 rounded-xl border border-dashed border-border p-3.5">
                 <span className="text-sm font-medium">{t("creation.brandingTitle")}</span>
-                <span className="-mt-2 text-[11px] text-muted-foreground">{t("creation.brandingHint")}</span>
+                <span className="-mt-2 text-[11px] text-muted-foreground">
+                  {shopDefaults ? t("creation.brandingHintShop") : t("creation.brandingHint")}
+                </span>
 
                 <div className="flex flex-col gap-1.5">
                   <label htmlFor="businessName" className="text-xs font-medium text-muted-foreground">
@@ -764,8 +915,10 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
                     ) : (
                       <UploadCloud className="h-4 w-4 shrink-0" strokeWidth={1.75} />
                     )}
-                    <span className="truncate">{logoFile ? logoFile.name : t("creation.businessLogoPlaceholder")}</span>
-                    {logoFile && (
+                    <span className="truncate">
+                      {logoFile ? logoFile.name : useShopLogo ? t("creation.shopLogo") : t("creation.businessLogoPlaceholder")}
+                    </span>
+                    {(logoFile || useShopLogo) && (
                       <button
                         type="button"
                         onClick={(e) => {
@@ -866,9 +1019,12 @@ export function NewCreationWizard({ userId, defaultPhone }: { userId: string; de
             formattedPrice={formattedPrice}
             salesCopy={result.salesCopy}
             hashtags={result.hashtags}
-            locked
+            locked={!result.unlocked}
             unlocking={unlocking}
-            onUnlock={unlockAndDownload}
+            // Jaarle 2.0 : plus de paiement à l'unité ici — la page de l'affiche explique comment
+            // retirer le logo (abonnement / crédits) et permet déjà de publier.
+            onUnlock={generationBudget ? () => (window.location.href = `/dashboard/creations/${result.creationId}`) : unlockAndDownload}
+            unlockLabel={generationBudget ? t("billing.removeLogoCta") : undefined}
             onNewCreation={reset}
             tierPrice={TIERS[result.tier].price}
             regenerationsRemaining={result.regenerationsRemaining}

@@ -1,3 +1,5 @@
+import { logAiCall } from "@/lib/billing/ai-cost";
+import { AI_COST_ESTIMATES_USD } from "@/lib/billing/usage";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -163,6 +165,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
     poster_path: posterPath2,
     kind: "declinaison",
   });
+
+  // Mesure du coût IA (retouche incluse dans l'affiche, non décomptée du quota). Jamais bloquant.
+  void logAiCall({ userId: user.id, feature: "poster_declination", estCostUsd: AI_COST_ESTIMATES_USD.poster_declination, images: 1, creationId: creation.id });
 
   return NextResponse.json({
     imageUrl2: `/api/creations/${creation.id}/preview?variant=2&v=${Date.now()}`,

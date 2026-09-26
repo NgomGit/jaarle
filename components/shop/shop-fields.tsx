@@ -19,7 +19,7 @@ export function Field({
   children,
   hint,
 }: {
-  label: string;
+  label: React.ReactNode;
   htmlFor?: string;
   optional?: boolean;
   children: React.ReactNode;
