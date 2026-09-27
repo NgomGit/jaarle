@@ -5,7 +5,11 @@ import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/lib/locale-context";
 
-const examples = ["example-1.jpg", "example-2.jpg", "example-3.jpg"];
+const examples = [
+  { file: "example-1-600.webp", alt: "Affiche créée par Jaarle pour des chaussures en wax" },
+  { file: "example-2-600.webp", alt: "Affiche créée par Jaarle pour une tenue africaine à 25 000 FCFA" },
+  { file: "example-3-600.webp", alt: "Affiche créée par Jaarle pour des accessoires auto" },
+];
 
 export function PremiumShowcase() {
   const { t } = useLocale();
@@ -22,9 +26,9 @@ export function PremiumShowcase() {
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {examples.map((file) => (
+          {examples.map(({ file, alt }) => (
             <div key={file} className="overflow-hidden rounded-2xl border border-border shadow-glow-md">
-              <img src={`/images/premium-examples/${file}`} alt={t("showcase.imageAlt")} loading="lazy" className="aspect-square w-full object-cover" />
+              <img src={`/images/premium-examples/${file}`} alt={alt} width={600} height={600} loading="lazy" className="aspect-square w-full object-cover" />
             </div>
           ))}
         </div>

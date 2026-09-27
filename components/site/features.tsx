@@ -49,7 +49,7 @@ export function Features() {
             <div className="mt-auto grid grid-cols-3 gap-2">
               {[1, 2, 3].map((n) => (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img key={n} src={`/images/premium-examples/example-${n}.jpg`} alt="" loading="lazy" className="aspect-square w-full rounded-xl object-cover" />
+                <img key={n} src={`/images/premium-examples/example-${n}-600.webp`} alt="" width={200} height={200} loading="lazy" className="aspect-square w-full rounded-xl object-cover" />
               ))}
             </div>
           </article>

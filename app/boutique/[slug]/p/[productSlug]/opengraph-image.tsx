@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import { formatPrice } from "@/lib/shops/format";
 import { shopMediaUrl } from "@/lib/shops/media";
-import { toPngDataUri } from "@/lib/shops/og-images";
+import { toJpegResponse, toPngDataUri } from "@/lib/shops/og-images";
 import { getPublicProduct, getPublicShop } from "@/lib/shops/public";
 
 // Aperçu du lien produit : photo, nom, prix, boutique — ce que le client voit dans WhatsApp.
@@ -9,14 +9,15 @@ export const runtime = "nodejs";
 export const revalidate = 300;
 export const alt = "Produit sur Jaarle";
 export const size = { width: 1200, height: 630 };
-export const contentType = "image/png";
+export const contentType = "image/jpeg"; // JPEG : aperçus WhatsApp légers
 
 export default async function Image({ params }: { params: { slug: string; productSlug: string } }) {
   const shop = await getPublicShop(params.slug);
   const product = shop ? await getPublicProduct(shop.id, params.productSlug) : null;
   const photo = await toPngDataUri(shopMediaUrl(product?.product_images[0]?.path), 630);
 
-  return new ImageResponse(
+  return toJpegResponse(
+    new ImageResponse(
     (
       <div style={{ width: "100%", height: "100%", display: "flex", background: "#FAFAFA", fontFamily: "sans-serif" }}>
         <div style={{ width: 630, height: 630, display: "flex", background: "#EEE" }}>
@@ -35,5 +36,6 @@ export default async function Image({ params }: { params: { slug: string; produc
       </div>
     ),
     size
+    )
   );
 }

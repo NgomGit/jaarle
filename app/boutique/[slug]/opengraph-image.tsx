@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import { formatPrice } from "@/lib/shops/format";
 import { shopInitials, shopMediaThumbUrl, shopMediaUrl } from "@/lib/shops/media";
-import { toPngDataUri } from "@/lib/shops/og-images";
+import { toJpegResponse, toPngDataUri } from "@/lib/shops/og-images";
 import { getPublicProducts, getPublicShop } from "@/lib/shops/public";
 
 // Aperçu du lien de la boutique (WhatsApp, Facebook…) : nom, activité, ville + 3 produits.
@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 export const revalidate = 300;
 export const alt = "Boutique sur Jaarle";
 export const size = { width: 1200, height: 630 };
-export const contentType = "image/png";
+export const contentType = "image/jpeg"; // JPEG : aperçus WhatsApp légers
 
 export default async function Image({ params }: { params: { slug: string } }) {
   const shop = await getPublicShop(params.slug);
@@ -20,7 +20,8 @@ export default async function Image({ params }: { params: { slug: string } }) {
   ]);
   const location = [shop?.district, shop?.city].filter(Boolean).join(", ");
 
-  return new ImageResponse(
+  return toJpegResponse(
+    new ImageResponse(
     (
       <div style={{ width: "100%", height: "100%", display: "flex", background: "linear-gradient(135deg, #6D5EF5, #3B82F6)", padding: 56, fontFamily: "sans-serif" }}>
         <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", width: 520, color: "white" }}>
@@ -52,5 +53,6 @@ export default async function Image({ params }: { params: { slug: string } }) {
       </div>
     ),
     size
+    )
   );
 }

@@ -14,7 +14,7 @@ export function Logo({ className, variant = "mark" }: { className?: string; vari
   return (
     <div className={cn("flex items-center gap-2 font-bold text-[15px]", className)}>
       {variant === "image" ? (
-        <img src="/images/logo-icon.png" alt="Jaarle" className="h-6 w-6 shrink-0 object-contain" />
+        <img src="/images/logo-icon-96.png" alt="" width={24} height={24} className="h-6 w-6 shrink-0 object-contain" />
       ) : (
         <LogoMark />
       )}

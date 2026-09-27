@@ -5,7 +5,7 @@ import Link from "next/link";
 import { signup } from "@/app/auth/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Logo } from "@/components/logo";
 import { PhoneInput } from "@/components/phone-input";
 import { useLocale } from "@/lib/locale-context";
@@ -40,7 +40,7 @@ export default function RegisterPage({
         </Link>
         <Card>
           <CardHeader>
-            <CardTitle>{t("auth.registerTitle")}</CardTitle>
+            <h1 className="text-lg font-semibold leading-none tracking-tight">{t("auth.registerTitle")}</h1>
             <CardDescription>{t("auth.registerDesc")}</CardDescription>
           </CardHeader>
           <CardContent>

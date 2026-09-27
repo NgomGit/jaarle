@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getStorefrontTemplate } from "@/components/storefront/templates";
-import { formatPrice } from "@/lib/shops/format";
+import { formatPrice, shopPublicUrl } from "@/lib/shops/format";
+import { absoluteUrl, breadcrumbLd, jsonLdString, productDescription, productLd, SITE_LOCALE, SITE_NAME } from "@/lib/seo";
 import { shopMediaUrl } from "@/lib/shops/media";
 import { getPublicProduct, getPublicProducts, getPublicShop, getShopPublicMeta, productPublicUrl } from "@/lib/shops/public";
 import { resolveTheme, toProductCard, toProductDetail, toStorefrontShop } from "@/lib/storefront/view-models";
@@ -20,17 +21,17 @@ async function load(params: Props["params"]) {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const data = await load(params);
-  if (!data) return { title: "Produit introuvable — Jaarle", robots: { index: false } };
+  if (!data) return { title: "Produit introuvable", robots: { index: false } };
   const { shop, product } = data;
   const title = `${product.name} — ${formatPrice(product.price)} | ${shop.name}`;
-  const description = product.description || `${product.name} chez ${shop.name}. Commandez directement sur WhatsApp.`;
+  const description = productDescription(shop, product);
   const url = productPublicUrl(shop.slug, product.slug);
   return {
-    title,
+    title: { absolute: title },
     description,
     alternates: { canonical: url },
     icons: shop.logo_path ? { icon: shopMediaUrl(shop.logo_path) ?? undefined } : undefined,
-    openGraph: { title, description, url, siteName: "Jaarle", locale: "fr_SN", type: "website" },
+    openGraph: { title, description, url, siteName: SITE_NAME, locale: SITE_LOCALE, type: "website" },
     twitter: { card: "summary_large_image", title, description },
   };
 }
@@ -42,30 +43,20 @@ export default async function ProductPage({ params }: Props) {
   const [allProducts, theme, meta] = await Promise.all([getPublicProducts(shop.id), resolveTheme(shop), getShopPublicMeta(shop.id)]);
   const detail = toProductDetail(shop.slug, product);
 
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    name: product.name,
-    description: product.description ?? undefined,
-    image: detail.images,
-    category: product.category ?? undefined,
-    brand: { "@type": "Brand", name: shop.name },
-    offers:
-      product.price != null
-        ? {
-            "@type": "Offer",
-            price: product.price,
-            priceCurrency: "XOF",
-            availability: detail.soldOut ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
-            url: detail.url,
-          }
-        : undefined,
-  };
+  const shopUrl = shopPublicUrl(shop.slug);
+  const jsonLd = [
+    productLd({ shop, shopUrl, product, url: detail.url, images: detail.images }),
+    breadcrumbLd([
+      { name: "Jaarle", url: absoluteUrl("/") },
+      { name: shop.name, url: shopUrl },
+      { name: product.name, url: detail.url },
+    ]),
+  ];
 
   const { ProductView } = getStorefrontTemplate(shop.brand?.template);
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(jsonLd) }} />
       <ProductView
         shop={toStorefrontShop(shop, allProducts.length, meta)}
         product={detail}

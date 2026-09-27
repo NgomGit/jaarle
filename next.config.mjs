@@ -12,6 +12,7 @@ const nextConfig = {
       "/api/studio/visual/[id]": ["./public/fonts/**/*", "./public/images/logo-icon.png"],
       "/api/creations/[id]/preview": ["./public/fonts/**/*", "./public/images/logo-icon.png"],
       "/api/shop-qr": ["./public/fonts/**/*", "./public/images/logo-icon.png"],
+      "/opengraph-image": ["./public/fonts/**/*", "./public/images/logo-icon-96.png", "./public/images/premium-examples/*-600.webp"],
     },
   },
 };

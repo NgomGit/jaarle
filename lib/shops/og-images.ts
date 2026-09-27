@@ -22,3 +22,14 @@ export async function toPngDataUri(
     return null;
   }
 }
+
+/**
+ * Convertit une image Open Graph (PNG de next/og) en JPEG : 5 à 10 fois plus léger, ce qui compte
+ * pour les aperçus de liens WhatsApp (image ignorée au-delà d'environ 300 Ko).
+ */
+export async function toJpegResponse(image: Response, quality = 82): Promise<Response> {
+  const jpeg = await sharp(Buffer.from(await image.arrayBuffer())).jpeg({ quality, mozjpeg: true }).toBuffer();
+  return new Response(new Uint8Array(jpeg), {
+    headers: { "Content-Type": "image/jpeg", "Cache-Control": "public, max-age=300, s-maxage=300, stale-while-revalidate=86400" },
+  });
+}

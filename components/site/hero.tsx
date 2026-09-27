@@ -10,9 +10,9 @@ import { useLocale } from "@/lib/locale-context";
 // et des clients qui arrivent sur WhatsApp. La maquette montre une vraie vitrine Jaarle.
 
 const PRODUCTS = [
-  { img: "/images/premium-examples/example-1.jpg", name: "home.mockP1", price: "home.mockPrice1" },
-  { img: "/images/premium-examples/example-2.jpg", name: "home.mockP2", price: "home.mockPrice2" },
-  { img: "/images/premium-examples/example-3.jpg", name: "home.mockP3", price: "home.mockPrice3" },
+  { img: "/images/premium-examples/example-1-600.webp", name: "home.mockP1", price: "home.mockPrice1" },
+  { img: "/images/premium-examples/example-2-600.webp", name: "home.mockP2", price: "home.mockPrice2" },
+  { img: "/images/premium-examples/example-3-600.webp", name: "home.mockP3", price: "home.mockPrice3" },
 ];
 
 export function Hero() {
@@ -75,7 +75,7 @@ export function Hero() {
               {PRODUCTS.map((p) => (
                 <div key={p.img} className="overflow-hidden rounded-2xl bg-white shadow-sm">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={p.img} alt="" className="aspect-square w-full object-cover" />
+                  <img src={p.img} alt="" width={130} height={130} className="aspect-square w-full object-cover" />
                   <div className="p-2">
                     <p className="truncate text-[11px] font-semibold text-gray-900">{t(p.name)}</p>
                     <div className="mt-1 flex items-center justify-between">
