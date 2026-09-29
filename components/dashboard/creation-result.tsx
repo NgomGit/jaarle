@@ -26,8 +26,7 @@ export function CreationResult({
   regenerationsRemaining = 0,
   regenerating = false,
   onRegenerate,
-  onGenerateDeclination,
-  generatingDeclination = false,
+  moreImages,
 }: {
   imageUrl: string;
   imageUrl2?: string | null;
@@ -46,13 +45,12 @@ export function CreationResult({
   regenerationsRemaining?: number;
   regenerating?: boolean;
   onRegenerate?: (instructions: string) => void;
-  onGenerateDeclination?: (instructions: string) => void;
-  generatingDeclination?: boolean;
+  /** Nouvelles versions générées depuis cet écran (ajoutées au carrousel, la plus récente en focus). */
+  moreImages?: string[];
 }) {
   const { t } = useLocale();
   const [instructions, setInstructions] = React.useState("");
-  const [declinationInstructions, setDeclinationInstructions] = React.useState("");
-  const images = [imageUrl, imageUrl2].filter((u): u is string => !!u);
+  const images = [imageUrl, imageUrl2, ...(moreImages ?? [])].filter((u): u is string => !!u);
 
   return (
     <div className="flex flex-col gap-4">
@@ -99,41 +97,24 @@ export function CreationResult({
                 onChange={(e) => setInstructions(e.target.value)}
                 placeholder={t("creation.regenerateInstructionsPlaceholder")}
               />
+              <span className="text-[11px] text-muted-foreground">{t("creation.newVersionHint")}</span>
             </div>
           )}
           <Button
             variant="secondary"
             className="gap-1.5 self-start"
-            onClick={() => onRegenerate(instructions.trim())}
+            onClick={() => {
+              onRegenerate(instructions.trim());
+              setInstructions("");
+            }}
             disabled={regenerating || regenerationsRemaining <= 0}
           >
             <RefreshCw className={regenerating ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
-            {regenerationsRemaining > 0
+            {regenerating
+              ? t("creation.declinationGenerating")
+              : regenerationsRemaining > 0
               ? t("creation.regenerate").replace("{count}", String(regenerationsRemaining))
               : t("creation.regenerateExhausted")}
-          </Button>
-        </div>
-      )}
-
-      {locked && onGenerateDeclination && !imageUrl2 && (
-        <div className="flex flex-col gap-2 rounded-xl border border-dashed border-border p-3.5">
-          <span className="text-sm font-medium">{t("creation.declinationTitle")}</span>
-          <span className="-mt-1 text-[11px] text-muted-foreground">{t("creation.declinationHint")}</span>
-          <Textarea
-            rows={2}
-            maxLength={300}
-            value={declinationInstructions}
-            onChange={(e) => setDeclinationInstructions(e.target.value)}
-            placeholder={t("creation.declinationPlaceholder")}
-          />
-          <Button
-            variant="secondary"
-            className="gap-1.5 self-start"
-            onClick={() => onGenerateDeclination(declinationInstructions.trim())}
-            disabled={generatingDeclination}
-          >
-            <RefreshCw className={generatingDeclination ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
-            {generatingDeclination ? t("creation.declinationGenerating") : t("creation.declinationButton")}
           </Button>
         </div>
       )}

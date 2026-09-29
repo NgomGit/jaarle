@@ -3,14 +3,14 @@
 import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { UploadCloud, CheckCircle2, Circle, Sparkles, X, Plus } from "lucide-react";
+import { UploadCloud, CheckCircle2, Circle, Sparkles, X, Plus, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/supabase/client";
 import { listCreations } from "@/lib/supabase/creations";
 import { useLocale } from "@/lib/locale-context";
-import { TIERS, type Tier } from "@/lib/pricing";
+import { TIERS, DEFAULT_TIER, MAX_POSTER_PHOTOS, type Tier } from "@/lib/pricing";
 import { CreationStepIndicator } from "@/components/dashboard/creation-step-indicator";
 import { CreationResult } from "@/components/dashboard/creation-result";
 import { CategoryPicker } from "@/components/dashboard/category-picker";
@@ -20,7 +20,6 @@ import { LimitDialog, type LimitReason } from "@/components/billing/upgrade-card
 type Step = 0 | 1 | 2 | 3;
 type Language = "fr" | "wo";
 type SubjectType = "product" | "service";
-const TIER_ORDER: Tier[] = ["premium", "gold"];
 
 /**
  * Valeurs par défaut issues de la boutique Jaarle 2.0 (null = pas de boutique → comportement
@@ -68,15 +67,14 @@ export function NewCreationWizard({
   const searchParams = useSearchParams();
   const [step, setStep] = React.useState<Step>(0);
   const [subjectType, setSubjectType] = React.useState<SubjectType>("product");
-  const [file, setFile] = React.useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
-  const [extraFile2, setExtraFile2] = React.useState<File | null>(null);
-  const [extraPreview2, setExtraPreview2] = React.useState<string | null>(null);
-  const [extraFile3, setExtraFile3] = React.useState<File | null>(null);
-  const [extraPreview3, setExtraPreview3] = React.useState<string | null>(null);
-  const [extraFile4, setExtraFile4] = React.useState<File | null>(null);
-  const [extraPreview4, setExtraPreview4] = React.useState<string | null>(null);
-  const [showSecondaryPhotos, setShowSecondaryPhotos] = React.useState(false);
+  // Photos de l'affiche (1 à 3) choisies en une fois. `mainIndex` = photo principale désignée par
+  // le commerçant ; null = l'IA la détermine. Les autres sont intégrées au design en vignettes.
+  const [photos, setPhotos] = React.useState<{ file: File; url: string }[]>([]);
+  const [mainIndex, setMainIndex] = React.useState<number | null>(null);
+  // Nom proposé par l'IA à partir des photos quand le commerçant n'en a pas saisi.
+  const [suggestingName, setSuggestingName] = React.useState(false);
+  const [nameSuggested, setNameSuggested] = React.useState(false);
+  const nameTouched = React.useRef(false);
   const [productName, setProductName] = React.useState("");
   const [serviceDescription, setServiceDescription] = React.useState("");
   const [serviceItems, setServiceItems] = React.useState<string[]>([]);
@@ -85,7 +83,8 @@ export function NewCreationWizard({
   const [priceOnRequest, setPriceOnRequest] = React.useState(false);
   const [industry, setIndustry] = React.useState(shopDefaults?.industry ?? "");
   const [language, setLanguage] = React.useState<Language>(shopDefaults?.language ?? "fr");
-  const [tier, setTier] = React.useState<Tier>("premium");
+  // Toutes les affiches sont premium : plus de choix de palier.
+  const tier: Tier = DEFAULT_TIER;
   const [contactPhone, setContactPhone] = React.useState(defaultPhone);
   const [extraPhones, setExtraPhones] = React.useState<string[]>([]);
   const [polishingItems, setPolishingItems] = React.useState(false);
@@ -113,7 +112,7 @@ export function NewCreationWizard({
     setLoadingProductPhotos(true);
     (async () => {
       const files = await Promise.all(
-        productDefaults.imageUrls.slice(0, 4).map(async (url, i) => {
+        productDefaults.imageUrls.slice(0, MAX_POSTER_PHOTOS).map(async (url, i) => {
           try {
             const res = await fetch(url);
             if (!res.ok) return null;
@@ -125,22 +124,12 @@ export function NewCreationWizard({
         })
       );
       if (cancelled) return;
-      const [main, ...extras] = files;
-      if (main) {
-        setFile(main);
-        setPreviewUrl(URL.createObjectURL(main));
-      }
-      const setters: [typeof setExtraFile2, typeof setExtraPreview2][] = [
-        [setExtraFile2, setExtraPreview2],
-        [setExtraFile3, setExtraPreview3],
-        [setExtraFile4, setExtraPreview4],
-      ];
-      extras.forEach((f, i) => {
-        if (f && setters[i]) {
-          setters[i][0](f);
-          setters[i][1](URL.createObjectURL(f));
-        }
-      });
+      setPhotos(
+        files
+          .filter((f): f is File => !!f)
+          .slice(0, MAX_POSTER_PHOTOS)
+          .map((f) => ({ file: f, url: URL.createObjectURL(f) }))
+      );
       setLoadingProductPhotos(false);
     })();
     return () => {
@@ -157,7 +146,6 @@ export function NewCreationWizard({
   const [submitting, setSubmitting] = React.useState(false);
   const [unlocking, setUnlocking] = React.useState(false);
   const [regenerating, setRegenerating] = React.useState(false);
-  const [generatingDeclination, setGeneratingDeclination] = React.useState(false);
 
   const [result, setResult] = React.useState<{
     creationId: string;
@@ -170,45 +158,70 @@ export function NewCreationWizard({
     tier: Tier;
     regenerationsRemaining: number;
     unlocked?: boolean;
+    moreImages?: string[];
   } | null>(null);
 
   const canProceedStep0 =
-    (subjectType === "product" ? !!file : true) && productName.trim() !== "" && (priceOnRequest || price.trim() !== "");
+    (subjectType === "product" ? photos.length > 0 : true) && productName.trim() !== "" && (priceOnRequest || price.trim() !== "");
   const formattedPrice = priceOnRequest ? null : price ? Number(price).toLocaleString("fr-FR") : "";
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setFile(f);
-    setPreviewUrl(URL.createObjectURL(f));
+  function handlePhotosChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const picked = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (picked.length === 0) return;
+    setPhotos((prev) => {
+      const room = Math.max(0, MAX_POSTER_PHOTOS - prev.length);
+      return [...prev, ...picked.slice(0, room).map((f) => ({ file: f, url: URL.createObjectURL(f) }))];
+    });
     setError(null);
   }
 
-  function removeMainPhoto() {
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setFile(null);
-    setPreviewUrl(null);
-    const input = document.getElementById("creation-photo") as HTMLInputElement | null;
-    if (input) input.value = "";
+  function removePhoto(index: number) {
+    setPhotos((prev) => {
+      const removed = prev[index];
+      if (removed) URL.revokeObjectURL(removed.url);
+      return prev.filter((_, i) => i !== index);
+    });
+    setMainIndex((m) => (m === null || m === index ? null : m > index ? m - 1 : m));
   }
 
-  function removeExtraFile(slot: 2 | 3 | 4) {
-    if (slot === 2) {
-      if (extraPreview2) URL.revokeObjectURL(extraPreview2);
-      setExtraFile2(null);
-      setExtraPreview2(null);
-    } else if (slot === 3) {
-      if (extraPreview3) URL.revokeObjectURL(extraPreview3);
-      setExtraFile3(null);
-      setExtraPreview3(null);
-    } else {
-      if (extraPreview4) URL.revokeObjectURL(extraPreview4);
-      setExtraFile4(null);
-      setExtraPreview4(null);
-    }
-    const input = document.getElementById(`extra-photo-${slot}`) as HTMLInputElement | null;
-    if (input) input.value = "";
+  function toggleMainPhoto(index: number) {
+    setMainIndex((m) => (m === index ? null : index));
   }
+
+  // `force` = demande explicite (bouton) : remplace le nom actuel. Sinon (automatique), on ne
+  // touche jamais à un nom que le commerçant a commencé à saisir.
+  async function suggestName(force = false) {
+    if (photos.length === 0 || suggestingName) return;
+    if (!force && (nameTouched.current || productName.trim() !== "")) return;
+    setSuggestingName(true);
+    try {
+      const fd = new FormData();
+      for (const p of photos.slice(0, MAX_POSTER_PHOTOS)) {
+        fd.append("photos", await toSmallJpeg(p.file), "photo.jpg");
+      }
+      const res = await fetch("/api/creations/suggest-name", { method: "POST", body: fd });
+      const data = (await res.json()) as { name?: string };
+      if (res.ok && data.name && (force || !nameTouched.current)) {
+        setProductName(data.name);
+        setNameSuggested(true);
+        nameTouched.current = false;
+      }
+    } catch {
+      // silencieux : le commerçant peut toujours saisir le nom lui-même
+    } finally {
+      setSuggestingName(false);
+    }
+  }
+
+  // Proposition automatique dès que des photos sont ajoutées et que le nom est vide (petit délai
+  // pour attendre la fin d'une sélection multiple). Pas pour une affiche créée depuis un produit.
+  React.useEffect(() => {
+    if (photos.length === 0 || productDefaults || nameTouched.current || productName.trim() !== "") return;
+    const timer = setTimeout(() => void suggestName(false), 600);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photos]);
 
   function removeLogo() {
     if (logoPreviewUrl && logoFile) URL.revokeObjectURL(logoPreviewUrl);
@@ -270,22 +283,6 @@ export function NewCreationWizard({
     setLogoPreviewUrl(URL.createObjectURL(f));
   }
 
-  function handleExtraFileChange(slot: 2 | 3 | 4, e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    const url = URL.createObjectURL(f);
-    if (slot === 2) {
-      setExtraFile2(f);
-      setExtraPreview2(url);
-    } else if (slot === 3) {
-      setExtraFile3(f);
-      setExtraPreview3(url);
-    } else {
-      setExtraFile4(f);
-      setExtraPreview4(url);
-    }
-  }
-
   async function runGeneration() {
     if (!canProceedStep0) {
       setError(t("creation.errorMissingFields"));
@@ -301,14 +298,27 @@ export function NewCreationWizard({
     const generationPromise = (async () => {
       const supabase = createClient();
 
-      let photoPath: string | null = null;
-      if (file) {
-        photoPath = `${userId}/${Date.now()}-${file.name}`;
-        const { error: uploadError } = await supabase.storage.from("creations").upload(photoPath, file);
-        if (uploadError) throw uploadError;
+      // Photo principale en premier (choisie par le commerçant, sinon l'ordre d'ajout — l'IA
+      // choisira alors la meilleure côté serveur), puis les photos secondaires.
+      const ordered =
+        mainIndex !== null && photos[mainIndex]
+          ? [photos[mainIndex], ...photos.filter((_, i) => i !== mainIndex)]
+          : photos;
+      const uploadedPaths: string[] = [];
+      for (let i = 0; i < ordered.length; i++) {
+        const f = ordered[i].file;
+        const path = `${userId}/${Date.now()}-${i}-${f.name}`;
+        const { error: uploadError } = await supabase.storage.from("creations").upload(path, f);
+        if (uploadError) {
+          if (i === 0) throw uploadError; // la photo principale est indispensable
+          continue;
+        }
+        uploadedPaths.push(path);
       }
+      const photoPath: string | null = uploadedPaths[0] ?? null;
+      const extraPhotoPaths = uploadedPaths.slice(1);
 
-      const hasBranding = tier === "premium" || tier === "gold";
+      const hasBranding = true;
       let logoPath: string | null = null;
       if (hasBranding && logoFile) {
         logoPath = `${userId}/${Date.now()}-logo-${logoFile.name}`;
@@ -325,28 +335,17 @@ export function NewCreationWizard({
         }
       }
 
-      const extraPhotoPaths: string[] = [];
-      if (tier === "gold") {
-        for (const extraFile of [extraFile2, extraFile3, extraFile4]) {
-          if (!extraFile) continue;
-          const extraPath = `${userId}/${Date.now()}-${extraFile.name}`;
-          const { error: extraUploadError } = await supabase.storage.from("creations").upload(extraPath, extraFile);
-          if (!extraUploadError) extraPhotoPaths.push(extraPath);
-        }
-      }
-
       const res = await fetch("/api/generate-creation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           photoPath,
           extraPhotoPaths,
-          showSecondaryPhotos: tier === "gold" && extraPhotoPaths.length > 0 ? showSecondaryPhotos : false,
+          mainPhotoChosen: mainIndex !== null && extraPhotoPaths.length > 0,
           productName,
           price: priceOnRequest ? null : Number(price),
           industry: industry || null,
           language,
-          tier,
           logoPath,
           businessName: hasBranding && businessName.trim() ? businessName.trim() : null,
           contactPhone: [contactPhone, ...extraPhones].map((p) => p.trim()).filter(Boolean).join(" | ") || null,
@@ -370,6 +369,7 @@ export function NewCreationWizard({
         tier: (data.tier as Tier) || "premium",
         regenerationsRemaining: TIERS[(data.tier as Tier) || "premium"].maxRegenerations,
         unlocked: !!data.unlocked,
+        moreImages: [] as string[],
       };
     })();
 
@@ -477,9 +477,10 @@ export function NewCreationWizard({
       });
       const data = (await res.json()) as { imageUrl?: string; regenerationsRemaining?: number; error?: string };
       if (!res.ok || !data.imageUrl) throw new Error(data.error || "regenerate_failed");
+      // La nouvelle version s'ajoute au carrousel : les précédentes restent consultables.
       setResult({
         ...result,
-        imageUrl: data.imageUrl,
+        moreImages: [...(result.moreImages ?? []), data.imageUrl],
         posterReady: true,
         regenerationsRemaining: data.regenerationsRemaining ?? 0,
       });
@@ -490,31 +491,16 @@ export function NewCreationWizard({
     }
   }
 
-  async function handleGenerateDeclination(customInstructions: string) {
-    if (!result) return;
-    setGeneratingDeclination(true);
-    try {
-      const res = await fetch(`/api/creations/${result.creationId}/declination`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customInstructions: customInstructions || null }),
-      });
-      const data = (await res.json()) as { imageUrl2?: string; error?: string };
-      if (!res.ok || !data.imageUrl2) throw new Error(data.error || "declination_failed");
-      setResult({ ...result, imageUrl2: data.imageUrl2 });
-    } catch {
-      setError(t("creation.errorGeneric"));
-    } finally {
-      setGeneratingDeclination(false);
-    }
-  }
-
   function reset() {
     setStep(0);
     setProductId(null);
     setSubjectType("product");
-    setFile(null);
-    setPreviewUrl(null);
+    photos.forEach((p) => URL.revokeObjectURL(p.url));
+    setPhotos([]);
+    setMainIndex(null);
+    setSuggestingName(false);
+    setNameSuggested(false);
+    nameTouched.current = false;
     setProductName("");
     setServiceDescription("");
     setServiceItems([]);
@@ -523,7 +509,6 @@ export function NewCreationWizard({
     setPriceOnRequest(false);
     setIndustry(shopDefaults?.industry ?? "");
     setLanguage(shopDefaults?.language ?? "fr");
-    setTier("premium");
     setContactPhone(defaultPhone);
     setExtraPhones([]);
     setPolishingItems(false);
@@ -531,13 +516,6 @@ export function NewCreationWizard({
     setLogoFile(null);
     setLogoPreviewUrl(shopDefaults?.logoUrl ?? null);
     setUseShopLogo(!!shopDefaults?.logoUrl);
-    setExtraFile2(null);
-    setExtraPreview2(null);
-    setExtraFile3(null);
-    setExtraPreview3(null);
-    setExtraFile4(null);
-    setExtraPreview4(null);
-    setShowSecondaryPhotos(false);
     setGenStepIndex(0);
     setError(null);
     setGenerationFailed(false);
@@ -593,41 +571,78 @@ export function NewCreationWizard({
               </div>
             </div>
 
-            <label
-              htmlFor="creation-photo"
-              className="cursor-pointer rounded-2xl border border-dashed border-input bg-muted p-9 text-center transition-colors hover:border-primary"
-            >
-              {previewUrl ? (
-                <div className="relative mx-auto w-fit">
-                  <img src={previewUrl} alt="" className="mx-auto max-h-[220px] rounded-xl object-contain" />
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      removeMainPhoto();
-                    }}
-                    aria-label="Supprimer l'image"
-                    className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-destructive text-white shadow-md transition-colors hover:bg-destructive/90"
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium">
+                {subjectType === "service" ? t("creation.photosTitleOptional") : t("creation.photosTitle")}
+              </span>
+              <span className="-mt-1 text-[11px] text-muted-foreground">
+                {subjectType === "service" ? t("creation.servicePhotoHint") : t("creation.photosHint")}
+              </span>
+              <div className="grid grid-cols-3 gap-2.5">
+                {photos.map((p, i) => {
+                  const isMain = mainIndex === i;
+                  return (
+                    <div
+                      key={p.url}
+                      className={cn(
+                        "relative aspect-square overflow-hidden rounded-xl border-2 bg-muted",
+                        isMain ? "border-primary" : "border-border"
+                      )}
+                    >
+                      <img src={p.url} alt="" className="h-full w-full object-cover" />
+                      {photos.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => toggleMainPhoto(i)}
+                          aria-label={t("creation.photosSetMain")}
+                          aria-pressed={isMain}
+                          className={cn(
+                            "absolute left-1.5 top-1.5 flex h-7 items-center gap-1 rounded-full px-2 text-[11px] font-semibold shadow transition-colors",
+                            isMain ? "bg-primary text-primary-foreground" : "bg-white/90 text-foreground hover:bg-white"
+                          )}
+                        >
+                          <Star className={cn("h-3.5 w-3.5", isMain && "fill-current")} />
+                          {isMain && t("creation.photosMainBadge")}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removePhoto(i)}
+                        aria-label="Supprimer l'image"
+                        className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-destructive text-white shadow transition-colors hover:bg-destructive/90"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  );
+                })}
+                {photos.length < MAX_POSTER_PHOTOS && (
+                  <label
+                    htmlFor="creation-photo"
+                    className={cn(
+                      "flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-input bg-muted p-3 text-center transition-colors hover:border-primary",
+                      photos.length === 0 ? "col-span-3 py-9" : "aspect-square"
+                    )}
                   >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <div className="mx-auto mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary text-white">
-                    <UploadCloud className="h-4 w-4" strokeWidth={1.75} />
-                  </div>
-                  <p className="mb-1 text-sm font-semibold">
-                    {subjectType === "service" ? t("preview.uploadTitleOptional") : t("preview.uploadTitle")}
-                  </p>
-                  <span className="text-xs text-muted-foreground">
-                    {subjectType === "service" ? t("creation.servicePhotoHint") : t("preview.uploadHint")}
-                  </span>
-                </>
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary text-white">
+                      {photos.length === 0 ? (
+                        <UploadCloud className="h-4 w-4" strokeWidth={1.75} />
+                      ) : (
+                        <Plus className="h-4 w-4" strokeWidth={2} />
+                      )}
+                    </div>
+                    <span className="text-xs font-semibold">{t("creation.photosAdd")}</span>
+                    {photos.length === 0 && <span className="text-[11px] text-muted-foreground">{t("preview.uploadHint")}</span>}
+                  </label>
+                )}
+              </div>
+              <input id="creation-photo" type="file" accept="image/*" multiple className="hidden" onChange={handlePhotosChange} />
+              {photos.length > 1 && (
+                <p className="text-[11px] text-muted-foreground">
+                  {mainIndex === null ? t("creation.photosMainAuto") : t("creation.photosMainManual")}
+                </p>
               )}
-              <input id="creation-photo" type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
-            </label>
+            </div>
 
             <div className="flex flex-col gap-1.5">
               <label htmlFor="productName" className="text-sm font-medium">
@@ -636,9 +651,39 @@ export function NewCreationWizard({
               <Input
                 id="productName"
                 value={productName}
-                onChange={(e) => setProductName(e.target.value)}
-                placeholder={subjectType === "service" ? "Nettoyage auto premium" : "Robe wax bleue"}
+                onChange={(e) => {
+                  nameTouched.current = true;
+                  setNameSuggested(false);
+                  setProductName(e.target.value);
+                }}
+                placeholder={
+                  suggestingName
+                    ? t("creation.suggestingName")
+                    : subjectType === "service"
+                      ? "Nettoyage auto premium"
+                      : "Robe wax bleue"
+                }
               />
+              {photos.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {nameSuggested && !suggestingName && (
+                    <span className="text-[11px] text-muted-foreground">{t("creation.nameSuggestedHint")}</span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => void suggestName(true)}
+                    disabled={suggestingName}
+                    className="flex items-center gap-1.5 rounded-full border border-primary/40 px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-accent disabled:opacity-60"
+                  >
+                    <Sparkles className={cn("h-3.5 w-3.5", suggestingName && "animate-pulse")} />
+                    {suggestingName
+                      ? t("creation.suggestingName")
+                      : productName.trim()
+                        ? t("creation.suggestOtherName")
+                        : t("creation.suggestName")}
+                  </button>
+                </div>
+              )}
             </div>
 
             {subjectType === "service" && (
@@ -746,46 +791,22 @@ export function NewCreationWizard({
 
         {step === 1 && (
           <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium">{t("creation.tierLabel")}</span>
-              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                {TIER_ORDER.map((key) => {
-                  const cfg = TIERS[key];
-                  const units = generationBudget?.units[key] ?? 1;
-                  const disabled = !!generationBudget && !generationBudget.affordable[key];
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => !disabled && setTier(key)}
-                      disabled={disabled}
-                      className={cn(
-                        "flex flex-col items-start gap-1 rounded-xl border-2 px-4 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-                        tier === key ? "border-primary bg-accent" : "border-border"
-                      )}
-                    >
-                      <span className="text-sm font-bold">{t(`creation.tier.${key}.name`)}</span>
-                      {generationBudget ? (
-                        <span className="text-sm font-bold text-primary">
-                          {t(units > 1 ? "billing.generationsCount" : "billing.generationCount").replace("{n}", String(units))}
-                        </span>
-                      ) : (
-                        <span className="font-mono text-sm font-bold text-primary">{cfg.price} FCFA</span>
-                      )}
-                      <span className="text-[11px] text-muted-foreground">{t(`creation.tier.${key}.desc`)}</span>
-                      {disabled && <span className="text-[11px] font-medium text-destructive">{t("billing.notEnoughGenerations")}</span>}
-                    </button>
-                  );
-                })}
-              </div>
-              {generationBudget && (
-                <p className="text-xs text-muted-foreground">
+            {generationBudget && (
+              <div className="flex flex-col gap-1 rounded-xl bg-accent px-4 py-3">
+                <span className="text-sm font-bold text-accent-foreground">
+                  {t("creation.premiumIncluded").replace("{n}", String(generationBudget.units[tier] ?? 2))}
+                </span>
+                <span className="text-xs text-muted-foreground">
                   {generationBudget.remaining == null
                     ? t("billing.generationsUnlimited")
                     : t("billing.wizardGenerationsLeft").replace("{n}", String(generationBudget.remaining))}
                   {generationBudget.credits > 0 && ` · ${t("billing.wizardCreditsLeft").replace("{n}", String(generationBudget.credits))}`}
-                </p>
-              )}
-            </div>
+                </span>
+                {!generationBudget.affordable[tier] && (
+                  <span className="text-[11px] font-medium text-destructive">{t("billing.notEnoughGenerations")}</span>
+                )}
+              </div>
+            )}
 
             <div className="flex flex-col gap-1.5">
               <label htmlFor="contactPhone" className="text-sm font-medium">
@@ -822,68 +843,7 @@ export function NewCreationWizard({
               <span className="text-[11px] text-muted-foreground">{t("creation.contactPhoneHint")}</span>
             </div>
 
-            {tier === "gold" && (
-              <div className="flex flex-col gap-2.5 rounded-xl border border-dashed border-border p-3.5">
-                <span className="text-sm font-medium">{t("creation.goldExtraPhotosTitle")}</span>
-                <span className="-mt-2 text-[11px] text-muted-foreground">{t("creation.goldExtraPhotosHint")}</span>
-                <div className="grid grid-cols-3 gap-2.5">
-                  {([2, 3, 4] as const).map((slot) => {
-                    const preview = slot === 2 ? extraPreview2 : slot === 3 ? extraPreview3 : extraPreview4;
-                    const inputId = `extra-photo-${slot}`;
-                    return (
-                      <label
-                        key={slot}
-                        htmlFor={inputId}
-                        className="relative flex aspect-square cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border border-dashed border-input bg-card text-center transition-colors hover:border-primary"
-                      >
-                        {preview ? (
-                          <>
-                            <img src={preview} alt="" className="h-full w-full rounded-xl object-cover" />
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                removeExtraFile(slot);
-                              }}
-                              aria-label="Supprimer l'image"
-                              className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-destructive text-white shadow transition-colors hover:bg-destructive/90"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <UploadCloud className="mb-1 h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
-                            <span className="text-[11px] text-muted-foreground">{t("creation.goldExtraPhotoSlot")}</span>
-                          </>
-                        )}
-                        <input
-                          id={inputId}
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => handleExtraFileChange(slot, e)}
-                        />
-                      </label>
-                    );
-                  })}
-                </div>
-                {(extraFile2 || extraFile3 || extraFile4) && (
-                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <input
-                      type="checkbox"
-                      checked={showSecondaryPhotos}
-                      onChange={(e) => setShowSecondaryPhotos(e.target.checked)}
-                      className="h-3.5 w-3.5 rounded border-input"
-                    />
-                    {t("creation.showSecondaryPhotos")}
-                  </label>
-                )}
-              </div>
-            )}
-
-            {(tier === "premium" || tier === "gold") && (
+            {(
               <div className="flex flex-col gap-3 rounded-xl border border-dashed border-border p-3.5">
                 <span className="text-sm font-medium">{t("creation.brandingTitle")}</span>
                 <span className="-mt-2 text-[11px] text-muted-foreground">
@@ -1030,11 +990,28 @@ export function NewCreationWizard({
             regenerationsRemaining={result.regenerationsRemaining}
             regenerating={regenerating}
             onRegenerate={TIERS[result.tier].maxRegenerations > 0 ? handleRegenerate : undefined}
-            onGenerateDeclination={result.tier === "gold" ? handleGenerateDeclination : undefined}
-            generatingDeclination={generatingDeclination}
+            moreImages={result.moreImages}
           />
         )}
       </div>
     </div>
   );
+}
+
+/** Réduit une photo (768 px, JPEG) avant de l'envoyer pour l'analyse du nom : envoi rapide en 3G/4G. */
+async function toSmallJpeg(file: File): Promise<Blob> {
+  try {
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, 768 / Math.max(bmp.width, bmp.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bmp.width * scale));
+    canvas.height = Math.max(1, Math.round(bmp.height * scale));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    bmp.close();
+    return await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b ?? file), "image/jpeg", 0.82));
+  } catch {
+    return file;
+  }
 }

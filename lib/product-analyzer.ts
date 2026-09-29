@@ -15,6 +15,9 @@ const ProductAnalysisSchema = z.object({
     from: HEX_COLOR,
     to: HEX_COLOR,
   }),
+  // Points forts propres à CE produit (1 à 3), affichés sur l'affiche quand le commerçant n'en
+  // saisit pas. Jamais de promesse commerciale non fournie (livraison, paiement, garantie, stock).
+  sellingPoints: z.array(z.string()).max(3),
 });
 
 export type ProductAnalysis = z.infer<typeof ProductAnalysisSchema>;
@@ -42,7 +45,9 @@ export async function analyzeProduct(
             { type: "image", source: { type: "base64", media_type: mediaType, data: photoBase64 } },
             {
               type: "text",
-              text: `Produit ou service : "${productName}". Analyse cette photo pour un brief de directeur artistique : catégorie précise, 2 à 4 couleurs dominantes (en anglais, ex: "deep indigo", "cream"), matière ou texture apparente, positionnement (entrée de gamme / milieu de gamme / premium / haut de gamme), une courte note (une phrase) sur ce qui rend ce sujet visuellement distinctif, et un dégradé de 2 couleurs hex (accentGradient.from / accentGradient.to) à utiliser pour des éléments d'interface (badges, boutons) : doit compléter/harmoniser avec les couleurs du sujet, rester lisible avec du texte blanc par-dessus, premium — jamais de blanc/noir pur, jamais de néon criard. Varie ce choix selon le sujet plutôt que de toujours revenir à un violet par défaut.`,
+              text: `Produit ou service : "${productName}". Analyse cette photo pour un brief de directeur artistique : catégorie précise, 2 à 4 couleurs dominantes (en anglais, ex: "deep indigo", "cream"), matière ou texture apparente, positionnement (entrée de gamme / milieu de gamme / premium / haut de gamme), une courte note (une phrase) sur ce qui rend ce sujet visuellement distinctif, et un dégradé de 2 couleurs hex (accentGradient.from / accentGradient.to) à utiliser pour des éléments d'interface (badges, boutons) : doit compléter/harmoniser avec les couleurs du sujet, rester lisible avec du texte blanc par-dessus, premium — jamais de blanc/noir pur, jamais de néon criard. Varie ce choix selon le sujet plutôt que de toujours revenir à un violet par défaut.
+
+Enfin, sellingPoints : 1 à 3 points forts courts (2 à 4 mots chacun, en français, sans emoji), les plus pertinents pour donner envie d'acheter CE sujet précis — tirés de ce qui se voit ou de ce qui caractérise ce type de produit/service : matière, finition, fait main, confort, style, usage, occasion, fraîcheur, fiabilité… Ex. pour des mules tressées : « Tressage artisanal », « Légères et confortables ». Ne mets JAMAIS de promesse que le commerçant n'a pas donnée : pas de livraison, pas de moyen de paiement, pas de garantie, pas de stock, pas de prix, pas de promotion. Pas de formule générique qui irait à n'importe quel produit.`,
             },
           ],
         },
@@ -144,6 +149,78 @@ export async function analyzeLogoColors(logoBase64: string): Promise<{ from: str
     });
 
     return message.parsed_output ?? null;
+  } catch {
+    return null;
+  }
+}
+
+const ThumbnailPlanSchema = z.object({
+  reasoning: z.string(),
+  sizePct: z.number(),
+  shape: z.enum(["rounded", "circle"]),
+  tiltDeg: z.number(),
+  slots: z.array(z.object({ xPct: z.number(), yPct: z.number() })).max(2),
+});
+
+export type ThumbnailPlan = {
+  sizePct: number;
+  shape: "rounded" | "circle";
+  tiltDeg: number;
+  slots: { xPct: number; yPct: number }[];
+};
+
+/**
+ * Direction artistique des vignettes : l'IA regarde l'affiche FINIE et décide où et comment
+ * poser les vraies photos secondaires (emplacement, taille, alignement, forme, inclinaison)
+ * selon la composition et le type de produit — pas de coin fixe. Le code pose ensuite les
+ * vraies photos au pixel près. Renvoie null en cas d'échec (l'appelant a un repli).
+ */
+export async function planThumbnailPlacement(
+  posterJpegBase64: string,
+  count: number,
+  productName: string
+): Promise<ThumbnailPlan | null> {
+  if (count < 1) return null;
+  try {
+    const anthropic = new Anthropic();
+    const message = await anthropic.messages.parse({
+      model: "claude-sonnet-5",
+      max_tokens: 400,
+      thinking: { type: "disabled" },
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: "image/jpeg", data: posterJpegBase64 } },
+            {
+              type: "text",
+              text: `Tu es directeur artistique. Voici une affiche publicitaire terminée pour « ${productName} ». On doit y ajouter ${count} vraie${count > 1 ? "s" : ""} photo${count > 1 ? "s" : ""} secondaire${count > 1 ? "s" : ""} du même produit (autres angles / détails), en vignette${count > 1 ? "s" : ""} carrée${count > 1 ? "s" : ""} avec un fin cadre.
+
+Choisis la disposition qui paraît la plus INTENTIONNELLE et élégante pour CETTE composition et CE type de produit (ex. une rangée qui prolonge une ligne de la mise en page, une colonne le long d'un bord, deux vignettes décalées qui équilibrent un vide, une vignette ronde façon « détail » près du produit…). Varie selon l'affiche : pas de coin par défaut.
+
+Contraintes absolues :
+- ne JAMAIS couvrir de texte (titre, prix, points forts, contact, bouton), de logo, ni la partie importante du produit principal ;
+- rester entièrement dans l'image avec au moins 3 % de marge par rapport aux bords ;
+- les vignettes ne se chevauchent pas entre elles ;
+- taille (sizePct) : côté d'une vignette entre 13 et 24 % de la largeur de l'affiche.
+
+Réponds avec : reasoning (1 phrase), sizePct, shape ("rounded" ou "circle"), tiltDeg (entre -6 et 6, 0 si l'affiche est très rigoureuse), slots : ${count} position${count > 1 ? "s" : ""} { xPct, yPct } = coin HAUT-GAUCHE de chaque vignette, en % de la largeur / hauteur (0 à 100).`,
+            },
+          ],
+        },
+      ],
+      output_config: { format: zodOutputFormat(ThumbnailPlanSchema) },
+    });
+    const out = message.parsed_output;
+    if (!out || out.slots.length < count) return null;
+    const sizePct = Math.min(24, Math.max(13, out.sizePct));
+    const clampPos = (v: number) => Math.min(100 - 3 - sizePct, Math.max(3, v));
+    return {
+      sizePct,
+      shape: out.shape,
+      tiltDeg: Math.min(6, Math.max(-6, out.tiltDeg)),
+      slots: out.slots.slice(0, count).map((s) => ({ xPct: clampPos(s.xPct), yPct: clampPos(s.yPct) })),
+    };
   } catch {
     return null;
   }

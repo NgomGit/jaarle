@@ -87,11 +87,6 @@ export function CreationDetail({
   );
   const [currentIndex, setCurrentIndex] = React.useState(initialIndex);
   const [focus, setFocus] = React.useState<number | undefined>(initialIndex > 0 ? initialIndex : undefined);
-  const [hasDeclination, setHasDeclination] = React.useState(
-    versions.some((v) => v.kind === "declinaison") || !!creation.photoUrl2
-  );
-  const [generatingVariant, setGeneratingVariant] = React.useState(false);
-  const [declinationInstructions, setDeclinationInstructions] = React.useState("");
   const [regenerating, setRegenerating] = React.useState(false);
   const [regenInstructions, setRegenInstructions] = React.useState("");
   const [regenRemaining, setRegenRemaining] = React.useState(
@@ -102,8 +97,8 @@ export function CreationDetail({
   const safeIndex = Math.min(currentIndex, Math.max(items.length - 1, 0));
   const currentUrl = images[safeIndex] ?? images[images.length - 1] ?? "";
   const currentVersionId = items[safeIndex]?.versionId ?? null;
-  const canGenerateSecond = creation.tier === "gold" && !hasDeclination;
-  const canRetouch = regenRemaining > 0 || canGenerateSecond;
+  // Une seule action de retouche (« Nouvelle version ») : l'ancienne déclinaison séparée a été retirée.
+  const canRetouch = regenRemaining > 0;
   const locked = !creation.unlocked;
 
   function appendVersion(url: string, kind: string) {
@@ -118,35 +113,11 @@ export function CreationDetail({
   React.useEffect(() => {
     if (versions.length > 0) {
       setItems(toItems(versions));
-      setHasDeclination(versions.some((v) => v.kind === "declinaison"));
     }
     if (versions.length > prevVersionsLen.current) setFocus(versions.length - 1);
     prevVersionsLen.current = versions.length;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [versions]);
-
-  async function generateSecondVariant() {
-    if (generatingVariant) return;
-    setGeneratingVariant(true);
-    try {
-      const res = await fetch(`/api/creations/${creation.id}/declination`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customInstructions: declinationInstructions.trim() || null }),
-      });
-      const data = (await res.json()) as { imageUrl2?: string; error?: string };
-      if (res.ok && data.imageUrl2) {
-        appendVersion(data.imageUrl2, "declinaison");
-        setHasDeclination(true);
-        setDeclinationInstructions("");
-      }
-    } catch {
-      // silencieux : l'utilisateur peut réessayer
-    } finally {
-      setGeneratingVariant(false);
-      router.refresh(); // recharge la vérité serveur (versions) même si la réponse s'est perdue
-    }
-  }
 
   async function regenerate() {
     if (regenerating || regenRemaining <= 0) return;
@@ -424,7 +395,7 @@ export function CreationDetail({
             </div>
           )}
 
-          {/* 4a. Retoucher l'affiche (régénération / déclinaison Gold) */}
+          {/* 4a. Retoucher l'affiche : une seule action, « Nouvelle version » */}
           {canRetouch && (
             <Collapsible icon={Wand2} title={t("creation.retouchTitle")} subtitle={t("creation.retouchSubtitle").replace("{count}", String(regenRemaining))}>
               {regenRemaining > 0 && (
@@ -440,6 +411,7 @@ export function CreationDetail({
                     onChange={(e) => setRegenInstructions(e.target.value)}
                     placeholder={t("creation.regenerateInstructionsPlaceholder")}
                   />
+                  <span className="-mt-1 text-[11px] text-muted-foreground">{t("creation.newVersionHint")}</span>
                   <Button variant="secondary" className="gap-1.5 sm:self-start" onClick={regenerate} disabled={regenerating}>
                     <RefreshCw className={regenerating ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
                     {regenerating
@@ -449,23 +421,6 @@ export function CreationDetail({
                 </div>
               )}
 
-              {canGenerateSecond && (
-                <div className={cn("flex flex-col gap-2", regenRemaining > 0 && "mt-4 border-t border-border pt-4")}>
-                  <span className="text-sm font-medium">{t("creation.declinationTitle")}</span>
-                  <span className="-mt-1 text-[11px] text-muted-foreground">{t("creation.declinationHint")}</span>
-                  <Textarea
-                    rows={2}
-                    maxLength={300}
-                    value={declinationInstructions}
-                    onChange={(e) => setDeclinationInstructions(e.target.value)}
-                    placeholder={t("creation.declinationPlaceholder")}
-                  />
-                  <Button variant="secondary" className="gap-1.5 sm:self-start" onClick={generateSecondVariant} disabled={generatingVariant}>
-                    <RefreshCw className={generatingVariant ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
-                    {generatingVariant ? t("creation.declinationGenerating") : t("creation.declinationButton")}
-                  </Button>
-                </div>
-              )}
             </Collapsible>
           )}
 

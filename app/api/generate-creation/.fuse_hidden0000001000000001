@@ -293,8 +293,7 @@ export async function POST(request: Request) {
 
     const { backgroundBuffer, imageError, layout, accentGradient, creativeBrief } = backgroundResult;
   // Points forts issus de l'analyse du produit (aucun pour un service sans photo : l'IA les choisit).
-  const sellingPoints: string[] =
-    "sellingPoints" in backgroundResult && Array.isArray(backgroundResult.sellingPoints) ? (backgroundResult.sellingPoints as string[]) : [];
+  const sellingPoints = "sellingPoints" in backgroundResult ? backgroundResult.sellingPoints : [];
 
     const { finalBuffer } = await renderFinalPoster(new URL(request.url).origin, backgroundBuffer, {
       layout,
@@ -305,8 +304,6 @@ export async function POST(request: Request) {
       accentGradient,
       creativeBrief,
       benefits: sellingPoints,
-      // Vraies photos secondaires posées en vignettes sur l'affiche finale (jamais redessinées).
-      secondaryPhotos: photoBuffer ? extraPhotos.map((p) => Buffer.from(p.base64, "base64")) : [],
       businessName,
       logoBuffer,
       serviceItems: normalizedItems,

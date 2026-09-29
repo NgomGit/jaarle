@@ -11,11 +11,12 @@ import { useLocale } from "@/lib/locale-context";
 import { TIERS, type Tier } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 
-const TIER_ORDER: Tier[] = ["premium", "gold"];
+// Un seul niveau : toutes les affiches sont premium.
+const TIER_ORDER: Tier[] = ["gold"];
 
 export function AppPreview() {
   const { t } = useLocale();
-  const [selectedTier, setSelectedTier] = React.useState<Tier>("premium");
+  const [selectedTier, setSelectedTier] = React.useState<Tier>("gold");
 
   return (
     <section id="preview" className="pb-24">
@@ -59,7 +60,7 @@ export function AppPreview() {
             </TabsContent>
 
             <TabsContent value="tier">
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 gap-2.5">
                 {TIER_ORDER.map((key) => {
                   const cfg = TIERS[key];
                   return (

@@ -18,7 +18,8 @@ const QualityCheckSchema = z.object({
 export async function checkPosterQuality(
   originalPhotoBase64: string,
   originalMediaType: AllowedMediaType,
-  generatedImageBase64: string
+  generatedImageBase64: string,
+  strictHeroView = false
 ): Promise<{ passed: boolean; issues: string[] }> {
   try {
     const anthropic = new Anthropic();
@@ -36,7 +37,11 @@ export async function checkPosterQuality(
             { type: "image", source: { type: "base64", media_type: "image/png", data: generatedImageBase64 } },
             {
               type: "text",
-              text: `Vérifie deux choses : (1) le sujet sur l'affiche est-il bien le MÊME que sur la photo d'origine — mêmes couleurs, forme, motif, logo — sans avoir été redessiné ou réinterprété ? (2) la composition est-elle propre et professionnelle, sans artefact visuel ni texte parasite généré par erreur ? Liste les problèmes concrets s'il y en a.`,
+              text: `Vérifie deux choses : (1) le sujet sur l'affiche est-il bien le MÊME que sur la photo d'origine — mêmes couleurs, forme, motif, logo — sans avoir été redessiné ou réinterprété ?${
+                strictHeroView
+                  ? " Cette photo d'origine est la photo PRINCIPALE choisie : le sujet mis en avant sur l'affiche doit être montré sous la MÊME vue / le MÊME angle qu'elle (pas l'angle d'une autre photo). Si ce n'est pas le cas, productPreserved = false."
+                  : ""
+              } (2) la composition est-elle propre et professionnelle, sans artefact visuel ni texte parasite généré par erreur ? Liste les problèmes concrets s'il y en a.`,
             },
           ],
         },

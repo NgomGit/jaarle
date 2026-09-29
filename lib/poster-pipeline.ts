@@ -1,11 +1,10 @@
 import { compositeOverlay, finalizeJpeg, buildPlainBackground } from "@/lib/image-compose";
 import { removeBackground } from "@/lib/background-removal";
-import { analyzeProduct, analyzeLogoColors, type ProductAnalysis } from "@/lib/product-analyzer";
+import { analyzeProduct, analyzeLogoColors, planThumbnailPlacement, type ProductAnalysis } from "@/lib/product-analyzer";
 import { checkPosterQuality, checkTextAccuracy } from "@/lib/quality-checker";
 import { getIndustry, type Industry } from "@/lib/knowledge/industries";
 import { pickHeritageCue } from "@/lib/knowledge/senegal-heritage";
 import { getRelevantEvents } from "@/lib/knowledge/events";
-import { deliveryPhrasesFr, paymentPhrasesFr } from "@/lib/knowledge/business-practices";
 import {
   buildCreativeBrief,
   formatCreativeBrief,
@@ -25,6 +24,7 @@ import {
 import { ALLOWED_MEDIA_TYPES, type AllowedMediaType } from "@/lib/media-types";
 import { pickArtDirection, artDirectionFromAnalysis } from "@/lib/art-directions";
 import { buildDesignedBackground, placeProduct } from "@/lib/designed-background";
+import sharp, { type OverlayOptions } from "sharp";
 
 export { ALLOWED_MEDIA_TYPES, type AllowedMediaType };
 
@@ -70,10 +70,14 @@ function pickLayoutVariant(): LayoutVariant {
   return Math.random() < 0.5 ? "bottom-bar" : "side-panel";
 }
 
-export function getBenefitTags(industryKey: string | null): string[] {
+/**
+ * Pistes d'accroche de la catégorie, sans les promesses commerciales (livraison, paiement,
+ * garantie…) : le commerçant ne les a pas forcément, elles ne doivent jamais être imposées.
+ */
+function getIndustryInspiration(industryKey: string | null): string[] {
   const industry = getIndustry(industryKey ?? undefined);
-  if (industry) return industry.ctaExamples.slice(0, 2);
-  return [deliveryPhrasesFr[0], paymentPhrasesFr[0]];
+  if (!industry) return [];
+  return industry.ctaExamples.filter((c) => !/livraison|paiement|payer|garanti|wave|orange money/i.test(c));
 }
 
 /**
@@ -94,11 +98,120 @@ function getSeasonalVisualNote(referenceDate: Date): string | null {
  * ET le gabarit choisi. On le dit à l'IA pour qu'elle laisse ces zones visuellement calmes
  * plutôt que de les remplir.
  */
-function getNegativeSpaceInstruction(layout: LayoutVariant): string {
-  if (layout === "side-panel") {
-    return "Composition constraint: keep the left third of the frame visually calm and uncluttered — a dark text panel with the name, price and contact will be added there programmatically. Compose and frame the product mainly within the right two-thirds of the image.";
+function getNegativeSpaceInstruction(layout: LayoutVariant, thumbCount = 0): string {
+  const base =
+    layout === "side-panel"
+      ? "Composition constraint: keep the left third of the frame visually calm and uncluttered — a dark text panel with the name, price and contact will be added there programmatically. Compose and frame the product mainly within the right two-thirds of the image."
+      : "Composition constraint: keep the top-right corner (two short benefit tags) and a generous strip along the bottom ~25% of the frame visually calm and uncluttered — marketing text, price and contact info will be added programmatically in those zones afterward.";
+  return thumbCount > 0 ? `${base} ${thumbnailZoneInstruction(thumbCount)}` : base;
+}
+
+// ——— Vignettes des photos secondaires (vraies photos, posées par le code, jamais redessinées) ———
+// La DISPOSITION est décidée par l'IA en regardant l'affiche finie (planThumbnailPlacement) ;
+// le code se charge seulement de poser les vraies photos au pixel près.
+
+/** Consigne aux modèles d'image : prévoir de la place, sans imposer d'endroit ni dessiner les vignettes. */
+function thumbnailZoneInstruction(count: number): string {
+  return `Photo insets: ${count} real photo${count > 1 ? "s" : ""} of the product (other angles / details) will be inset afterward as small thumbnail${count > 1 ? "s" : ""} (each roughly 15-22% of the poster width). Leave natural breathing room for ${count > 1 ? "them" : "it"} wherever it best suits THIS composition and product — you decide where; do not always use the same corner. Do NOT draw any thumbnail, inset, frame or extra product photo yourself, and keep that breathing room free of text.`;
+}
+
+/** Repli si l'IA de placement échoue : coin opposé au bloc de texte principal. */
+function fallbackThumbnailSlots(layout: LayoutVariant, count: number): { xPct: number; yPct: number }[] {
+  const size = 20;
+  const gap = 2.2;
+  return Array.from({ length: count }, (_, i) =>
+    layout === "side-panel"
+      ? { xPct: 100 - 4 - size - (count - 1 - i) * (size + gap), yPct: 4 }
+      : { xPct: 4 + i * (size + gap), yPct: 4 }
+  );
+}
+
+/**
+ * Pose les photos secondaires (max 2) en vignettes sur l'affiche FINALE : l'IA choisit
+ * l'emplacement, la taille, la forme (arrondie / ronde) et l'inclinaison selon la composition ;
+ * ce sont toujours les vraies photos du commerçant, au pixel près.
+ */
+export async function insetSecondaryPhotos(
+  posterBuffer: Buffer,
+  secondaries: Buffer[],
+  layout: LayoutVariant,
+  accent: string,
+  productName = ""
+): Promise<Buffer> {
+  const photos = secondaries.slice(0, 2);
+  if (photos.length === 0) return posterBuffer;
+  const meta = await sharp(posterBuffer).metadata();
+  const W = meta.width ?? 1024;
+  const H = meta.height ?? W;
+
+  const preview = await sharp(posterBuffer).resize(768, 768, { fit: "inside" }).jpeg({ quality: 80 }).toBuffer();
+  let plan = await planThumbnailPlacement(preview.toString("base64"), photos.length, productName);
+  // Deux vignettes qui se chevauchent : plan rejeté.
+  if (plan && plan.slots.length === 2) {
+    const [a, b] = plan.slots;
+    if (Math.abs(a.xPct - b.xPct) < plan.sizePct && Math.abs(a.yPct - b.yPct) < plan.sizePct) plan = null;
   }
-  return "Composition constraint: keep the top-right corner (two short benefit tags) and a generous strip along the bottom ~25% of the frame visually calm and uncluttered — marketing text, price and contact info will be added programmatically in those zones afterward.";
+  const sizePct = plan?.sizePct ?? 20;
+  const shape = plan?.shape ?? "rounded";
+  const tilt = plan?.tiltDeg ?? 0;
+  const slots = plan?.slots ?? fallbackThumbnailSlots(layout, photos.length);
+
+  const k = W / 1024;
+  const size = Math.round((sizePct / 100) * W);
+  const border = Math.max(4, Math.round(7 * k));
+  const radius = shape === "circle" ? size / 2 : Math.round(size * 0.12);
+  const inner = size - border * 2;
+  const innerRadius = shape === "circle" ? inner / 2 : Math.max(2, radius - border / 2);
+  const pad = Math.round(26 * k);
+
+  const layers: OverlayOptions[] = [];
+  for (let i = 0; i < photos.length; i++) {
+    const slot = slots[i];
+    if (!slot) continue;
+    const mask = Buffer.from(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${inner}" height="${inner}"><rect width="${inner}" height="${inner}" rx="${innerRadius}" ry="${innerRadius}" fill="#fff"/></svg>`
+    );
+    let photo: Buffer;
+    try {
+      photo = await sharp(photos[i])
+        .rotate()
+        .resize(inner, inner, { fit: "cover", position: "attention" })
+        .composite([{ input: mask, blend: "dest-in" }])
+        .png()
+        .toBuffer();
+    } catch {
+      continue;
+    }
+    const tileSize = size + pad * 2;
+    const frame = Buffer.from(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${tileSize}" height="${tileSize}">
+        <defs><filter id="s" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="${Math.round(8 * k)}" stdDeviation="${Math.round(9 * k)}" flood-color="#000" flood-opacity="0.4"/></filter></defs>
+        <rect x="${pad}" y="${pad}" width="${size}" height="${size}" rx="${radius}" ry="${radius}" fill="${accent}" filter="url(#s)"/>
+        <rect x="${pad + Math.round(3 * k)}" y="${pad + Math.round(3 * k)}" width="${size - Math.round(6 * k)}" height="${size - Math.round(6 * k)}" rx="${Math.max(1, radius - 3 * k)}" ry="${Math.max(1, radius - 3 * k)}" fill="#ffffff"/>
+      </svg>`
+    );
+    // Cadre + photo assemblés en une tuile, puis légèrement inclinée si l'IA l'a choisi.
+    let tile = await sharp(frame)
+      .png()
+      .composite([{ input: photo, left: pad + border, top: pad + border }])
+      .png()
+      .toBuffer();
+    const angle = i === 1 && photos.length === 2 ? -tilt : tilt; // deux vignettes : inclinaisons opposées
+    if (Math.abs(angle) >= 0.5) {
+      tile = await sharp(tile).rotate(angle, { background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
+    }
+    const tileMeta = await sharp(tile).metadata();
+    const tw = tileMeta.width ?? tileSize;
+    const th = tileMeta.height ?? tileSize;
+    const cx = Math.round((slot.xPct / 100) * W + size / 2);
+    const cy = Math.round((slot.yPct / 100) * H + size / 2);
+    const left = Math.min(Math.max(0, cx - Math.round(tw / 2)), W - tw);
+    const top = Math.min(Math.max(0, cy - Math.round(th / 2)), H - th);
+    if (left < 0 || top < 0) continue;
+    layers.push({ input: tile, left, top });
+  }
+  if (layers.length === 0) return posterBuffer;
+  return sharp(posterBuffer).composite(layers).jpeg({ quality: 92 }).toBuffer();
 }
 
 /**
@@ -135,7 +248,7 @@ function buildComposedPosterPrompt(params: {
     ? "You are given the subject (a product, or something representing a service being offered — e.g. a vehicle, equipment, a person at work) completely isolated on a transparent background — no original scene, no props, no distracting context. Everything visible in the reference image is the subject itself."
     : multiPhoto
       ? params.showSecondaryPhotos
-        ? "You are given several reference photos of the same subject from different angles/contexts. Compose a single poster image built around a main hero shot PLUS 1-2 clearly distinct secondary shots (a different angle or a close-up detail) of the same subject, drawn from these additional reference photos — arranged tastefully within the same composition. Vary their exact placement, size and framing across generations, following the creative direction below — never default to the same fixed corner or grid every time."
+        ? "You are given several reference photos of the same subject. The FIRST reference image is the MAIN photo chosen for this poster: the hero of your composition MUST show the subject exactly as in that first image — same view, same angle, same orientation. The other photos are ONLY there to help you understand the subject (hidden sides, details, textures): never use their angle as the hero, and do not reproduce them as extra shots — they will be inset as real thumbnails afterward by us."
         : "You are given several reference photos of the same subject from different angles/contexts — use them together to understand it fully (all its sides, details, textures) and compose a single richer, more faithful visual."
       : "You are given a photo of the subject — a product, or something representing a service being offered (e.g. a vehicle, equipment, a person at work) — in its original setting.";
 
@@ -162,9 +275,7 @@ ${CONCEPT_FIRST_INSTRUCTION}
 
 Product/service fidelity (absolute, overrides everything else below):
 - The subject shown is the absolute hero of the composition — preserve its exact colors, proportions, textures, and any text or logo already visible on it. Never redesign, restyle or reinterpret the subject itself — no exceptions, regardless of the creative direction below.${
-    multiPhoto && params.showSecondaryPhotos
-      ? " This applies equally to the secondary shots — they must show the true, unaltered appearance of the subject, exactly as faithfully as the main hero shot, never a reinterpreted or stylized version of it."
-      : ""
+    ""
   }
 
 ${formatCreativeBrief(params.creativeBrief)}
@@ -190,7 +301,7 @@ ${getCulturalHeritageInstruction(industry)}
 
 Distribution channels: Facebook, Instagram and WhatsApp — the visual must read clearly even as a small thumbnail.
 ${seasonalNote ? `\n${seasonalNote}` : ""}
-${getNegativeSpaceInstruction(params.layout)}
+${getNegativeSpaceInstruction(params.layout, multiPhoto && params.showSecondaryPhotos ? Math.min(2, (params.photoCount ?? 1) - 1) : 0)}
 ${params.customInstructions ? `\nThe merchant asked for these specific changes compared to the previous version — prioritize honoring this request while still respecting the fidelity rule above: "${params.customInstructions}"` : ""}
 
 ${SELF_CRITIQUE_INSTRUCTION}`;
@@ -273,6 +384,7 @@ export async function buildPosterBackground(
   layout: LayoutVariant;
   accentGradient: { from: string; to: string } | null;
   creativeBrief: CreativeBrief;
+  sellingPoints: string[];
 }> {
   const layout = forcedLayout ?? pickLayoutVariant();
   const extras = extraPhotos ?? [];
@@ -320,7 +432,8 @@ export async function buildPosterBackground(
   let qualityRetried = false;
 
   if (finalImageBase64) {
-    const { passed } = await checkPosterQuality(photoBase64, mediaType, finalImageBase64);
+    // Plusieurs photos : on vérifie aussi que le héros reprend bien la vue de la photo PRINCIPALE.
+    const { passed } = await checkPosterQuality(photoBase64, mediaType, finalImageBase64, extras.length > 0);
     if (!passed) {
       const retry = await generateComposedPoster(
         primaryImages,
@@ -348,6 +461,7 @@ export async function buildPosterBackground(
     layout,
     accentGradient: analysis?.accentGradient ?? getIndustryAccent(industry),
     creativeBrief,
+    sellingPoints: analysis?.sellingPoints ?? [],
   };
 }
 
@@ -497,6 +611,10 @@ interface FinalPosterParams {
   customInstructions?: string | null;
   serviceItems?: string[] | null;
   creativeBrief?: CreativeBrief | null;
+  /** Points forts propres au produit, issus de l'analyse IA (utilisés si le commerçant n'en a pas saisi). */
+  benefits?: string[] | null;
+  /** Photos secondaires (max 2) posées en vignettes sur l'affiche finale, dans le coin réservé. */
+  secondaryPhotos?: Buffer[] | null;
 }
 
 /**
@@ -509,8 +627,12 @@ async function renderSatoriOverlay(origin: string, backgroundBuffer: Buffer, par
   overlayUrl.searchParams.set("productName", params.productName);
   overlayUrl.searchParams.set("price", params.price != null ? `${params.price.toLocaleString("fr-FR")} FCFA` : "Sur devis");
   overlayUrl.searchParams.set("phone", params.phone);
+  // Points forts : ceux du commerçant en priorité, sinon ceux de l'analyse du produit. Jamais de
+  // liste figée (l'ancienne valeur par défaut affichait toujours « Livraison rapide à Dakar »).
   const benefits =
-    params.serviceItems && params.serviceItems.length > 0 ? params.serviceItems.slice(0, 3) : getBenefitTags(params.industry);
+    params.serviceItems && params.serviceItems.length > 0
+      ? params.serviceItems.slice(0, 3)
+      : (params.benefits ?? []).map((b) => b.trim()).filter(Boolean).slice(0, 3);
   overlayUrl.searchParams.set("benefits", benefits.join("|"));
   if (params.accentGradient) {
     overlayUrl.searchParams.set("accentFrom", params.accentGradient.from);
@@ -559,13 +681,23 @@ async function generateTemplatedPoster(backgroundBuffer: Buffer, params: FinalPo
 
     const creativeBenefitsInstruction = hasServiceItems
       ? `\n\nBenefit tags: the merchant specifically listed these as what this service includes — use them (pick the best 3 if there are more) as the benefit tags on the poster: ${params.serviceItems!.join(", ")}. You may lightly polish the wording for a clean, professional look (capitalize, tighten phrasing, remove redundancy) but do NOT invent different tags or change their meaning — these are the merchant's real offerings, not generic filler.`
-      : `\n\nBenefit tags: choose up to 3 short, compelling benefit or selling-point tags yourself — whatever best fits THIS specific product and would genuinely attract customers in Senegal (delivery, guarantee, payment options, exclusivity, craftsmanship, style appeal...). You decide the exact wording and how many (1 to 3) — don't default to generic filler.${industry ? ` For inspiration only, not mandatory — typical angles for "${industry.labelFr}": ${industry.ctaExamples.join(", ")}.` : ""}`;
+      : `\n\nBenefit tags: choose 1 to 3 short selling-point tags that fit THIS specific product — what genuinely makes it desirable (material, finish, craftsmanship, comfort, style, use, occasion, freshness...).${
+          params.benefits && params.benefits.length > 0
+            ? ` Suggested from an analysis of the product photo (use them, or better ones of the same nature): ${params.benefits.join(", ")}.`
+            : ""
+        } NEVER claim anything the merchant did not state: no delivery, no payment method, no guarantee, no stock or promotion claim. No generic filler that would fit any product.${(() => {
+          const inspiration = getIndustryInspiration(params.industry);
+          return inspiration.length > 0 ? ` For inspiration only, not mandatory — typical angles for this category: ${inspiration.join(", ")}.` : "";
+        })()}`;
 
     const hasMerchantLogo = !!params.logoBuffer;
 
     const merchantLogoInstruction = hasMerchantLogo
       ? `\n\nBrand logo: a second reference image is provided — the merchant's own business logo. Place it tastefully as a real brand mark on the poster (e.g. a corner, near the CTA, or integrated into the layout) — clearly visible and legible, but not dominating the product.`
       : "";
+
+    const thumbCount = Math.min(2, params.secondaryPhotos?.length ?? 0);
+    const reservedZoneBlock = thumbCount > 0 ? `\n\n${thumbnailZoneInstruction(thumbCount)}` : "";
 
     const customInstructionsBlock = params.customInstructions
       ? `\n\nThe merchant asked for these specific changes compared to the previous version — prioritize honoring this request while still respecting the accuracy rules below: "${params.customInstructions}"`
@@ -622,7 +754,7 @@ ${toneInstruction}
 Text that MUST appear, spelled and written EXACTLY as given below (this is real business information — accuracy is critical, never invent, alter or truncate any digit or character):
 ${requirements.map((r) => `- ${r}`).join("\n")}
 ${creativeBenefitsInstruction}
-${merchantLogoInstruction}
+${merchantLogoInstruction}${reservedZoneBlock}
 ${customInstructionsBlock}
 
 Design rules:
@@ -670,6 +802,23 @@ ${SELF_CRITIQUE_INSTRUCTION}`;
  * vérifié exact, repli automatique sur le bandeau satori fiable.
  */
 export async function renderFinalPoster(
+  origin: string,
+  backgroundBuffer: Buffer,
+  params: FinalPosterParams
+): Promise<{ finalBuffer: Buffer; usedAiTemplate: boolean }> {
+  const result = await renderFinalPosterBase(origin, backgroundBuffer, params);
+  const secondaries = params.secondaryPhotos ?? [];
+  if (secondaries.length === 0) return result;
+  try {
+    const accent = params.accentGradient?.from ?? "#6D28D9";
+    const finalBuffer = await insetSecondaryPhotos(result.finalBuffer, secondaries, params.layout, accent, params.productName);
+    return { ...result, finalBuffer };
+  } catch {
+    return result; // en cas d'échec des vignettes, l'affiche reste livrée
+  }
+}
+
+async function renderFinalPosterBase(
   origin: string,
   backgroundBuffer: Buffer,
   params: FinalPosterParams
@@ -723,6 +872,8 @@ export async function buildArtisanPoster(
     businessName?: string | null;
     logoBuffer?: Buffer | null;
     seed?: number;
+    /** Photos secondaires (max 2) : posées en vignettes à droite du produit principal. */
+    secondaryPhotos?: Buffer[];
   }
 ): Promise<{ finalBuffer: Buffer; layout: LayoutVariant }> {
   // Analyse vision (couleurs du sujet) en parallèle du détourage : la palette du décor
@@ -741,9 +892,15 @@ export async function buildArtisanPoster(
   // Décor 1024×1024 (format du pipeline satori) + produit dans la moitié haute,
   // bande basse laissée calme pour le bandeau texte (layout bottom-bar).
   let bg = await buildDesignedBackground(dir, 1024, 1024);
-  bg = await placeProduct(bg, cutout, { width: 760, top: 120, left: 132 });
+  const secondaries = (params.secondaryPhotos ?? []).slice(0, 2);
+  // Avec photos secondaires, le produit est un peu plus petit pour laisser de l'air ; l'IA décide
+  // ensuite où poser les vignettes en regardant l'affiche finie.
+  bg =
+    secondaries.length > 0
+      ? await placeProduct(bg, cutout, { width: 660, top: 130, left: 182 })
+      : await placeProduct(bg, cutout, { width: 760, top: 120, left: 132 });
 
-  const finalBuffer = await renderSatoriOverlay(origin, bg, {
+  let finalBuffer = await renderSatoriOverlay(origin, bg, {
     layout: "bottom-bar",
     productName: params.productName,
     price: params.price,
@@ -753,7 +910,16 @@ export async function buildArtisanPoster(
     businessName: params.businessName ?? null,
     logoBuffer: params.logoBuffer ?? null,
     creativeBrief: null,
+    benefits: analysis?.sellingPoints ?? [],
   });
 
+  if (secondaries.length > 0) {
+    try {
+      finalBuffer = await insetSecondaryPhotos(finalBuffer, secondaries, "bottom-bar", dir.palette.accent, params.productName);
+    } catch {
+      // vignettes indisponibles : l'affiche reste livrée
+    }
+  }
   return { finalBuffer, layout: "bottom-bar" };
 }
+

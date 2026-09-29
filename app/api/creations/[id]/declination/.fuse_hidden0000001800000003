@@ -64,7 +64,6 @@ export async function POST(request: Request, { params }: { params: { id: string 
   }
 
   let backgroundResult: Awaited<ReturnType<typeof buildPosterBackground>> | Awaited<ReturnType<typeof buildServiceBackground>>;
-  let secondaryBuffers: Buffer[] = [];
 
   if (creation.photo_path) {
     const { data: photoBlob, error: downloadError } = await supabase.storage.from("creations").download(creation.photo_path);
@@ -100,7 +99,6 @@ export async function POST(request: Request, { params }: { params: { id: string 
       opposingLayout,
       !!creation.show_secondary_photos
     );
-    if (creation.show_secondary_photos) secondaryBuffers = extraPhotos.map((p) => Buffer.from(p.base64, "base64"));
   } else {
     backgroundResult = await buildServiceBackground(
       creation.product_name,
@@ -114,8 +112,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   const { backgroundBuffer, imageError, layout, accentGradient, creativeBrief } = backgroundResult;
   // Points forts issus de l'analyse du produit (aucun pour un service sans photo : l'IA les choisit).
-  const sellingPoints: string[] =
-    "sellingPoints" in backgroundResult && Array.isArray(backgroundResult.sellingPoints) ? (backgroundResult.sellingPoints as string[]) : [];
+  const sellingPoints = "sellingPoints" in backgroundResult ? backgroundResult.sellingPoints : [];
 
   // `imageError` non-null signifie que buildPosterBackground/buildServiceBackground n'a pas réussi
   // à générer un fond IA et est retombé silencieusement sur la photo brute (ou un fond uni pour un
@@ -140,7 +137,6 @@ export async function POST(request: Request, { params }: { params: { id: string 
       accentGradient,
       creativeBrief,
       benefits: sellingPoints,
-      secondaryPhotos: secondaryBuffers,
       businessName: creation.business_name,
       logoBuffer,
       customInstructions: trimmedInstructions,
