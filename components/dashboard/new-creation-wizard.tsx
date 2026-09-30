@@ -161,9 +161,11 @@ export function NewCreationWizard({
     moreImages?: string[];
   } | null>(null);
 
-  const canProceedStep0 =
-    (subjectType === "product" ? photos.length > 0 : true) && productName.trim() !== "" && (priceOnRequest || price.trim() !== "");
-  const formattedPrice = priceOnRequest ? null : price ? Number(price).toLocaleString("fr-FR") : "";
+  // Prix vide (ou 0) = « prix sur contact », comme si la case était cochée : le prix n'est plus
+  // bloquant, seul le nom (et la photo pour un produit) conditionne le passage à l'étape suivante.
+  const priceIsOnRequest = priceOnRequest || !(Number(price) > 0);
+  const canProceedStep0 = (subjectType === "product" ? photos.length > 0 : true) && productName.trim() !== "";
+  const formattedPrice = priceIsOnRequest ? null : Number(price).toLocaleString("fr-FR");
 
   function handlePhotosChange(e: React.ChangeEvent<HTMLInputElement>) {
     const picked = Array.from(e.target.files ?? []);
@@ -343,7 +345,7 @@ export function NewCreationWizard({
           extraPhotoPaths,
           mainPhotoChosen: mainIndex !== null && extraPhotoPaths.length > 0,
           productName,
-          price: priceOnRequest ? null : Number(price),
+          price: priceIsOnRequest ? null : Number(price),
           industry: industry || null,
           language,
           logoPath,
