@@ -19,60 +19,80 @@ export function ModerneShopView({ shop, products, theme }: ShopViewProps) {
       <StoreHeader shop={shop} />
 
       <main className="mx-auto max-w-6xl px-4">
-        {/* En-tête de la boutique */}
-        <section className="pt-4 sm:pt-6">
+        {/* En-tête compact : sur mobile, les produits doivent apparaître dès l'arrivée sur la page.
+            Les actions (WhatsApp, partage) restent accessibles via la barre du bas et l'en-tête. */}
+        <section className="pt-3 sm:pt-6">
           {shop.bannerUrl && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={shop.bannerUrl} alt="" className="mb-4 h-40 w-full rounded-3xl object-cover sm:h-64" />
+            <img src={shop.bannerUrl} alt="" className="mb-3 h-28 w-full rounded-3xl object-cover sm:mb-4 sm:h-64" />
           )}
-          <div className="relative overflow-hidden rounded-3xl bg-[var(--sf-accent-soft)] p-5 sm:p-8">
+          <div className="relative overflow-hidden rounded-3xl bg-[var(--sf-accent-soft)] p-4 sm:p-8">
             <div
               aria-hidden
-              className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[var(--sf-accent)] opacity-[0.07]"
+              className="pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full bg-[var(--sf-accent)] opacity-[0.07] sm:-right-16 sm:-top-16 sm:h-56 sm:w-56"
             />
-            <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-7">
-              <ShopLogo shop={shop} size={88} className="rounded-3xl shadow-sm" />
+            <div className="relative flex items-center gap-4 sm:gap-7">
+              <div className="sm:hidden">
+                <ShopLogo shop={shop} size={64} className="rounded-2xl shadow-sm" />
+              </div>
+              <div className="hidden sm:block">
+                <ShopLogo shop={shop} size={88} className="rounded-3xl shadow-sm" />
+              </div>
               <div className="min-w-0 flex-1">
                 {shop.categoryLabel && (
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--sf-accent)]">
+                  <p className="mb-0.5 truncate text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--sf-accent)] sm:mb-1 sm:text-xs">
                     {shop.categoryLabel}
                   </p>
                 )}
-                <h1 className="text-[28px] font-bold leading-tight tracking-tight sm:text-4xl">{shop.name}</h1>
+                <h1 className="text-[22px] font-bold leading-tight tracking-tight sm:text-4xl">{shop.name}</h1>
                 {shop.description && (
-                  <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-gray-600">{shop.description}</p>
-                )}
-                {meta.length > 0 && (
-                  <ul className="mt-4 flex flex-wrap gap-2">
-                    {meta.map(({ Icon, label }) => (
-                      <li
-                        key={label}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-gray-700 ring-1 ring-black/5"
-                      >
-                        <Icon className="h-3.5 w-3.5 text-gray-500" />
-                        {label}
-                      </li>
-                    ))}
-                  </ul>
+                  <p className="mt-2 hidden max-w-2xl text-[15px] leading-relaxed text-gray-600 sm:block">{shop.description}</p>
                 )}
               </div>
+              <div className="hidden shrink-0 flex-col gap-2.5 sm:flex">
+                <WhatsAppCta href={shop.whatsappHref} className="px-8" />
+                <ShareButton
+                  url={shop.url}
+                  title={shop.name}
+                  text={`Découvre la boutique ${shop.name} :`}
+                  shopId={shop.id}
+                  label="Partager la boutique"
+                  className="h-12"
+                />
+              </div>
             </div>
-            <div className="relative mt-6 flex flex-col gap-2.5 sm:flex-row">
-              <WhatsAppCta href={shop.whatsappHref} className="sm:px-8" />
-              <ShareButton
-                url={shop.url}
-                title={shop.name}
-                text={`Découvre la boutique ${shop.name} :`}
-                shopId={shop.id}
-                label="Partager la boutique"
-                className="h-12"
-              />
-            </div>
+            {shop.description && (
+              <p className="relative mt-3 line-clamp-2 text-sm leading-relaxed text-gray-600 sm:hidden">{shop.description}</p>
+            )}
+            {meta.length > 0 && (
+              <ul className="relative -mx-4 mt-3 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:mt-5 sm:flex-wrap sm:px-0">
+                {meta.map(({ Icon, label }) => (
+                  <li
+                    key={label}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-gray-700 ring-1 ring-black/5"
+                  >
+                    <Icon className="h-3.5 w-3.5 text-gray-500" />
+                    {label}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </section>
 
+        {/* Les produits d'abord : c'est ce que le client vient voir. */}
+        <div className="mt-6 sm:mt-10">
+          {products.length > 0 ? (
+            <Catalog shop={{ id: shop.id, slug: shop.slug, name: shop.name, phoneHref: shop.phoneHref }} products={products} />
+          ) : (
+            <p className="rounded-3xl border border-dashed border-black/10 bg-white px-6 py-12 text-center text-sm text-gray-500">
+              Les produits arrivent bientôt. Écrivez au vendeur sur WhatsApp pour en savoir plus.
+            </p>
+          )}
+        </div>
+
         {/* Repères de confiance : uniquement des faits vrais pour toutes les boutiques */}
-        <section className="my-6 grid gap-3 sm:grid-cols-3">
+        <section className="mt-12 grid gap-3 sm:grid-cols-3">
           <Reassurance
             Icon={MessageCircle}
             title="Commande directe"
@@ -89,14 +109,6 @@ export function ModerneShopView({ shop, products, theme }: ShopViewProps) {
             text={shop.location ? `Adresse indiquée : ${shop.location}.` : "Demandez les détails de retrait ou de livraison."}
           />
         </section>
-
-        {products.length > 0 ? (
-          <Catalog shop={{ id: shop.id, slug: shop.slug, name: shop.name, phoneHref: shop.phoneHref }} products={products} />
-        ) : (
-          <p className="rounded-3xl border border-dashed border-black/10 bg-white px-6 py-12 text-center text-sm text-gray-500">
-            Les produits arrivent bientôt. Écrivez au vendeur sur WhatsApp pour en savoir plus.
-          </p>
-        )}
 
         <HowToOrder shopName={shop.name} />
       </main>
@@ -132,7 +144,7 @@ function HowToOrder({ shopName }: { shopName: string }) {
     { title: "Convenez des détails", text: `Disponibilité, livraison et paiement se règlent avec ${shopName}.` },
   ];
   return (
-    <section className="mt-14 rounded-3xl bg-white p-5 ring-1 ring-black/5 sm:p-8">
+    <section className="mt-6 rounded-3xl bg-white p-5 ring-1 ring-black/5 sm:p-8">
       <h2 className="text-lg font-bold tracking-tight sm:text-xl">Comment commander ?</h2>
       <ol className="mt-5 grid gap-5 sm:grid-cols-3">
         {steps.map((s, i) => (

@@ -59,6 +59,15 @@ export function CreationResult({
         alt={productName}
         locked={locked}
         focusIndex={images.length > 1 ? images.length - 1 : undefined}
+        download={
+          locked || !posterReady
+            ? undefined
+            : {
+                hrefFor: (i) => images[i] ?? imageUrl,
+                fileNameFor: (i) => (images.length > 1 ? `affiche-${i + 1}.jpg` : "affiche.jpg"),
+                label: t("creation.download"),
+              }
+        }
         labelFor={(i) =>
           images.length > 1
             ? t("creation.variation").replace("{n}", String(i + 1))

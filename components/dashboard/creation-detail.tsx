@@ -253,6 +253,15 @@ export function CreationDetail({
             locked={locked}
             focusIndex={focus}
             onIndexChange={setCurrentIndex}
+            download={
+              locked
+                ? undefined
+                : {
+                    hrefFor: (i) => images[i] ?? "#",
+                    fileNameFor: (i) => `affiche-${i + 1}.jpg`,
+                    label: t("creation.download"),
+                  }
+            }
             labelFor={images.length > 1 ? (i) => t("creation.variation").replace("{n}", String(i + 1)) : undefined}
           />
           {images.length > 1 && (

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -17,6 +17,7 @@ export function PosterCarousel({
   focusIndex,
   firstSlideOverlay,
   onIndexChange,
+  download,
 }: {
   images: string[];
   alt: string;
@@ -25,6 +26,11 @@ export function PosterCarousel({
   focusIndex?: number;
   firstSlideOverlay?: React.ReactNode;
   onIndexChange?: (i: number) => void;
+  /**
+   * Bouton « Télécharger » posé sur l'affiche (coin haut droit), pour ne pas avoir à descendre
+   * jusqu'au bouton principal. Reçoit l'index affiché ; absent = pas de bouton (affiche verrouillée).
+   */
+  download?: { hrefFor: (i: number) => string; fileNameFor: (i: number) => string; label: string };
 }) {
   const count = images.length;
   const [index, setIndex] = React.useState(0);
@@ -64,6 +70,18 @@ export function PosterCarousel({
       )}
 
       {index === 0 && firstSlideOverlay}
+
+      {download && (
+        <a
+          href={download.hrefFor(index)}
+          download={download.fileNameFor(index)}
+          aria-label={download.label}
+          title={download.label}
+          className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white shadow-md backdrop-blur-sm transition-colors hover:bg-black/80"
+        >
+          <Download className="h-5 w-5" />
+        </a>
+      )}
 
       {count > 1 && (
         <>

@@ -389,7 +389,19 @@ function PostPanel({
       <div className="flex flex-col items-center">
         <div className={cn("relative w-full", regenerating && "pointer-events-none opacity-50")}>
           <div className="flex justify-center">
-            <PlatformMock platform={post.platform} shop={shop} imageUrl={previewUrl} variant={variant} />
+            <div className="relative">
+              <PlatformMock platform={post.platform} shop={shop} imageUrl={previewUrl} variant={variant} />
+              {/* Raccourci : télécharger sans descendre jusqu'au bouton principal. */}
+              <a
+                href={downloadUrl}
+                download
+                aria-label={t("studio.download")}
+                title={t("studio.download")}
+                className="absolute right-2 top-2 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white shadow-md backdrop-blur-sm transition-colors hover:bg-black/80"
+              >
+                <Download className="h-5 w-5" />
+              </a>
+            </div>
           </div>
           {regenerating && (
             <span className="absolute inset-0 flex items-center justify-center">
