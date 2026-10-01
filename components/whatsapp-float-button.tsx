@@ -7,8 +7,9 @@ const WHATSAPP_MESSAGE = "Bonjour, j'ai une question sur Jaarle.";
 
 export function WhatsAppFloatButton() {
   const pathname = usePathname();
-  // Sur une boutique publique, le visiteur doit contacter le COMMERÇANT, pas Jaarle.
-  if (pathname?.startsWith("/boutique")) return null;
+  // Sur une boutique publique ou le Market, le visiteur doit contacter le COMMERÇANT, pas Jaarle
+  // (et le bouton masquerait les cartes produit). /boutique couvre aussi /boutiques.
+  if (pathname?.startsWith("/boutique") || pathname?.startsWith("/market")) return null;
   // Dans le tableau de bord mobile, on remonte le bouton au-dessus de la barre d'onglets.
   const dashboard = pathname?.startsWith("/dashboard") ?? false;
 

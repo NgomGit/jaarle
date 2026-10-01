@@ -61,6 +61,8 @@ export interface ProductViewProps {
   product: StorefrontProductDetail;
   related: StorefrontProductCard[];
   theme: StorefrontTheme;
+  /** Catégorie Jaarle Market du produit (fil d'Ariane quand le visiteur vient du Market). */
+  marketCategory?: { slug: string; label: string } | null;
 }
 
 export interface StorefrontTemplate {

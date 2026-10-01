@@ -40,15 +40,17 @@ export async function GET(request: Request, { params }: { params: { slug: string
   const product = productSlug ? await getPublicProduct(shop.id, productSlug) : null;
   const optionsLabel = (url.searchParams.get("o") || "").replace(/[\r\n<>]/g, " ").slice(0, 80).trim() || null;
 
+  const source = normalizeSource(url.searchParams.get("src"));
   await recordShopEvent({
     shopId: shop.id,
     productId: product?.id ?? null,
     type: "whatsapp_click",
-    source: normalizeSource(url.searchParams.get("src")),
+    source,
     visitor: visitorHash(request),
   });
 
-  const target = shop.whatsapp ? whatsappUrl(shop.whatsapp, whatsappMessage(shop, product, optionsLabel)) : shopPublicUrl(shop.slug);
+  const message = whatsappMessage(shop, product, optionsLabel, source === "market");
+  const target = shop.whatsapp ? whatsappUrl(shop.whatsapp, message) : shopPublicUrl(shop.slug);
   return NextResponse.redirect(target, 302);
 }
 

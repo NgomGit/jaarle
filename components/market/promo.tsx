@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, MapPin } from "lucide-react";
-import { ProBadge, ProductGrid } from "@/components/market/cards";
+import { ProBadge, ProductRail } from "@/components/market/cards";
 import { MarketImage } from "@/components/market/market-image";
 import { shopInitials } from "@/lib/shops/media";
 import type { MarketBanner, MarketProduct } from "@/lib/market/queries";
@@ -19,7 +19,7 @@ export function PromoBanner({ banner, compact = false, priority = false }: { ban
         compact ? "grid-cols-[112px_minmax(0,1fr)] sm:grid-cols-[180px_minmax(0,1fr)]" : "sm:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]"
       )}
     >
-      <span className={cn("relative block bg-[#2A2735]", compact ? "min-h-[132px]" : "aspect-[16/10] sm:order-2 sm:aspect-auto sm:min-h-[300px]")}>
+      <span className={cn("relative block bg-[#2A2735]", compact ? "min-h-[132px]" : "aspect-[16/9] sm:order-2 sm:aspect-auto sm:min-h-[300px]")}>
         {banner.imageUrl ? (
           <MarketImage
             src={banner.imageUrl}
@@ -37,7 +37,7 @@ export function PromoBanner({ banner, compact = false, priority = false }: { ban
       <span className={cn("flex min-w-0 flex-col justify-center", compact ? "gap-1.5 p-4 sm:p-6" : "gap-3 p-6 sm:p-10")}>
         <span className="flex flex-wrap items-center gap-2 text-[12.5px] font-bold text-[#C9C6D6]">
           <span className="inline-flex h-5 items-center rounded-full bg-[#F2B441] px-2 text-[10.5px] font-extrabold uppercase tracking-[0.06em] text-[#17151F]">À la une</span>
-          <span className="truncate">{banner.shop.name}</span>
+          {banner.shop.name !== banner.title && <span className="truncate">{banner.shop.name}</span>}
           <ProBadge className="bg-white/15 text-white" />
         </span>
         <span
@@ -70,7 +70,7 @@ export function PromoBanners({ banners }: { banners: MarketBanner[] }) {
   if (banners.length === 0) return null;
   const [first, ...rest] = banners;
   return (
-    <section aria-label="À la une" className="mx-auto max-w-[1240px] px-4 pb-16 sm:px-6">
+    <section aria-label="À la une" className="mx-auto max-w-[1240px] px-4 pb-12 sm:px-6 sm:pb-16">
       <PromoBanner banner={first} priority />
       {rest.length > 0 && (
         <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -84,25 +84,24 @@ export function PromoBanners({ banners }: { banners: MarketBanner[] }) {
 }
 
 export function ProPicks({ products }: { products: MarketProduct[] }) {
-  if (products.length < 2) return null;
+  // Pas de section maigre : au moins 4 annonces (une par boutique Pro).
+  if (products.length < 4) return null;
   return (
-    <section aria-labelledby="t-pro" className="mx-auto max-w-[1240px] px-4 pb-16 sm:px-6">
-      <div className="rounded-[28px] bg-[#EEECFD] p-5 sm:p-8">
-        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="mb-1.5 inline-flex items-center gap-2 text-[12.5px] font-extrabold uppercase tracking-[0.1em] text-[#3F34C4]">
-              <ProBadge /> Sélection du jour
-            </p>
-            <h2 id="t-pro" className="font-[family-name:var(--font-market-display)] text-3xl font-bold tracking-tight sm:text-[34px]">
-              Les boutiques Pro à découvrir
-            </h2>
-          </div>
-          <Link href="/boutiques" className="inline-flex items-center gap-1.5 font-extrabold text-[#4F43E0]">
-            Toutes les boutiques <ArrowRight className="h-4 w-4" aria-hidden />
-          </Link>
+    <section aria-labelledby="t-pro" className="mx-auto max-w-[1240px] px-4 pb-12 sm:px-6 sm:pb-16">
+      <div className="mb-4 flex items-end justify-between gap-4 sm:mb-6">
+        <div className="min-w-0">
+          <p className="mb-1 flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-[0.08em] text-[#77738A]">
+            <ProBadge /> Boutiques Pro
+          </p>
+          <h2 id="t-pro" className="font-[family-name:var(--font-market-display)] text-[24px] font-bold leading-tight tracking-tight sm:text-[30px]">
+            Sélection du jour
+          </h2>
         </div>
-        <ProductGrid products={products.slice(0, 4)} />
+        <Link href="/boutiques" className="inline-flex shrink-0 items-center gap-1 text-sm font-bold text-[#4F43E0]">
+          Les boutiques <ArrowRight className="h-4 w-4" aria-hidden />
+        </Link>
       </div>
+      <ProductRail products={products.slice(0, 8)} priorityCount={2} />
     </section>
   );
 }

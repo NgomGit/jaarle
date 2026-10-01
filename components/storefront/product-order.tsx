@@ -47,7 +47,10 @@ export function ProductOrder({
   if (src) params.set("src", src);
   const href = `/r/wa/${shopSlug}?${params.toString()}`;
   const canCart = !!cartItem && !isService && !soldOut;
-  const label = isService ? "Réserver sur WhatsApp" : soldOut ? "Demander la disponibilité" : "Commander sur WhatsApp";
+  // Venu de Jaarle Market : on « contacte » le vendeur (message « vu sur Jaarle Market »).
+  const fromMarket = src === "market";
+  const label = isService ? "Réserver sur WhatsApp" : soldOut ? "Demander la disponibilité" : fromMarket ? "Contacter sur WhatsApp" : "Commander sur WhatsApp";
+  const shortLabel = isService ? "Réserver" : soldOut ? "Demander" : fromMarket ? "Contacter" : "Commander";
 
   return (
     <>
@@ -109,7 +112,7 @@ export function ProductOrder({
             className="flex h-12 shrink-0 items-center gap-2 rounded-full bg-[var(--sf-accent)] px-5 text-[15px] font-semibold text-[var(--sf-accent-text)]"
           >
             <WhatsAppIcon className="h-5 w-5" />
-            {isService ? "Réserver" : soldOut ? "Demander" : "Commander"}
+            {shortLabel}
           </a>
         </div>
       </div>

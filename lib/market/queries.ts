@@ -131,6 +131,10 @@ export interface ProductQuery {
   max?: number | null;
   sort?: MarketSort;
   type?: MarketItemType | null;
+  /** Seulement les annonces disponibles (migration 0028). */
+  available?: boolean;
+  /** Catégories reconnues dans la recherche : leurs produits sont inclus (migration 0028). */
+  qCategories?: string[] | null;
   page?: number;
   limit?: number;
 }
@@ -139,7 +143,7 @@ export async function getMarketProducts(query: ProductQuery): Promise<{ items: M
   const limit = query.limit ?? MARKET_PAGE_SIZE;
   const page = Math.max(1, query.page ?? 1);
   try {
-    const { data, error } = await createPublicClient().rpc("market_products", {
+    const args: Record<string, unknown> = {
       p_categories: query.category ? query.category.leafKeys : null,
       p_city: query.city ?? null,
       p_shop: query.shopId ?? null,
@@ -150,7 +154,14 @@ export async function getMarketProducts(query: ProductQuery): Promise<{ items: M
       p_limit: limit,
       p_offset: (page - 1) * limit,
       p_type: query.type ?? null,
-    });
+    };
+    // Paramètres de 0028 envoyés seulement s'ils servent : sans la migration, le reste marche.
+    const extra: Record<string, unknown> = {};
+    if (query.available) extra.p_available = true;
+    if (query.qCategories?.length) extra.p_q_categories = query.qCategories;
+    const client = createPublicClient();
+    let { data, error } = await client.rpc("market_products", { ...args, ...extra });
+    if (error && Object.keys(extra).length) ({ data, error } = await client.rpc("market_products", args));
     if (error || !data) return { items: [], total: 0 };
     const rows = data as ProductRow[];
     return { items: rows.map(toProduct), total: rows.length ? Number(rows[0].total_count) : 0 };
@@ -295,7 +306,8 @@ export const getMarketBanners = cache(async (): Promise<MarketBanner[]> => {
       categoryKeys: r.category_keys,
       city: r.city,
       imageUrl: mediaUrl(r.media, true),
-      href: r.product_slug ? productPublicUrl(r.shop_slug, r.product_slug) : `/boutique/${r.shop_slug}`,
+      // ?src=market : statistiques du vendeur + message WhatsApp « vu sur Jaarle Market ».
+      href: `${r.product_slug ? `/boutique/${r.shop_slug}/p/${r.product_slug}` : `/boutique/${r.shop_slug}`}?src=market`,
       priceLabel: r.product_slug ? itemPriceLabel(r.price, r.subject_type === "service") : null,
       shop: { name: r.shop_name, slug: r.shop_slug, city: r.shop_city, logoUrl: shopMediaUrl(r.shop_logo_path) },
     }));

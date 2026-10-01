@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowLeft, MapPin, ShieldCheck } from "lucide-react";
+import { MapPin, ShieldCheck } from "lucide-react";
+import { ProductBackLink } from "@/components/storefront/product-back-link";
 import { ProductOrder } from "@/components/storefront/product-order";
 import { CartWidget } from "@/components/storefront/cart";
 import { ReportButton } from "@/components/storefront/report-button";
@@ -12,20 +13,14 @@ import type { ProductViewProps } from "@/components/storefront/templates/types";
 import { cn } from "@/lib/utils";
 
 /** Template « Moderne » — fiche produit. */
-export function ModerneProductView({ shop, product, related, theme }: ProductViewProps) {
+export function ModerneProductView({ shop, product, related, theme, marketCategory }: ProductViewProps) {
   return (
     <div style={themeStyle(theme)} className="min-h-screen bg-[#F7F7F5] pb-28 text-gray-900 [color-scheme:light] sm:pb-0">
       <TrackView shopId={shop.id} productId={product.id} type="product_view" />
       <StoreHeader shop={shop} backToShop />
 
       <main className="mx-auto max-w-6xl px-4 pt-4 sm:pt-6">
-        <Link
-          href={`/boutique/${shop.slug}`}
-          className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-900"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Tous les produits
-        </Link>
+        <ProductBackLink shopSlug={shop.slug} marketCategory={marketCategory} />
 
         <div className="grid gap-6 lg:grid-cols-2 lg:gap-12">
           <Gallery images={product.images} alt={product.name} soldOut={product.soldOut} />
@@ -48,6 +43,15 @@ export function ModerneProductView({ shop, product, related, theme }: ProductVie
                 {product.isService ? (product.soldOut ? "Indisponible pour le moment" : "Prestation de service") : product.soldOut ? "Épuisé pour le moment" : "Disponible"}
               </span>
             </div>
+            {/* Où se trouve le vendeur : visible avant de le contacter. */}
+            {shop.location && (
+              <p className="mt-2.5 flex items-center gap-1.5 text-sm text-gray-600">
+                <MapPin className="h-4 w-4 shrink-0 text-gray-400" aria-hidden />
+                <span>
+                  {shop.name} · {shop.location}
+                </span>
+              </p>
+            )}
 
             {product.description && (
               <p className="mt-5 whitespace-pre-line text-[15px] leading-relaxed text-gray-600">{product.description}</p>
@@ -91,6 +95,9 @@ export function ModerneProductView({ shop, product, related, theme }: ProductVie
               <ShopLogo shop={shop} size={44} className="rounded-xl" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold">{shop.name}</p>
+                <p className="truncate text-xs text-gray-500">
+                  {[shop.categoryLabel, `${shop.productCount} produit${shop.productCount > 1 ? "s" : ""}`].filter(Boolean).join(" · ")}
+                </p>
                 {shop.location && (
                   <p className="flex items-center gap-1 truncate text-xs text-gray-500">
                     <MapPin className="h-3 w-3" />

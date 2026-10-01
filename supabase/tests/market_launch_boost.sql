@@ -87,6 +87,17 @@ select pg_temp.expect_fail('select public.market_shop_ids()', 'market_shop_ids r
 select pg_temp.expect_fail('select public.user_is_pro(''00000000-0000-0000-0000-0000000000a1'')', 'user_is_pro reste interne');
 reset role;
 
+-- ── Recherche (0028) ───────────────────────────────────────────────────────
+update public.products set status = 'sold_out' where slug = 'pro-shop-p2';
+set local role anon;
+select pg_temp.expect((select count(*) from public.market_products(p_available => true)) = 9, 'filtre « disponible » : l''épuisé est écarté');
+select pg_temp.expect((select count(*) from public.market_products()) = 10, 'sans filtre : l''épuisé reste visible');
+select pg_temp.expect((select count(*) from public.market_products(p_q => 'Thiès')) = 6, 'recherche par ville de la boutique');
+select pg_temp.expect((select count(*) from public.market_products(p_q => 'zzz', p_q_categories => array['robes'])) = 2, 'recherche : catégorie reconnue');
+select pg_temp.expect((select count(*) from public.market_products(p_q => 'zzz')) = 0, 'recherche sans résultat');
+reset role;
+update public.products set status = 'active' where slug = 'pro-shop-p2';
+
 -- ── Vendeurs ───────────────────────────────────────────────────────────────
 set local role authenticated;
 set local request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000a1';

@@ -50,8 +50,21 @@ export function productPublicUrl(shopSlug: string, productSlug: string): string 
 export function whatsappMessage(
   shop: Pick<Shop, "name" | "slug">,
   product?: (Pick<ProductWithImages, "name" | "price" | "slug" | "status"> & { subject_type?: string | null }) | null,
-  optionsLabel?: string | null
+  optionsLabel?: string | null,
+  /** Visiteur venu de Jaarle Market : le message le dit (le vendeur sait d'où vient le client). */
+  fromMarket = false
 ): string {
+  if (product && fromMarket) {
+    const url = productPublicUrl(shop.slug, product.slug);
+    const opts = optionsLabel ? ` (${optionsLabel})` : "";
+    if (product.subject_type === "service") {
+      return `Bonjour, je suis intéressé(e) par votre prestation « ${product.name} »${opts} vue sur Jaarle Market. Quelles sont vos disponibilités ? ${url}`;
+    }
+    if (product.status === "sold_out") {
+      return `Bonjour, je suis intéressé(e) par « ${product.name} »${opts} vu sur Jaarle Market. Est-il de nouveau disponible ? ${url}`;
+    }
+    return `Bonjour, je suis intéressé(e) par « ${product.name} »${opts} vu sur Jaarle Market. Est-il toujours disponible ? ${url}`;
+  }
   if (!product) {
     return `Bonjour ${shop.name}, je viens de voir votre boutique sur Jaarle (${shopPublicUrl(shop.slug)}) et j'aimerais avoir plus d'informations.`;
   }

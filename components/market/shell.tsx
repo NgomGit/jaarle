@@ -10,7 +10,21 @@ import { cn } from "@/lib/utils";
 
 export const INK = "#17151F";
 
-export function MarketShell({ children, query, city }: { children: React.ReactNode; query?: string; city?: string | null }) {
+/** `home` : accueil du Market — la recherche et les catégories sont dans la page (pas en double dans l'en-tête). */
+/** `searchInHeader={false}` : la page a sa propre recherche (page de résultats). */
+export function MarketShell({
+  children,
+  query,
+  city,
+  home = false,
+  searchInHeader = true,
+}: {
+  children: React.ReactNode;
+  query?: string;
+  city?: string | null;
+  home?: boolean;
+  searchInHeader?: boolean;
+}) {
   return (
     <div
       className={cn(
@@ -22,16 +36,16 @@ export function MarketShell({ children, query, city }: { children: React.ReactNo
       // sur le Market, on utilise le violet Jaarle.
       style={{ ["--sf-accent" as string]: "#4F43E0", ["--sf-accent-text" as string]: "#FFFFFF", ["--sf-accent-soft" as string]: "#EEECFD" }}
     >
-      <div className="bg-[#17151F] text-[13px] font-medium text-[#E9E7F2]">
-        <div className="mx-auto flex max-w-[1240px] flex-wrap justify-center gap-x-7 gap-y-1 px-4 py-2 sm:px-6">
+      <div className="bg-[#17151F] text-[12px] font-medium text-[#E9E7F2] sm:text-[13px]">
+        <div className="mx-auto flex max-w-[1240px] justify-center gap-x-5 px-4 py-1.5 sm:gap-x-7 sm:px-6 sm:py-2">
           <span>Commande directe sur WhatsApp</span>
-          <span aria-hidden className="opacity-50">•</span>
-          <span>Aucun paiement sur le site</span>
+          <span aria-hidden className="hidden opacity-50 sm:inline">•</span>
+          <span className="hidden sm:inline">Aucun paiement sur le site</span>
           <span aria-hidden className="hidden opacity-50 sm:inline">•</span>
           <span className="hidden sm:inline">Boutiques du Sénégal</span>
         </div>
       </div>
-      <MarketHeader query={query} city={city} />
+      <MarketHeader query={query} city={city} home={home} search={searchInHeader && !home} />
       {children}
       <MarketFooter />
     </div>
@@ -52,16 +66,20 @@ export function MarketLogo() {
   );
 }
 
-function MarketHeader({ query, city }: { query?: string; city?: string | null }) {
+function MarketHeader({ query, city, home, search }: { query?: string; city?: string | null; home: boolean; search: boolean }) {
   const roots = marketRootCategories();
   return (
     <header className="border-b border-[#ECE9E1] bg-[#FAFAF7]">
-      <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-x-7 gap-y-3 px-4 py-4 sm:px-6">
+      <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-x-7 gap-y-3 px-4 py-3 sm:px-6 sm:py-4">
         <MarketLogo />
+        {search && (
         <form
           action="/market/recherche"
           role="search"
-          className="order-3 flex h-12 w-full min-w-0 items-center gap-2.5 rounded-full border-[1.5px] border-[#17151F] bg-white pl-4 pr-1.5 sm:order-none sm:w-auto sm:flex-1"
+          className={cn(
+            "order-3 h-12 w-full min-w-0 items-center gap-2.5 rounded-full border-[1.5px] border-[#17151F] bg-white pl-4 pr-1.5 sm:order-none sm:w-auto sm:flex-1",
+            home ? "hidden sm:flex" : "flex"
+          )}
         >
           <Search className="h-[18px] w-[18px] shrink-0" strokeWidth={2} aria-hidden />
           <label htmlFor="market-q" className="sr-only">
@@ -95,7 +113,8 @@ function MarketHeader({ query, city }: { query?: string; city?: string | null })
             Chercher
           </button>
         </form>
-        <nav aria-label="Principal" className="ml-auto flex items-center gap-5 text-[15px] font-bold sm:ml-0">
+        )}
+        <nav aria-label="Principal" className={cn("ml-auto flex items-center gap-5 text-[15px] font-bold", search && "sm:ml-0")}>
           <Link href="/boutiques" className="text-[#17151F] hover:text-[#4F43E0]">
             Boutiques
           </Link>
@@ -107,7 +126,10 @@ function MarketHeader({ query, city }: { query?: string; city?: string | null })
           </Link>
         </nav>
       </div>
-      <nav aria-label="Catégories" className="mx-auto flex max-w-[1240px] gap-6 overflow-x-auto whitespace-nowrap px-4 pb-3 text-sm font-semibold [scrollbar-width:none] sm:px-6">
+      <nav
+        aria-label="Catégories"
+        className={cn("mx-auto max-w-[1240px] gap-6 overflow-x-auto whitespace-nowrap px-4 pb-3 text-sm font-semibold [scrollbar-width:none] sm:px-6", home ? "hidden" : "flex")}
+      >
         {roots.map((c) => (
           <Link key={c.slug} href={`/market/${c.slug}`} className="text-[#5E5A6B] hover:text-[#17151F]">
             {c.label}
@@ -124,8 +146,8 @@ function MarketFooter() {
   return (
     <footer className="mt-20 bg-[#17151F] pb-9 pt-16 text-white">
       <div className="mx-auto max-w-[1240px] px-4 sm:px-6">
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-          <div>
+        <div className="grid grid-cols-2 gap-x-6 gap-y-8 lg:grid-cols-4">
+          <div className="col-span-2 lg:col-span-1">
             <p className="font-[family-name:var(--font-market-display)] text-2xl font-extrabold">
               Jaarle <span className="text-[#F2B441]">Market</span>
             </p>
@@ -149,7 +171,7 @@ function MarketFooter() {
               </Link>
             ))}
           </nav>
-          <nav aria-label="Jaarle">
+          <nav aria-label="Jaarle" className="col-span-2 lg:col-span-1">
             <p className="mb-2 font-extrabold">Jaarle</p>
             <Link href="/boutiques" className="block text-sm leading-8 text-[#C9C6D6] hover:text-white">
               Toutes les boutiques

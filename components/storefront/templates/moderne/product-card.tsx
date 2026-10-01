@@ -22,6 +22,7 @@ export function ProductCard({
   shopLabel,
   source = "card",
   cart = false,
+  linkSource,
 }: {
   shop: CardShop;
   product: StorefrontProductCard;
@@ -31,8 +32,10 @@ export function ProductCard({
   source?: string;
   /** Vitrine : bouton « Ajouter au panier » (à la place de Partager) pour les produits disponibles. */
   cart?: boolean;
+  /** Jaarle Market : la fiche s'ouvre avec ?src=… (contexte Market, même canonique). */
+  linkSource?: string;
 }) {
-  const href = `/boutique/${shop.slug}/p/${product.slug}`;
+  const href = `/boutique/${shop.slug}/p/${product.slug}${linkSource ? `?src=${encodeURIComponent(linkSource)}` : ""}`;
   const waHref = `/r/wa/${shop.slug}?${new URLSearchParams({ p: product.slug, src: source }).toString()}`;
 
   return (

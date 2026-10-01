@@ -12,6 +12,8 @@ export interface ListingParams {
   max: number | null;
   /** Filtre « Produits » / « Services » (?type=produits|services). */
   type: MarketItemType | null;
+  /** Seulement les annonces disponibles (?dispo=1). */
+  available: boolean;
   /** Tri, filtre de prix ou de type actif : la page n'est pas indexée (canonique vers la version sans filtre). */
   filtered: boolean;
 }
@@ -31,7 +33,8 @@ export function parseListingParams(sp: Record<string, string | string[] | undefi
   const page = Math.min(Math.max(int(sp.page) ?? 1, 1), 200);
   const rawType = Array.isArray(sp.type) ? sp.type[0] : sp.type;
   const type: MarketItemType | null = rawType === "services" ? "service" : rawType === "produits" ? "product" : null;
-  return { page, sort, min, max, type, filtered: sort !== "relevance" || min != null || max != null || type != null };
+  const available = (Array.isArray(sp.dispo) ? sp.dispo[0] : sp.dispo) === "1";
+  return { page, sort, min, max, type, available, filtered: sort !== "relevance" || min != null || max != null || type != null || available };
 }
 
 const fcfa = (n: number) => `${n.toLocaleString("fr-FR").replace(/ | /g, " ")} FCFA`;

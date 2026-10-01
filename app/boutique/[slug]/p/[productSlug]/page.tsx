@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getStorefrontTemplate } from "@/components/storefront/templates";
+import { getMarketCategory } from "@/lib/market/categories";
 import { formatPrice, shopPublicUrl } from "@/lib/shops/format";
 import { absoluteUrl, breadcrumbLd, jsonLdString, productDescription, productLd, SITE_LOCALE, SITE_NAME } from "@/lib/seo";
 import { shopMediaUrl } from "@/lib/shops/media";
@@ -58,6 +59,7 @@ export default async function ProductPage({ params }: Props) {
     ]),
   ];
 
+  const marketCat = getMarketCategory(product.market_category);
   const { ProductView } = getStorefrontTemplate(shop.brand?.template);
   return (
     <>
@@ -67,6 +69,7 @@ export default async function ProductPage({ params }: Props) {
         product={detail}
         related={allProducts.filter((p) => p.id !== product.id).slice(0, 4).map((p) => toProductCard(shop.slug, p, posters.get(p.id)))}
         theme={theme}
+        marketCategory={marketCat ? { slug: marketCat.slug, label: marketCat.label } : null}
       />
     </>
   );

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Breadcrumbs, Pagination, ProductGrid } from "@/components/market/cards";
+import { MarketFilters } from "@/components/market/filters";
 import { PromoBanner } from "@/components/market/promo";
 import { categoryTrail, getMarketCategory, marketRootCategories, type MarketCategory } from "@/lib/market/categories";
 import { getMarketCity, type MarketCity } from "@/lib/market/cities";
@@ -14,7 +15,7 @@ import {
   type MarketProduct,
   type Totals,
 } from "@/lib/market/queries";
-import { listingFaq, listingH1, listingIntro, sortLabel, type ListingParams } from "@/lib/market/seo";
+import { listingFaq, listingH1, listingIntro, type ListingParams } from "@/lib/market/seo";
 import { absoluteUrl, breadcrumbLd, faqLd, jsonLdString } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
@@ -30,7 +31,16 @@ export function listingPath(category: MarketCategory | null, city: MarketCity | 
 export async function loadListing(category: MarketCategory | null, city: MarketCity | null, params: ListingParams) {
   const [counts, result] = await Promise.all([
     getMarketCounts(),
-    getMarketProducts({ category, city: city?.slug ?? null, sort: params.sort, min: params.min, max: params.max, type: params.type, page: params.page }),
+    getMarketProducts({
+      category,
+      city: city?.slug ?? null,
+      sort: params.sort,
+      min: params.min,
+      max: params.max,
+      type: params.type,
+      available: params.available,
+      page: params.page,
+    }),
   ]);
   return { counts, totals: totalsFor(counts, category, city?.slug ?? null), ...result };
 }
@@ -78,6 +88,7 @@ export async function MarketListing({
     if (params.sort !== "relevance") q.set("tri", params.sort);
     if (params.min != null) q.set("min", String(params.min));
     if (params.max != null) q.set("max", String(params.max));
+    if (params.available) q.set("dispo", "1");
     if (p > 1) q.set("page", String(p));
     const s = q.toString();
     return s ? `${path}?${s}` : path;
@@ -123,59 +134,11 @@ export async function MarketListing({
         </div>
       )}
 
-      <div className="mt-7 flex flex-col gap-8 lg:flex-row lg:items-start">
-        <aside aria-label="Filtres" className="lg:sticky lg:top-6 lg:w-[250px] lg:shrink-0">
-          <form method="get" action={path} className="flex flex-wrap items-end gap-3 rounded-2xl border border-[#ECE9E1] bg-white p-4 lg:flex-col lg:items-stretch">
-            {params.type && <input type="hidden" name="type" value={params.type === "service" ? "services" : "produits"} />}
-            <label className="flex min-w-[150px] flex-1 flex-col gap-1 text-xs font-bold text-[#5E5A6B]">
-              Trier par
-              <select name="tri" defaultValue={params.sort} className="h-11 rounded-xl border border-[#D9D5CB] bg-white px-3 text-sm font-semibold text-[#17151F]">
-                {(["relevance", "new", "price_asc", "price_desc"] as const).map((s) => (
-                  <option key={s} value={s}>
-                    {sortLabel(s)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="flex flex-1 gap-2">
-              <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs font-bold text-[#5E5A6B]">
-                Prix min
-                <input name="min" type="number" inputMode="numeric" min={0} defaultValue={params.min ?? ""} placeholder="0" className="h-11 w-full rounded-xl border border-[#D9D5CB] px-3 text-sm text-[#17151F]" />
-              </label>
-              <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs font-bold text-[#5E5A6B]">
-                Prix max
-                <input name="max" type="number" inputMode="numeric" min={0} defaultValue={params.max ?? ""} placeholder="—" className="h-11 w-full rounded-xl border border-[#D9D5CB] px-3 text-sm text-[#17151F]" />
-              </label>
-            </div>
-            <button type="submit" className="h-11 rounded-xl bg-[#17151F] px-5 text-sm font-bold text-white">
-              Appliquer
-            </button>
-            {params.filtered && (
-              <Link href={path} className="text-center text-sm font-bold text-[#4F43E0]">
-                Effacer les filtres
-              </Link>
-            )}
-          </form>
-
-          {cities.length > 0 && (
-            <nav aria-label="Villes" className="mt-4 hidden rounded-2xl border border-[#ECE9E1] bg-white p-4 lg:block">
-              <p className="mb-2 text-sm font-extrabold">Ville</p>
-              <Link href={listingPath(category, null)} className={cn("flex justify-between py-1.5 text-sm", !city ? "font-bold text-[#17151F]" : "text-[#4A4656]")}>
-                Tout le Sénégal
-              </Link>
-              {cities.slice(0, 12).map(({ city: c, n }) => (
-                <Link key={c.slug} href={listingPath(category, c)} className={cn("flex justify-between py-1.5 text-sm", city?.slug === c.slug ? "font-bold text-[#17151F]" : "text-[#4A4656] hover:text-[#17151F]")}>
-                  {c.name}
-                  <span className="text-[#8A8698]">{n}</span>
-                </Link>
-              ))}
-            </nav>
-          )}
-        </aside>
-
-        <section aria-label="Produits" className="min-w-0 flex-1">
+      <div className="mt-7">
+        <section aria-label="Produits" className="min-w-0">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           {/* Produits / services : filtre (non indexé, comme les autres filtres). */}
-          <nav aria-label="Type d’annonce" className="mb-5 inline-flex rounded-full bg-[#F2F0EA] p-1">
+          <nav aria-label="Type d’annonce" className="inline-flex rounded-full bg-[#F2F0EA] p-1">
             {([
               [null, "Tout"],
               ["product", "Produits"],
@@ -194,6 +157,15 @@ export async function MarketListing({
               </Link>
             ))}
           </nav>
+            <MarketFilters
+              action={path}
+              fields={["price", "available", "sort"]}
+              values={{ category: null, city: null, min: params.min, max: params.max, available: params.available, sort: params.sort }}
+              hidden={{ type: params.type === "service" ? "services" : params.type === "product" ? "produits" : null }}
+              resetHref={path}
+              total={total}
+            />
+          </div>
           {banner && (
             <div className="mb-6">
               <PromoBanner banner={banner} compact />
@@ -201,7 +173,7 @@ export async function MarketListing({
           )}
           {items.length > 0 ? (
             <>
-              <ProductGrid products={items} withSidebar />
+              <ProductGrid products={items} priorityCount={4} />
               <Pagination page={params.page} total={total} pageSize={MARKET_PAGE_SIZE} hrefFor={hrefFor} />
             </>
           ) : (
