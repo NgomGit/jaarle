@@ -389,11 +389,13 @@
     "mk_pro": "Active Pro plan",
     "mk_published": "Shop published",
     "mk_industry": "Product-selling activity (fashion, beauty, grocery, home…)",
-    "mk_products": "At least 3 products for sale with a photo ({n}/3)",
+    "mk_products": "At least 3 visible listings: product with a photo or service with a poster ({n}/3)",
     "mk_fix": "Fix",
     "mk_uncategorized": "{n} product(s) without a Market category: they don't show on category pages.",
     "mk_uncategorizedCta": "Categorize them",
-    "mk_see": "See the Market →"
+    "mk_see": "See the Market →",
+    "mk_noPoster": "{n} service(s) without a poster: a service only shows on the Market with its (unlocked) poster.",
+    "mk_noPosterCta": "Create the posters"
   },
   "products": {
     "title": "My products",

@@ -32,9 +32,13 @@ export interface StorefrontProductCard {
   name: string;
   priceLabel: string;
   hasPrice: boolean;
+  /** Prix numérique (panier). */
+  price?: number | null;
   category: string | null;
   soldOut: boolean;
   isNew: boolean;
+  /** Service (prestation) : affiché avec son affiche, prix « À partir de », bouton « Réserver ». */
+  isService?: boolean;
   thumbUrl: string | null;
   fullUrl: string | null;
   url: string; // lien public du produit (partage)

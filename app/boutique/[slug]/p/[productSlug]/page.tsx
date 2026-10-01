@@ -4,7 +4,7 @@ import { getStorefrontTemplate } from "@/components/storefront/templates";
 import { formatPrice, shopPublicUrl } from "@/lib/shops/format";
 import { absoluteUrl, breadcrumbLd, jsonLdString, productDescription, productLd, SITE_LOCALE, SITE_NAME } from "@/lib/seo";
 import { shopMediaUrl } from "@/lib/shops/media";
-import { getPublicProduct, getPublicProducts, getPublicShop, getShopPublicMeta, productPublicUrl } from "@/lib/shops/public";
+import { getPublicProduct, getPublicProducts, getPublicShop, getServicePosters, getShopPublicMeta, productPublicUrl } from "@/lib/shops/public";
 import { resolveTheme, toProductCard, toProductDetail, toStorefrontShop } from "@/lib/storefront/view-models";
 
 export const revalidate = 300;
@@ -40,8 +40,13 @@ export default async function ProductPage({ params }: Props) {
   const data = await load(params);
   if (!data) notFound();
   const { shop, product } = data;
-  const [allProducts, theme, meta] = await Promise.all([getPublicProducts(shop.id), resolveTheme(shop), getShopPublicMeta(shop.id)]);
-  const detail = toProductDetail(shop.slug, product);
+  const [allProducts, theme, meta, posters] = await Promise.all([
+    getPublicProducts(shop.id),
+    resolveTheme(shop),
+    getShopPublicMeta(shop.id),
+    getServicePosters(shop.id),
+  ]);
+  const detail = toProductDetail(shop.slug, product, posters.get(product.id));
 
   const shopUrl = shopPublicUrl(shop.slug);
   const jsonLd = [
@@ -60,7 +65,7 @@ export default async function ProductPage({ params }: Props) {
       <ProductView
         shop={toStorefrontShop(shop, allProducts.length, meta)}
         product={detail}
-        related={allProducts.filter((p) => p.id !== product.id).slice(0, 4).map((p) => toProductCard(shop.slug, p))}
+        related={allProducts.filter((p) => p.id !== product.id).slice(0, 4).map((p) => toProductCard(shop.slug, p, posters.get(p.id)))}
         theme={theme}
       />
     </>

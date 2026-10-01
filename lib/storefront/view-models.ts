@@ -1,6 +1,7 @@
-import { formatPrice, formatSenegalPhone, shopPublicUrl } from "@/lib/shops/format";
+import { formatSenegalPhone, shopPublicUrl } from "@/lib/shops/format";
 import { shopMediaThumbUrl, shopMediaUrl } from "@/lib/shops/media";
 import { productPublicUrl } from "@/lib/shops/public";
+import { itemPriceLabel, posterUrl } from "@/lib/shops/posters";
 import type { ProductWithImages } from "@/lib/shops/products";
 import type { Shop } from "@/lib/shops/types";
 import { accentFromLogoUrl, themeFromAccent, type StorefrontTheme } from "@/lib/storefront/theme";
@@ -42,28 +43,40 @@ export function toStorefrontShop(
   };
 }
 
-export function toProductCard(shopSlug: string, p: ProductWithImages): StorefrontProductCard {
+/**
+ * Carte produit / service. Un service s'affiche avec son affiche (`posterKey`, voir
+ * lib/shops/posters.ts) ; sans affiche (pas encore créée), on garde sa photo dans la vitrine.
+ */
+export function toProductCard(shopSlug: string, p: ProductWithImages, posterKey?: string | null): StorefrontProductCard {
   const main = p.product_images[0]?.path;
+  const isService = p.subject_type === "service";
+  const poster = isService ? posterUrl(posterKey) : null;
   return {
     id: p.id,
     slug: p.slug,
     name: p.name,
-    priceLabel: formatPrice(p.price),
+    priceLabel: itemPriceLabel(p.price, isService),
     hasPrice: p.price != null,
+    price: p.price,
     category: p.category,
     soldOut: p.status === "sold_out",
     isNew: Date.now() - new Date(p.created_at).getTime() < NEW_DAYS * 86_400_000,
-    thumbUrl: shopMediaThumbUrl(main),
-    fullUrl: shopMediaUrl(main),
+    isService,
+    thumbUrl: poster ?? shopMediaThumbUrl(main),
+    fullUrl: poster ?? shopMediaUrl(main),
     url: productPublicUrl(shopSlug, p.slug),
   };
 }
 
-export function toProductDetail(shopSlug: string, p: ProductWithImages): StorefrontProductDetail {
+export function toProductDetail(shopSlug: string, p: ProductWithImages, posterKey?: string | null): StorefrontProductDetail {
+  const card = toProductCard(shopSlug, p, posterKey);
+  const photos = p.product_images.map((img) => shopMediaUrl(img.path)).filter((u): u is string => !!u);
+  const poster = card.isService ? posterUrl(posterKey) : null;
   return {
-    ...toProductCard(shopSlug, p),
+    ...card,
     description: p.description,
-    images: p.product_images.map((img) => shopMediaUrl(img.path)).filter((u): u is string => !!u),
+    // Service avec affiche : l'affiche seule (la photo envoyée ne sert qu'à créer l'affiche).
+    images: poster ? [poster] : photos,
     options: p.options ?? [],
   };
 }

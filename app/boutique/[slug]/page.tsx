@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getStorefrontTemplate } from "@/components/storefront/templates";
 import { shopPublicUrl } from "@/lib/shops/format";
 import { shopMediaUrl } from "@/lib/shops/media";
-import { getPublicProducts, getPublicShop, getShopPublicMeta, productPublicUrl } from "@/lib/shops/public";
+import { getPublicProducts, getPublicShop, getServicePosters, getShopPublicMeta, productPublicUrl } from "@/lib/shops/public";
 import { absoluteUrl, breadcrumbLd, isShopIndexable, jsonLdString, shopDescription, shopTitle, SITE_LOCALE, SITE_NAME, storeLd } from "@/lib/seo";
 import { resolveTheme, toProductCard, toStorefrontShop } from "@/lib/storefront/view-models";
 
@@ -36,7 +36,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function ShopPage({ params }: Props) {
   const shop = await getPublicShop(params.slug);
   if (!shop) notFound();
-  const [products, theme, meta] = await Promise.all([getPublicProducts(shop.id), resolveTheme(shop), getShopPublicMeta(shop.id)]);
+  const [products, theme, meta, posters] = await Promise.all([
+    getPublicProducts(shop.id),
+    resolveTheme(shop),
+    getShopPublicMeta(shop.id),
+    getServicePosters(shop.id),
+  ]);
 
   const url = shopPublicUrl(shop.slug);
   const jsonLd = [
@@ -61,7 +66,7 @@ export default async function ShopPage({ params }: Props) {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(jsonLd) }} />
-      <ShopView shop={toStorefrontShop(shop, products.length, meta)} products={products.map((p) => toProductCard(shop.slug, p))} theme={theme} />
+      <ShopView shop={toStorefrontShop(shop, products.length, meta)} products={products.map((p) => toProductCard(shop.slug, p, posters.get(p.id)))} theme={theme} />
     </>
   );
 }

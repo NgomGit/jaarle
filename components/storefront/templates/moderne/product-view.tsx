@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, MapPin, ShieldCheck } from "lucide-react";
 import { ProductOrder } from "@/components/storefront/product-order";
+import { CartWidget } from "@/components/storefront/cart";
 import { ReportButton } from "@/components/storefront/report-button";
 import { ShareButton } from "@/components/storefront/share-button";
 import { TrackView } from "@/components/storefront/track-view";
@@ -44,7 +45,7 @@ export function ModerneProductView({ shop, product, related, theme }: ProductVie
                 )}
               >
                 <span className={cn("h-1.5 w-1.5 rounded-full", product.soldOut ? "bg-gray-500" : "bg-emerald-500")} />
-                {product.soldOut ? "Épuisé pour le moment" : "Disponible"}
+                {product.isService ? (product.soldOut ? "Indisponible pour le moment" : "Prestation de service") : product.soldOut ? "Épuisé pour le moment" : "Disponible"}
               </span>
             </div>
 
@@ -60,6 +61,8 @@ export function ModerneProductView({ shop, product, related, theme }: ProductVie
                 priceLabel={product.priceLabel}
                 options={product.options}
                 soldOut={product.soldOut}
+                isService={product.isService}
+                cartItem={{ slug: product.slug, name: product.name, priceLabel: product.priceLabel, price: product.price ?? null, thumbUrl: product.thumbUrl }}
               />
             </div>
 
@@ -107,7 +110,7 @@ export function ModerneProductView({ shop, product, related, theme }: ProductVie
             <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-5">
               {related.map((p) => (
                 <li key={p.id}>
-                  <ProductCard shop={{ id: shop.id, slug: shop.slug, name: shop.name, phoneHref: shop.phoneHref }} product={p} />
+                  <ProductCard shop={{ id: shop.id, slug: shop.slug, name: shop.name, phoneHref: shop.phoneHref }} product={p} cart />
                 </li>
               ))}
             </ul>
@@ -116,6 +119,7 @@ export function ModerneProductView({ shop, product, related, theme }: ProductVie
       </main>
 
       <StoreFooter shop={shop} />
+      <CartWidget shopSlug={shop.slug} shopName={shop.name} />
     </div>
   );
 }

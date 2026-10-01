@@ -1,4 +1,5 @@
 import { CalendarDays, MapPin, MessageCircle, Package, ShieldCheck } from "lucide-react";
+import { CartWidget } from "@/components/storefront/cart";
 import { ShareButton } from "@/components/storefront/share-button";
 import { TrackView } from "@/components/storefront/track-view";
 import { Catalog } from "@/components/storefront/templates/moderne/catalog";
@@ -114,6 +115,7 @@ export function ModerneShopView({ shop, products, theme }: ShopViewProps) {
       </main>
 
       <StoreFooter shop={shop} />
+      <CartWidget shopSlug={shop.slug} shopName={shop.name} />
 
       {/* Action principale toujours accessible sur mobile */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-black/5 bg-white/95 p-3 backdrop-blur-md sm:hidden">

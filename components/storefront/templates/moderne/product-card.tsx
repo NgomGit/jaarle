@@ -3,6 +3,7 @@
 import type * as React from "react";
 import Link from "next/link";
 import { ImageOff, Phone } from "lucide-react";
+import { AddToCartButton } from "@/components/storefront/cart";
 import { ShareButton } from "@/components/storefront/share-button";
 import { trackEvent } from "@/components/storefront/track-view";
 import { WhatsAppIcon } from "@/components/storefront/whatsapp-icon";
@@ -20,6 +21,7 @@ export function ProductCard({
   product,
   shopLabel,
   source = "card",
+  cart = false,
 }: {
   shop: CardShop;
   product: StorefrontProductCard;
@@ -27,6 +29,8 @@ export function ProductCard({
   shopLabel?: React.ReactNode;
   /** Source enregistrée pour le clic WhatsApp / appel (statistiques du vendeur). */
   source?: string;
+  /** Vitrine : bouton « Ajouter au panier » (à la place de Partager) pour les produits disponibles. */
+  cart?: boolean;
 }) {
   const href = `/boutique/${shop.slug}/p/${product.slug}`;
   const waHref = `/r/wa/${shop.slug}?${new URLSearchParams({ p: product.slug, src: source }).toString()}`;
@@ -53,7 +57,12 @@ export function ProductCard({
             <ImageOff className="h-6 w-6" />
           </span>
         )}
-        {product.soldOut ? (
+        {product.isService ? (
+          // Service : badge distinct (vert sauge), toujours affiché.
+          <span className="absolute left-2.5 top-2.5 rounded-full bg-[#1F6F5C] px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm">
+            Service
+          </span>
+        ) : product.soldOut ? (
           <span className="absolute left-2.5 top-2.5 rounded-full bg-gray-900/85 px-2.5 py-1 text-[11px] font-semibold text-white">
             Épuisé
           </span>
@@ -84,12 +93,18 @@ export function ProductCard({
           <a
             href={waHref}
             rel="nofollow"
-            aria-label={product.soldOut ? `Demander la disponibilité de ${product.name} sur WhatsApp` : `Commander ${product.name} sur WhatsApp`}
-            title="Commander sur WhatsApp"
+            aria-label={
+              product.isService
+                ? `Réserver ${product.name} sur WhatsApp`
+                : product.soldOut
+                  ? `Demander la disponibilité de ${product.name} sur WhatsApp`
+                  : `Commander ${product.name} sur WhatsApp`
+            }
+            title={product.isService ? "Réserver sur WhatsApp" : "Commander sur WhatsApp"}
             className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full bg-[var(--sf-accent)] text-[13px] font-semibold text-[var(--sf-accent-text)] transition-opacity hover:opacity-90"
           >
             <WhatsAppIcon className="h-[18px] w-[18px]" />
-            <span className="hidden sm:inline">{product.soldOut ? "Demander" : "Commander"}</span>
+            <span className="hidden sm:inline">{product.isService ? "Réserver" : product.soldOut ? "Demander" : "Commander"}</span>
           </a>
           <a
             href={shop.phoneHref}
@@ -100,6 +115,12 @@ export function ProductCard({
           >
             <Phone className="h-4 w-4" />
           </a>
+          {cart && !product.isService && !product.soldOut ? (
+            <AddToCartButton
+              shopSlug={shop.slug}
+              item={{ slug: product.slug, name: product.name, priceLabel: product.priceLabel, price: product.price ?? null, thumbUrl: product.thumbUrl }}
+            />
+          ) : (
           <ShareButton
             variant="icon"
             url={product.url}
@@ -110,6 +131,7 @@ export function ProductCard({
             label="Partager"
             className="h-10 w-10 shrink-0 border-0 bg-gray-100 hover:bg-gray-200"
           />
+          )}
         </div>
       </div>
     </article>

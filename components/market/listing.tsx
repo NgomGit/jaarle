@@ -27,7 +27,7 @@ export function listingPath(category: MarketCategory | null, city: MarketCity | 
 export async function loadListing(category: MarketCategory | null, city: MarketCity | null, params: ListingParams) {
   const [counts, result] = await Promise.all([
     getMarketCounts(),
-    getMarketProducts({ category, city: city?.slug ?? null, sort: params.sort, min: params.min, max: params.max, page: params.page }),
+    getMarketProducts({ category, city: city?.slug ?? null, sort: params.sort, min: params.min, max: params.max, type: params.type, page: params.page }),
   ]);
   return { counts, totals: totalsFor(counts, category, city?.slug ?? null), ...result };
 }
@@ -67,8 +67,9 @@ export async function MarketListing({
     .map((c) => ({ city: getMarketCity(c.slug)!, n: c.products }))
     .filter((c) => c.city);
 
-  const hrefFor = (p: number) => {
+  const hrefFor = (p: number, type: typeof params.type = params.type) => {
     const q = new URLSearchParams();
+    if (type) q.set("type", type === "service" ? "services" : "produits");
     if (params.sort !== "relevance") q.set("tri", params.sort);
     if (params.min != null) q.set("min", String(params.min));
     if (params.max != null) q.set("max", String(params.max));
@@ -120,6 +121,7 @@ export async function MarketListing({
       <div className="mt-7 flex flex-col gap-8 lg:flex-row lg:items-start">
         <aside aria-label="Filtres" className="lg:sticky lg:top-6 lg:w-[250px] lg:shrink-0">
           <form method="get" action={path} className="flex flex-wrap items-end gap-3 rounded-2xl border border-[#ECE9E1] bg-white p-4 lg:flex-col lg:items-stretch">
+            {params.type && <input type="hidden" name="type" value={params.type === "service" ? "services" : "produits"} />}
             <label className="flex min-w-[150px] flex-1 flex-col gap-1 text-xs font-bold text-[#5E5A6B]">
               Trier par
               <select name="tri" defaultValue={params.sort} className="h-11 rounded-xl border border-[#D9D5CB] bg-white px-3 text-sm font-semibold text-[#17151F]">
@@ -167,6 +169,26 @@ export async function MarketListing({
         </aside>
 
         <section aria-label="Produits" className="min-w-0 flex-1">
+          {/* Produits / services : filtre (non indexé, comme les autres filtres). */}
+          <nav aria-label="Type d’annonce" className="mb-5 inline-flex rounded-full bg-[#F2F0EA] p-1">
+            {([
+              [null, "Tout"],
+              ["product", "Produits"],
+              ["service", "Services"],
+            ] as const).map(([t, label]) => (
+              <Link
+                key={label}
+                href={hrefFor(1, t)}
+                aria-current={params.type === t ? "page" : undefined}
+                className={cn(
+                  "inline-flex h-9 items-center rounded-full px-4 text-sm font-bold",
+                  params.type === t ? "bg-[#17151F] text-white" : "text-[#4A4656] hover:text-[#17151F]"
+                )}
+              >
+                {label}
+              </Link>
+            ))}
+          </nav>
           {items.length > 0 ? (
             <>
               <ProductGrid products={items} withSidebar />

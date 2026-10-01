@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { AddToCartButton } from "@/components/storefront/cart";
 import { WhatsAppIcon } from "@/components/storefront/whatsapp-icon";
+import type { CartItem } from "@/lib/storefront/cart-store";
 import { cn } from "@/lib/utils";
 import type { ProductOption } from "@/lib/shops/types";
 
@@ -17,6 +19,8 @@ export function ProductOrder({
   priceLabel,
   options,
   soldOut,
+  isService = false,
+  cartItem,
 }: {
   shopSlug: string;
   productSlug: string;
@@ -24,6 +28,10 @@ export function ProductOrder({
   priceLabel: string;
   options: ProductOption[];
   soldOut: boolean;
+  /** Service : « Réserver » au lieu de « Commander ». */
+  isService?: boolean;
+  /** Produit disponible : peut être ajouté au panier (avec les options choisies). */
+  cartItem?: Omit<CartItem, "qty" | "options">;
 }) {
   const [selected, setSelected] = React.useState<Record<string, string>>({});
   // Lu après hydratation (sinon le lien rendu côté serveur et côté client diffère).
@@ -38,7 +46,8 @@ export function ProductOrder({
   if (optionsLabel) params.set("o", optionsLabel);
   if (src) params.set("src", src);
   const href = `/r/wa/${shopSlug}?${params.toString()}`;
-  const label = soldOut ? "Demander la disponibilité" : "Commander sur WhatsApp";
+  const canCart = !!cartItem && !isService && !soldOut;
+  const label = isService ? "Réserver sur WhatsApp" : soldOut ? "Demander la disponibilité" : "Commander sur WhatsApp";
 
   return (
     <>
@@ -82,6 +91,9 @@ export function ProductOrder({
         <WhatsAppIcon className="h-5 w-5" />
         {label}
       </a>
+      {canCart && (
+        <AddToCartButton shopSlug={shopSlug} item={cartItem!} options={optionsLabel} variant="button" className="mt-2.5 hidden w-full sm:flex" />
+      )}
 
       {/* Mobile : barre fixe avec rappel du prix */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-black/5 bg-white/95 px-4 py-3 backdrop-blur-md sm:hidden">
@@ -90,13 +102,14 @@ export function ProductOrder({
             <p className="truncate text-xs text-gray-500">{productName}</p>
             <p className="text-base font-bold text-gray-900">{priceLabel}</p>
           </div>
+          {canCart && <AddToCartButton shopSlug={shopSlug} item={cartItem!} options={optionsLabel} className="h-12 w-12" />}
           <a
             href={href}
             rel="nofollow"
             className="flex h-12 shrink-0 items-center gap-2 rounded-full bg-[var(--sf-accent)] px-5 text-[15px] font-semibold text-[var(--sf-accent-text)]"
           >
             <WhatsAppIcon className="h-5 w-5" />
-            {soldOut ? "Demander" : "Commander"}
+            {isService ? "Réserver" : soldOut ? "Demander" : "Commander"}
           </a>
         </div>
       </div>

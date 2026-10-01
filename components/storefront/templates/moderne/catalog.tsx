@@ -88,7 +88,7 @@ export function Catalog({ shop, products }: { shop: CardShop; products: Storefro
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">
           {shown.map((p) => (
             <li key={p.id}>
-              <ProductCard shop={shop} product={p} />
+              <ProductCard shop={shop} product={p} cart />
             </li>
           ))}
         </ul>

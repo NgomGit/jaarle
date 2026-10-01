@@ -65,6 +65,7 @@ export function MarketProductCard({ product }: { product: MarketProduct }) {
     category: null,
     soldOut: product.soldOut,
     isNew: product.isNew,
+    isService: product.isService,
     thumbUrl: product.thumbUrl,
     fullUrl: product.fullUrl,
     url: product.url,

@@ -16,6 +16,17 @@ export const getPublicProducts = cache(async (shopId: string): Promise<ProductWi
   return listShopProducts(createPublicClient(), shopId);
 });
 
+/** Affiches des services d'une boutique publiée (migration 0023) : id de fiche → clé d'affiche. */
+export const getServicePosters = cache(async (shopId: string): Promise<Map<string, string>> => {
+  try {
+    const { data, error } = await createPublicClient().rpc("shop_service_posters", { p_shop: shopId });
+    if (error || !data) return new Map();
+    return new Map((data as { product_id: string; poster_key: string }[]).map((r) => [r.product_id, r.poster_key]));
+  } catch {
+    return new Map();
+  }
+});
+
 export const getPublicProduct = cache(async (shopId: string, productSlug: string): Promise<ProductWithImages | null> => {
   return getProductBySlug(createPublicClient(), shopId, productSlug);
 });
@@ -38,7 +49,7 @@ export function productPublicUrl(shopSlug: string, productSlug: string): string 
 /** Message WhatsApp pré-rempli (construit côté serveur, jamais depuis un texte libre du visiteur). */
 export function whatsappMessage(
   shop: Pick<Shop, "name" | "slug">,
-  product?: Pick<ProductWithImages, "name" | "price" | "slug" | "status"> | null,
+  product?: (Pick<ProductWithImages, "name" | "price" | "slug" | "status"> & { subject_type?: string | null }) | null,
   optionsLabel?: string | null
 ): string {
   if (!product) {
@@ -46,6 +57,9 @@ export function whatsappMessage(
   }
   const priceText = product.price != null ? ` à ${formatPrice(product.price)}` : "";
   const options = optionsLabel ? ` (${optionsLabel})` : "";
+  if (product.subject_type === "service") {
+    return `Bonjour, je suis intéressé(e) par votre prestation « ${product.name} »${options}. Pouvez-vous me donner vos disponibilités et le tarif ? Je viens de voir votre annonce sur Jaarle : ${productPublicUrl(shop.slug, product.slug)}`;
+  }
   const intro =
     product.status === "sold_out"
       ? `Bonjour, le produit « ${product.name} »${priceText}${options} est-il de nouveau disponible ?`

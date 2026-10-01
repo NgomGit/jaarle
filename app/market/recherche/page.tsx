@@ -22,11 +22,12 @@ export default async function MarketSearchPage({ searchParams }: Props) {
   const q = one(searchParams.q).trim().slice(0, 80);
   const city = getMarketCity(one(searchParams.ville));
   const lp = parseListingParams(searchParams);
-  const { items, total } = await getMarketProducts({ q, city: city?.slug ?? null, sort: lp.sort, min: lp.min, max: lp.max, page: lp.page });
+  const { items, total } = await getMarketProducts({ q, city: city?.slug ?? null, sort: lp.sort, min: lp.min, max: lp.max, type: lp.type, page: lp.page });
 
-  const hrefFor = (p: number) => {
+  const hrefFor = (p: number, type: typeof lp.type = lp.type) => {
     const s = new URLSearchParams();
     if (q) s.set("q", q);
+    if (type) s.set("type", type === "service" ? "services" : "produits");
     if (city) s.set("ville", city.slug);
     if (lp.sort !== "relevance") s.set("tri", lp.sort);
     if (p > 1) s.set("page", String(p));
@@ -65,7 +66,23 @@ export default async function MarketSearchPage({ searchParams }: Props) {
             </button>
           </form>
         </div>
-        <div className="mt-8">
+        <nav aria-label="Type d’annonce" className="mt-6 inline-flex rounded-full bg-[#F2F0EA] p-1">
+          {([
+            [null, "Tout"],
+            ["product", "Produits"],
+            ["service", "Services"],
+          ] as const).map(([t, label]) => (
+            <Link
+              key={label}
+              href={hrefFor(1, t)}
+              aria-current={lp.type === t ? "page" : undefined}
+              className={`inline-flex h-9 items-center rounded-full px-4 text-sm font-bold ${lp.type === t ? "bg-[#17151F] text-white" : "text-[#4A4656] hover:text-[#17151F]"}`}
+            >
+              {label}
+            </Link>
+          ))}
+        </nav>
+        <div className="mt-6">
           {items.length > 0 ? (
             <>
               <ProductGrid products={items} priorityCount={4} />

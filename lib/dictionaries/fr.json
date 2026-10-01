@@ -389,11 +389,13 @@
     "mk_pro": "Abonnement Pro actif",
     "mk_published": "Boutique publiée",
     "mk_industry": "Activité de vente de produits (mode, beauté, épicerie, maison…)",
-    "mk_products": "Au moins 3 produits en vente avec photo ({n}/3)",
+    "mk_products": "Au moins 3 annonces visibles : produit avec photo ou service avec affiche ({n}/3)",
     "mk_fix": "Régler",
     "mk_uncategorized": "{n} produit(s) sans catégorie Market : ils n'apparaissent pas dans les pages catégorie.",
     "mk_uncategorizedCta": "Les classer",
-    "mk_see": "Voir le Market →"
+    "mk_see": "Voir le Market →",
+    "mk_noPoster": "{n} service(s) sans affiche : un service n'apparaît sur le Market qu'avec son affiche (débloquée).",
+    "mk_noPosterCta": "Créer les affiches"
   },
   "products": {
     "title": "Mes produits",

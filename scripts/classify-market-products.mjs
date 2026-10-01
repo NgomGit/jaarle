@@ -71,15 +71,25 @@ async function targetShops() {
 async function diagnose(shop, isPro) {
   const { data: products } = await db
     .from("products")
-    .select("id, product_images(id)")
+    .select("id, subject_type, product_images(id)")
     .eq("shop_id", shop.id)
     .in("status", ["active", "sold_out"]);
-  const withPhoto = (products ?? []).filter((p) => (p.product_images ?? []).length > 0).length;
+  // Visible sur le Market : produit avec photo, ou service avec affiche débloquée (migration 0023).
+  let withPhoto = 0;
+  let servicesWithoutPoster = 0;
+  for (const p of products ?? []) {
+    if (p.subject_type === "service") {
+      const { data: key } = await db.rpc("product_poster_key", { p_product: p.id });
+      if (key) withPhoto++;
+      else servicesWithoutPoster++;
+    } else if ((p.product_images ?? []).length > 0) withPhoto++;
+  }
   return [
     [isPro, "abonnement Pro actif"],
     [shop.status === "published", "boutique publiée"],
     [MARKET_INDUSTRY_KEYS.has(shop.industry), `secteur de vente de produits (actuel : ${shop.industry ?? "aucun"})`],
-    [withPhoto >= 3, `au moins 3 produits en vente avec photo (${withPhoto})`],
+    [withPhoto >= 3, `au moins 3 annonces visibles — produit avec photo ou service avec affiche (${withPhoto})`],
+    [servicesWithoutPoster === 0, `services avec leur affiche (${servicesWithoutPoster} sans affiche, invisibles sur le Market)`],
   ];
 }
 

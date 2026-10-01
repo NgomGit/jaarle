@@ -1,6 +1,6 @@
 import type { MarketCategory } from "@/lib/market/categories";
 import type { MarketCity } from "@/lib/market/cities";
-import type { MarketSort, Totals } from "@/lib/market/queries";
+import type { MarketItemType, MarketSort, Totals } from "@/lib/market/queries";
 
 // Textes SEO du Market, calculés à partir des VRAIES données de la page (nombre de produits,
 // de boutiques, prix minimum) : deux pages ne partagent jamais la même description.
@@ -10,7 +10,9 @@ export interface ListingParams {
   sort: MarketSort;
   min: number | null;
   max: number | null;
-  /** Tri ou filtre de prix actif : la page n'est pas indexée (canonique vers la version sans filtre). */
+  /** Filtre « Produits » / « Services » (?type=produits|services). */
+  type: MarketItemType | null;
+  /** Tri, filtre de prix ou de type actif : la page n'est pas indexée (canonique vers la version sans filtre). */
   filtered: boolean;
 }
 
@@ -27,7 +29,9 @@ export function parseListingParams(sp: Record<string, string | string[] | undefi
   const min = int(sp.min);
   const max = int(sp.max);
   const page = Math.min(Math.max(int(sp.page) ?? 1, 1), 200);
-  return { page, sort, min, max, filtered: sort !== "relevance" || min != null || max != null };
+  const rawType = Array.isArray(sp.type) ? sp.type[0] : sp.type;
+  const type: MarketItemType | null = rawType === "services" ? "service" : rawType === "produits" ? "product" : null;
+  return { page, sort, min, max, type, filtered: sort !== "relevance" || min != null || max != null || type != null };
 }
 
 const fcfa = (n: number) => `${n.toLocaleString("fr-FR").replace(/ | /g, " ")} FCFA`;

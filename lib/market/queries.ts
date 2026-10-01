@@ -1,9 +1,9 @@
 import { cache } from "react";
 import { createPublicClient } from "@/lib/supabase/public";
 import { shopMediaThumbUrl, shopMediaUrl } from "@/lib/shops/media";
-import { formatPrice } from "@/lib/shops/format";
 import { productPublicUrl } from "@/lib/shops/public";
 import { cityFromText } from "@/lib/market/cities";
+import { itemPriceLabel, posterUrl } from "@/lib/shops/posters";
 import type { MarketCategory } from "@/lib/market/categories";
 
 // Lectures publiques du Market : uniquement via les fonctions SQL de la migration 0020
@@ -20,6 +20,7 @@ export const MIN_LANDING_SHOPS = 2;
 export const MIN_CATEGORY_PRODUCTS = 8;
 
 export type MarketSort = "relevance" | "new" | "price_asc" | "price_desc";
+export type MarketItemType = "product" | "service";
 
 export interface MarketProduct {
   id: string;
@@ -29,6 +30,8 @@ export interface MarketProduct {
   priceLabel: string;
   soldOut: boolean;
   isNew: boolean;
+  /** Service : affiché avec son affiche, prix « À partir de », bouton « Réserver ». */
+  isService: boolean;
   url: string;
   thumbUrl: string | null;
   fullUrl: string | null;
@@ -53,6 +56,7 @@ export interface MarketShop {
 
 type ProductRow = {
   id: string; slug: string; name: string; price: number | null; status: string; market_category: string | null;
+  subject_type?: string | null; poster_key?: string | null;
   created_at: string; image_path: string | null; shop_id: string; shop_slug: string; shop_name: string;
   shop_city: string | null; shop_district: string | null; shop_logo_path: string | null;
   shop_whatsapp?: string | null; shop_phone?: string | null; total_count: number;
@@ -70,17 +74,20 @@ function area(district: string | null, city: string | null): string | null {
 }
 
 function toProduct(r: ProductRow): MarketProduct {
+  const isService = r.subject_type === "service";
+  const poster = isService ? posterUrl(r.poster_key) : null;
   return {
     id: r.id,
     slug: r.slug,
     name: r.name,
     price: r.price,
-    priceLabel: formatPrice(r.price),
+    priceLabel: itemPriceLabel(r.price, isService),
     soldOut: r.status === "sold_out",
     isNew: Date.now() - new Date(r.created_at).getTime() < NEW_DAYS * 86_400_000,
+    isService,
     url: productPublicUrl(r.shop_slug, r.slug),
-    thumbUrl: shopMediaThumbUrl(r.image_path),
-    fullUrl: shopMediaUrl(r.image_path),
+    thumbUrl: isService ? poster : shopMediaThumbUrl(r.image_path),
+    fullUrl: isService ? poster : shopMediaUrl(r.image_path),
     shop: {
       id: r.shop_id, slug: r.shop_slug, name: r.shop_name, city: r.shop_city,
       area: area(r.shop_district, r.shop_city), logoUrl: shopMediaUrl(r.shop_logo_path),
@@ -95,7 +102,10 @@ function toShop(r: ShopRow): MarketShop {
   return {
     id: r.id, slug: r.slug, name: r.name, categoryLabel: r.category_label, city: r.city,
     area: area(r.district, r.city), logoUrl: shopMediaUrl(r.logo_path), productCount: Number(r.product_count) || 0,
-    thumbs: (r.thumbs ?? []).map((p) => shopMediaThumbUrl(p)).filter((u): u is string => !!u),
+    // « poster:<clé> » = affiche d'un service ; sinon chemin de photo produit.
+    thumbs: (r.thumbs ?? [])
+      .map((p) => (p.startsWith("poster:") ? posterUrl(p.slice(7)) : shopMediaThumbUrl(p)))
+      .filter((u): u is string => !!u),
     url: `/boutique/${r.slug}`,
     listed: r.listed ?? true,
   };
@@ -109,6 +119,7 @@ export interface ProductQuery {
   min?: number | null;
   max?: number | null;
   sort?: MarketSort;
+  type?: MarketItemType | null;
   page?: number;
   limit?: number;
 }
@@ -127,6 +138,7 @@ export async function getMarketProducts(query: ProductQuery): Promise<{ items: M
       p_sort: query.sort ?? "relevance",
       p_limit: limit,
       p_offset: (page - 1) * limit,
+      p_type: query.type ?? null,
     });
     if (error || !data) return { items: [], total: 0 };
     const rows = data as ProductRow[];
