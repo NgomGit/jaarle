@@ -51,9 +51,23 @@ function ShopDot({
   );
 }
 
+/** Pastille des annonces mises en avant par Jaarle (spotlight) : honnête, toujours visible. */
+export function FeaturedBadge({ className }: { className?: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex h-5 shrink-0 items-center rounded-full bg-[#F2B441] px-1.5 text-[10.5px] font-extrabold tracking-[0.02em] text-[#17151F]",
+        className,
+      )}
+    >
+      À la une
+    </span>
+  );
+}
+
 /**
  * Carte produit du Market = la carte de la vitrine des boutiques (ProductCard), avec en plus la
- * ligne « boutique + PRO » et la source « market » pour les statistiques du vendeur.
+ * ligne « boutique (+ PRO) » et la source « market » pour les statistiques du vendeur.
  */
 export function MarketProductCard({ product }: { product: MarketProduct }) {
   const card: StorefrontProductCard = {
@@ -82,7 +96,8 @@ export function MarketProductCard({ product }: { product: MarketProduct }) {
         >
           <ShopDot logoUrl={product.shop.logoUrl} name={product.shop.name} size={18} />
           <span className="truncate">{product.shop.name}</span>
-          <ProBadge />
+          {product.shop.isPro && <ProBadge />}
+          {product.boosted && <FeaturedBadge />}
         </Link>
       }
     />
@@ -163,7 +178,7 @@ export function MarketShopCard({ shop }: { shop: MarketShop }) {
           <MapPin className="h-4 w-4 shrink-0" aria-hidden />
           <span className="truncate">{shop.area ?? "Sénégal"}</span>
         </span>
-        {shop.listed && <ProBadge />}
+        {shop.isPro && <ProBadge />}
       </span>
     </Link>
   );

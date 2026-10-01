@@ -53,12 +53,12 @@ export function listingTitle(category: MarketCategory | null, city: MarketCity |
 
 export function listingIntro(category: MarketCategory | null, city: MarketCity | null, t: Totals): string {
   if (t.products === 0) {
-    return `Aucun produit pour le moment${category ? ` dans « ${category.label} »` : ""}${city ? ` à ${city.name}` : ""}. Les boutiques Pro ajoutent régulièrement de nouveaux articles.`;
+    return `Aucun produit pour le moment${category ? ` dans « ${category.label} »` : ""}${city ? ` à ${city.name}` : ""}. Les boutiques ajoutent régulièrement de nouveaux articles.`;
   }
   const what = category ? ` dans la catégorie « ${category.label} »` : "";
   const where = city ? ` à ${city.name}` : " au Sénégal";
   const price = t.minPrice != null ? `, à partir de ${fcfa(t.minPrice)}` : "";
-  return `${plural(t.products, "produit", "produits")}${what} proposés par ${plural(t.shops, "boutique Pro", "boutiques Pro")}${where}${price}. Prix en FCFA et commande directe sur WhatsApp.`;
+  return `${plural(t.products, "produit", "produits")}${what} proposés par ${plural(t.shops, "boutique", "boutiques")}${where}${price}. Prix en FCFA et commande directe sur WhatsApp.`;
 }
 
 export function listingDescription(category: MarketCategory | null, city: MarketCity | null, t: Totals): string {
@@ -82,7 +82,7 @@ export function listingFaq(category: MarketCategory | null, city: MarketCity | n
     },
     {
       q: "Qui peut vendre sur Jaarle Market ?",
-      a: "Les boutiques avec un abonnement Pro actif. Jaarle ne contrôle pas chaque produit : en cas de problème, utilisez le bouton « Signaler » de la boutique.",
+      a: "Les boutiques Jaarle qui ont assez d’annonces avec photo ; les boutiques Pro portent le badge PRO et passent en tête. Jaarle ne contrôle pas chaque produit : en cas de problème, utilisez le bouton « Signaler » de la boutique.",
     },
   ];
 }

@@ -10,7 +10,7 @@ export const contentType = "image/jpeg";
 export default async function Image() {
   const { items } = await getMarketProducts({ limit: 3 });
   return marketOgImage({
-    eyebrow: "Le marché des boutiques Pro",
+    eyebrow: "Le marché des boutiques du Sénégal",
     title: "Les boutiques du Sénégal, au même endroit",
     subtitle: "Prix en FCFA, commande directe sur WhatsApp.",
     products: items,

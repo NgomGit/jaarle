@@ -28,7 +28,7 @@ export function MarketShell({ children, query, city }: { children: React.ReactNo
           <span aria-hidden className="opacity-50">•</span>
           <span>Aucun paiement sur le site</span>
           <span aria-hidden className="hidden opacity-50 sm:inline">•</span>
-          <span className="hidden sm:inline">Boutiques Pro uniquement</span>
+          <span className="hidden sm:inline">Boutiques du Sénégal</span>
         </div>
       </div>
       <MarketHeader query={query} city={city} />
@@ -130,7 +130,7 @@ function MarketFooter() {
               Jaarle <span className="text-[#F2B441]">Market</span>
             </p>
             <p className="mt-3 text-sm leading-7 text-[#C9C6D6]">
-              Le marché en ligne des boutiques Pro du Sénégal. Commande directe sur WhatsApp, sans paiement sur le site.
+              Le marché en ligne des boutiques du Sénégal. Commande directe sur WhatsApp, sans paiement sur le site.
             </p>
           </div>
           <nav aria-label="Catégories">

@@ -20,7 +20,7 @@ export default async function Image({ params }: { params: { slug: string } }) {
   ]);
   const t = totalsFor(counts, category, city?.slug ?? null);
   return marketOgImage({
-    eyebrow: city ? "Boutiques Pro près de chez vous" : "Jaarle Market",
+    eyebrow: city ? "Boutiques près de chez vous" : "Jaarle Market",
     title: listingH1(category, city),
     subtitle: t.products > 0 ? `${t.products} produit${t.products > 1 ? "s" : ""}${t.minPrice != null ? ` dès ${formatPrice(t.minPrice)}` : ""}` : "Prix en FCFA, commande sur WhatsApp.",
     products: items,

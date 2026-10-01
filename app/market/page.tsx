@@ -4,20 +4,32 @@ import { ArrowRight } from "lucide-react";
 import { MarketShopCard, ProductGrid, ProBadge } from "@/components/market/cards";
 import { MarketImage } from "@/components/market/market-image";
 import { MarketShell } from "@/components/market/shell";
+import { PromoBanners, ProPicks } from "@/components/market/promo";
 import { marketRootCategories } from "@/lib/market/categories";
 import { getMarketCity } from "@/lib/market/cities";
-import { citiesWithProducts, getMarketCounts, getMarketProducts, getMarketShops, totalsFor } from "@/lib/market/queries";
+import {
+  bannersFor,
+  citiesWithProducts,
+  frDayMonth,
+  getMarketBanners,
+  getMarketCounts,
+  getMarketProducts,
+  getMarketPublicSettings,
+  getMarketShops,
+  getProPicks,
+  totalsFor,
+} from "@/lib/market/queries";
 import { absoluteUrl, breadcrumbLd, jsonLdString, SITE_LOCALE } from "@/lib/seo";
 import { shopInitials } from "@/lib/shops/media";
 import { cn } from "@/lib/utils";
 
-// Accueil de Jaarle Market : produits et boutiques des commerçants Pro. Rendue côté serveur,
-// mise en cache 5 minutes (ISR).
+// Accueil de Jaarle Market : produits et boutiques du Market (Pro en tête, bannières « À la une »
+// ou Sélection PRO du jour). Rendue côté serveur, mise en cache 5 minutes (ISR).
 export const revalidate = 300;
 
 const TITLE = "Jaarle Market — les boutiques du Sénégal, commande sur WhatsApp";
 const DESCRIPTION =
-  "Mode, beauté, épicerie, maison, artisanat… Les produits des boutiques Pro du Sénégal avec leurs prix en FCFA. Commandez directement sur WhatsApp.";
+  "Mode, beauté, épicerie, maison, artisanat… Les produits des boutiques du Sénégal avec leurs prix en FCFA. Commandez directement sur WhatsApp.";
 
 export const metadata: Metadata = {
   title: { absolute: TITLE },
@@ -36,11 +48,16 @@ const POPULAR = [
 ];
 
 export default async function MarketHome() {
-  const [counts, selection, shops] = await Promise.all([
+  const [counts, selection, shops, allBanners, settings] = await Promise.all([
     getMarketCounts(),
     getMarketProducts({ sort: "relevance", limit: 15 }),
     getMarketShops({ limit: 6 }),
+    getMarketBanners(),
+    getMarketPublicSettings(),
   ]);
+  // Accueil : bannières sans ciblage ; à défaut, la Sélection PRO du jour.
+  const banners = bannersFor(allBanners, null, null);
+  const picks = banners.length === 0 ? await getProPicks(8) : [];
   const roots = marketRootCategories().map((c) => ({ cat: c, n: totalsFor(counts, c, null).products }));
   const cities = citiesWithProducts(counts, null)
     .map((c) => ({ city: getMarketCity(c.slug), n: c.products }))
@@ -85,13 +102,13 @@ export default async function MarketHome() {
           <div>
             <p className="mb-4 inline-flex items-center gap-2 text-[13px] font-extrabold uppercase tracking-[0.1em] text-[#3F34C4]">
               <span className="h-2 w-2 rounded-full bg-[#F2B441]" aria-hidden />
-              Le marché des boutiques Pro
+              Le marché des boutiques du Sénégal
             </p>
             <h1 className="font-[family-name:var(--font-market-display)] text-[40px] font-extrabold leading-[0.98] tracking-tight sm:text-6xl lg:text-[68px]">
               Les boutiques du Sénégal, réunies au même endroit.
             </h1>
             <p className="mt-5 max-w-xl text-[17px] leading-relaxed text-[#5E5A6B] sm:text-lg">
-              Mode, beauté, maison, épicerie… Trouvez le bon produit chez un commerçant Pro, voyez son prix en FCFA et commandez-le directement sur WhatsApp.
+              Mode, beauté, maison, épicerie… Trouvez le bon produit chez un commerçant d’ici, voyez son prix en FCFA et commandez-le directement sur WhatsApp.
             </p>
             <div className="mt-7 flex flex-wrap items-center gap-2">
               <span className="mr-1 text-sm font-semibold text-[#5E5A6B]">Populaire :</span>
@@ -135,7 +152,7 @@ export default async function MarketHome() {
                     featuredShop.logoUrl ? "bg-white ring-1 ring-black/5" : "bg-[#4F43E0] text-white"
                   )}
                 >
-                  <ProBadge className={cn("absolute left-4 top-4 z-10", !featuredShop.logoUrl && "bg-white/15 text-white")} />
+                  {featuredShop.isPro && <ProBadge className={cn("absolute left-4 top-4 z-10", !featuredShop.logoUrl && "bg-white/15 text-white")} />}
                   <span className="flex min-h-0 flex-1 items-center justify-center p-6 pb-2">
                     {featuredShop.logoUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -163,13 +180,17 @@ export default async function MarketHome() {
           ) : (
             <div className="rounded-[26px] bg-[#EEECFD] p-8">
               <p className="font-[family-name:var(--font-market-display)] text-2xl font-bold">Le Market ouvre ses portes.</p>
-              <p className="mt-2 text-[#4A4656]">Les premières boutiques Pro arrivent. Vous vendez ? Soyez parmi les premières.</p>
+              <p className="mt-2 text-[#4A4656]">Les premières boutiques arrivent. Vous vendez ? Soyez parmi les premières.</p>
               <Link href="/tarifs" className="mt-5 inline-flex h-11 items-center rounded-full bg-[#4F43E0] px-5 font-bold text-white">
                 Découvrir l’offre Pro
               </Link>
             </div>
           )}
         </section>
+
+        {/* Mises en avant Pro */}
+        <PromoBanners banners={banners} />
+        <ProPicks products={picks} />
 
         {/* Catégories */}
         <section id="categories" className="mx-auto max-w-[1240px] px-4 pb-16 sm:px-6" aria-labelledby="t-cat">
@@ -201,7 +222,7 @@ export default async function MarketHome() {
                   <h2 id="t-sel" className="font-[family-name:var(--font-market-display)] text-3xl font-bold tracking-tight sm:text-[34px]">
                     À découvrir en ce moment
                   </h2>
-                  <p className="mt-1.5 text-[#5E5A6B]">Les nouveautés et les produits en stock des boutiques Pro.</p>
+                  <p className="mt-1.5 text-[#5E5A6B]">Les nouveautés et les produits en stock des boutiques du Market.</p>
                 </div>
                 <Link href="/market/recherche" className="inline-flex items-center gap-1.5 font-extrabold text-[#4F43E0]">
                   Tous les produits <ArrowRight className="h-4 w-4" aria-hidden />
@@ -286,7 +307,9 @@ export default async function MarketHome() {
             <div>
               <h2 className="font-[family-name:var(--font-market-display)] text-3xl font-extrabold leading-[1.02] sm:text-[40px]">Vous vendez ? Votre catalogue mérite d’être vu ici.</h2>
               <p className="mt-3.5 text-[17px] leading-relaxed text-white/90">
-                Jaarle Market est réservé aux boutiques Pro : vos produits apparaissent dans les recherches, les catégories et les pages de votre ville, en plus de votre boutique.
+                {settings.launchActive
+                  ? `Lancement : jusqu’au ${frDayMonth(settings.launchLastDay)}, toute boutique avec ${settings.launchMinItems} produits en photo entre sur le Market, gratuitement. Les boutiques Pro passent en tête, portent le badge PRO et peuvent être mises à la une.`
+                  : "Vos produits apparaissent dans les recherches, les catégories et les pages de votre ville, en plus de votre boutique. Les boutiques Pro passent en tête, portent le badge PRO et peuvent être mises à la une."}
               </p>
             </div>
             <div className="flex flex-wrap gap-3 lg:justify-end">

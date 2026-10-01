@@ -35,8 +35,10 @@ export interface MarketProduct {
   url: string;
   thumbUrl: string | null;
   fullUrl: string | null;
-  shop: { id: string; slug: string; name: string; city: string | null; area: string | null; logoUrl: string | null; phoneHref: string };
+  shop: { id: string; slug: string; name: string; city: string | null; area: string | null; logoUrl: string | null; phoneHref: string; isPro: boolean };
   waHref: string;
+  /** Mise en avant « À la une » en cours (spotlight, boutique Pro). */
+  boosted: boolean;
 }
 
 export interface MarketShop {
@@ -50,8 +52,10 @@ export interface MarketShop {
   productCount: number;
   thumbs: string[];
   url: string;
-  /** Présente sur le Market (boutique Pro éligible) → badge PRO. */
+  /** Présente sur le Market (Pro, ou catalogue suffisant pendant l'ouverture). */
   listed: boolean;
+  /** Abonnement Pro actif → badge PRO, en tête des listes. */
+  isPro: boolean;
 }
 
 type ProductRow = {
@@ -60,11 +64,14 @@ type ProductRow = {
   created_at: string; image_path: string | null; shop_id: string; shop_slug: string; shop_name: string;
   shop_city: string | null; shop_district: string | null; shop_logo_path: string | null;
   shop_whatsapp?: string | null; shop_phone?: string | null; total_count: number;
+  // Migration 0026 (absents avant : tout le Market était Pro).
+  is_pro?: boolean | null; boosted?: boolean | null;
 };
 
 type ShopRow = {
   id: string; slug: string; name: string; category_label: string | null; city: string | null; district: string | null;
   logo_path: string | null; product_count: number; thumbs: string[] | null; total_count: number; listed?: boolean;
+  is_pro?: boolean | null;
 };
 
 const NEW_DAYS = 21;
@@ -94,7 +101,9 @@ function toProduct(r: ProductRow): MarketProduct {
       area: area(r.shop_district, r.shop_city), logoUrl: shopMediaUrl(r.shop_logo_path),
       // Avant la migration 0022 : pas de numéro → le bouton Appeler mène à la boutique.
       phoneHref: r.shop_phone || r.shop_whatsapp ? `tel:${(r.shop_phone || r.shop_whatsapp || "").replace(/[^\d+]/g, "")}` : `/boutique/${r.shop_slug}`,
+      isPro: r.is_pro ?? true,
     },
+    boosted: !!r.boosted,
     waHref: `/r/wa/${r.shop_slug}?${new URLSearchParams({ p: r.slug, src: "market" }).toString()}`,
   };
 }
@@ -109,6 +118,7 @@ function toShop(r: ShopRow): MarketShop {
       .filter((u): u is string => !!u),
     url: `/boutique/${r.slug}`,
     listed: r.listed ?? true,
+    isPro: r.is_pro ?? r.listed ?? true,
   };
 }
 
@@ -242,4 +252,115 @@ export function citiesWithProducts(rows: CountRow[], category: MarketCategory | 
     acc.set(r.city, (acc.get(r.city) ?? 0) + r.products);
   }
   return [...acc.entries()].map(([slug, products]) => ({ slug, products })).sort((a, b) => b.products - a.products);
+}
+
+// ── Mises en avant (migration 0026) ─────────────────────────────────────────────
+
+export interface MarketBanner {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  ctaLabel: string;
+  /** Ciblage : clés de feuilles (null = toutes catégories) et ville (slug, null = tout le pays). */
+  categoryKeys: string[] | null;
+  city: string | null;
+  imageUrl: string | null;
+  href: string;
+  priceLabel: string | null;
+  shop: { name: string; slug: string; city: string | null; logoUrl: string | null };
+}
+
+type BannerRow = {
+  id: string; title: string | null; subtitle: string | null; cta_label: string | null; category_keys: string[] | null; city: string | null;
+  product_slug: string | null; product_name: string | null; price: number | null; subject_type: string | null; media: string | null;
+  shop_slug: string; shop_name: string; shop_city: string | null; shop_logo_path: string | null;
+};
+
+function mediaUrl(media: string | null, full = false): string | null {
+  if (!media) return null;
+  if (media.startsWith("poster:")) return posterUrl(media.slice(7));
+  return full ? shopMediaUrl(media) : shopMediaThumbUrl(media);
+}
+
+/** Bannières promotionnelles en cours (boutiques Pro), triées par priorité. */
+export const getMarketBanners = cache(async (): Promise<MarketBanner[]> => {
+  try {
+    const { data, error } = await createPublicClient().rpc("market_banners");
+    if (error || !data) return [];
+    return (data as BannerRow[]).map((r) => ({
+      id: r.id,
+      title: r.title || r.product_name || r.shop_name,
+      subtitle: r.subtitle,
+      ctaLabel: r.cta_label || (r.product_slug ? (r.subject_type === "service" ? "Réserver" : "Voir le produit") : "Voir la boutique"),
+      categoryKeys: r.category_keys,
+      city: r.city,
+      imageUrl: mediaUrl(r.media, true),
+      href: r.product_slug ? productPublicUrl(r.shop_slug, r.product_slug) : `/boutique/${r.shop_slug}`,
+      priceLabel: r.product_slug ? itemPriceLabel(r.price, r.subject_type === "service") : null,
+      shop: { name: r.shop_name, slug: r.shop_slug, city: r.shop_city, logoUrl: shopMediaUrl(r.shop_logo_path) },
+    }));
+  } catch {
+    return [];
+  }
+});
+
+/** Bannières qui concernent une page (catégorie et/ou ville). Sans ciblage = partout. */
+export function bannersFor(banners: MarketBanner[], category: MarketCategory | null, city: string | null): MarketBanner[] {
+  const leaves = category ? new Set(category.leafKeys) : null;
+  return banners.filter((b) => {
+    if (b.city && b.city !== city) return false;
+    if (b.categoryKeys && b.categoryKeys.length) {
+      if (!leaves) return false;
+      return b.categoryKeys.some((k) => leaves.has(k));
+    }
+    return true;
+  });
+}
+
+/** « Sélection PRO » du jour : une annonce par boutique Pro, ordre renouvelé chaque jour. */
+export async function getProPicks(limit = 8): Promise<MarketProduct[]> {
+  try {
+    const { data, error } = await createPublicClient().rpc("market_pro_picks", { p_limit: limit });
+    if (error || !data) return [];
+    return (data as ProductRow[]).map(toProduct);
+  } catch {
+    return [];
+  }
+}
+
+export interface MarketPublicSettings {
+  launchActive: boolean;
+  /** Dernier jour d'ouverture (inclus), AAAA-MM-JJ. */
+  launchLastDay: string | null;
+  launchMinItems: number;
+  proMinItems: number;
+}
+
+export const getMarketPublicSettings = cache(async (): Promise<MarketPublicSettings> => {
+  const fallback: MarketPublicSettings = { launchActive: false, launchLastDay: null, launchMinItems: 6, proMinItems: 3 };
+  try {
+    const { data, error } = await createPublicClient().rpc("market_public_settings");
+    if (error || !data) return fallback;
+    const d = data as { launch_active?: boolean; launch_until?: string | null; launch_min_items?: number; pro_min_items?: number };
+    let last: string | null = null;
+    if (d.launch_until) {
+      const t = new Date(d.launch_until);
+      t.setUTCDate(t.getUTCDate() - 1);
+      last = t.toISOString().slice(0, 10);
+    }
+    return {
+      launchActive: !!d.launch_active,
+      launchLastDay: last,
+      launchMinItems: d.launch_min_items ?? 6,
+      proMinItems: d.pro_min_items ?? 3,
+    };
+  } catch {
+    return fallback;
+  }
+});
+
+/** « 30 novembre » (fin de l'ouverture). */
+export function frDayMonth(day: string | null): string {
+  if (!day) return "";
+  return new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${day}T00:00:00Z`));
 }

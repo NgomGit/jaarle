@@ -1,4 +1,4 @@
--- Vérifications de Jaarle Market (migrations 0020 → 0024). Transaction annulée : rien n'est conservé.
+-- Vérifications de Jaarle Market (migrations 0020 → 0026). Transaction annulée : rien n'est conservé.
 begin;
 
 create or replace function pg_temp.expect_fail(sql text, label text) returns void language plpgsql as $$
@@ -13,6 +13,10 @@ begin
 end $$;
 grant execute on function pg_temp.expect_fail(text, text) to anon, authenticated, service_role;
 grant execute on function pg_temp.expect(boolean, text) to anon, authenticated, service_role;
+
+-- Depuis 0026 : période d'ouverture désactivée ici → on vérifie les règles Pro seules
+-- (l'ouverture et les mises en avant sont testées dans market_launch_boost.sql).
+update public.market_settings set launch_until = null;
 
 -- ── Comptes ────────────────────────────────────────────────────────────────
 -- A : Pro, WhatsApp = numéro du compte confirmé → sur le Market

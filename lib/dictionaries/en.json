@@ -389,13 +389,19 @@
     "mk_pro": "Active Pro plan",
     "mk_published": "Shop published",
     "mk_industry": "Product-selling activity (fashion, beauty, grocery, home…)",
-    "mk_products": "At least 3 visible listings: product with a photo or service with a poster ({n}/3)",
+    "mk_products": "At least {min} visible listings: product with a photo or service with a poster ({n}/{min})",
     "mk_fix": "Fix",
     "mk_uncategorized": "{n} product(s) without a Market category: they don't show on category pages.",
     "mk_uncategorizedCta": "Categorize them",
     "mk_see": "See the Market →",
     "mk_noPoster": "{n} service(s) set to « poster » don't have one yet: their photo is shown meanwhile.",
-    "mk_noPosterCta": "Create the posters"
+    "mk_noPosterCta": "Create the posters",
+    "mk_launchTitle": "Launch: the Market is open to every shop until {date}.",
+    "mk_launchProducts": "At least {min} visible listings, Pro or not ({n}/{min})",
+    "mk_orPro": "Or go Pro: {min} listings are enough, plus the PRO badge and top placement",
+    "mk_viaLaunch": "You're on the Market thanks to the launch, until {date}. Go Pro to stay afterwards, rank ahead of other shops, show the PRO badge and get featured.",
+    "mk_viaLaunchCta": "See the Pro plan",
+    "mk_proPerks": "Pro shop: your listings rank first on the Market and carry the PRO badge."
   },
   "products": {
     "title": "My products",

@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { Breadcrumbs, Pagination, ProductGrid } from "@/components/market/cards";
+import { PromoBanner } from "@/components/market/promo";
 import { categoryTrail, getMarketCategory, marketRootCategories, type MarketCategory } from "@/lib/market/categories";
 import { getMarketCity, type MarketCity } from "@/lib/market/cities";
 import {
+  bannersFor,
   citiesWithProducts,
+  getMarketBanners,
   getMarketCounts,
   getMarketProducts,
   MARKET_PAGE_SIZE,
@@ -47,8 +50,10 @@ export async function MarketListing({
   total: number;
   totals: Totals;
 }) {
-  const counts = await getMarketCounts();
+  const [counts, allBanners] = await Promise.all([getMarketCounts(), getMarketBanners()]);
   const path = listingPath(category, city);
+  // Bannière « À la une » ciblée sur cette page (ou sans ciblage), en 1re page seulement.
+  const banner = params.page === 1 ? bannersFor(allBanners, category, city?.slug ?? null)[0] ?? null : null;
   const trail = category ? categoryTrail(category) : [];
   const links: { name: string; href: string }[] = [
     { name: "Market", href: "/market" },
@@ -189,6 +194,11 @@ export async function MarketListing({
               </Link>
             ))}
           </nav>
+          {banner && (
+            <div className="mb-6">
+              <PromoBanner banner={banner} compact />
+            </div>
+          )}
           {items.length > 0 ? (
             <>
               <ProductGrid products={items} withSidebar />
@@ -198,7 +208,7 @@ export async function MarketListing({
             <div className="rounded-3xl border border-dashed border-[#D9D5CB] bg-white px-6 py-14 text-center">
               <p className="font-[family-name:var(--font-market-display)] text-2xl font-bold">Rien ici pour l’instant</p>
               <p className="mx-auto mt-2 max-w-md text-[#5E5A6B]">
-                {params.filtered ? "Aucun produit ne correspond à ces filtres." : "Les boutiques Pro n’ont pas encore de produit dans cette sélection."}
+                {params.filtered ? "Aucun produit ne correspond à ces filtres." : "Les boutiques n’ont pas encore de produit dans cette sélection."}
               </p>
               <Link href={params.filtered ? path : "/market"} className="mt-5 inline-flex h-11 items-center rounded-full bg-[#17151F] px-5 font-bold text-white">
                 {params.filtered ? "Effacer les filtres" : "Voir tout le Market"}
