@@ -59,6 +59,8 @@ export interface Product {
   price: number | null; // null = « Prix sur demande »
   compare_at_price: number | null;
   category: string | null;
+  /** Catégorie Jaarle Market (clé de feuille), migration 0020. */
+  market_category?: string | null;
   options: ProductOption[];
   status: ProductStatus;
   position: number;

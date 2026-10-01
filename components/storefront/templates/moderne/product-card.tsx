@@ -1,5 +1,6 @@
 "use client";
 
+import type * as React from "react";
 import Link from "next/link";
 import { ImageOff, Phone } from "lucide-react";
 import { ShareButton } from "@/components/storefront/share-button";
@@ -14,9 +15,21 @@ export type CardShop = Pick<StorefrontShop, "id" | "slug" | "name" | "phoneHref"
  * Carte produit : fond blanc bien délimité, photo, nom, prix et 3 actions rapides
  * (WhatsApp avec message pré-rempli, appel, partage) sans avoir à ouvrir la fiche.
  */
-export function ProductCard({ shop, product }: { shop: CardShop; product: StorefrontProductCard }) {
+export function ProductCard({
+  shop,
+  product,
+  shopLabel,
+  source = "card",
+}: {
+  shop: CardShop;
+  product: StorefrontProductCard;
+  /** Jaarle Market : ligne « boutique + PRO » au-dessus du nom (absente dans la vitrine). */
+  shopLabel?: React.ReactNode;
+  /** Source enregistrée pour le clic WhatsApp / appel (statistiques du vendeur). */
+  source?: string;
+}) {
   const href = `/boutique/${shop.slug}/p/${product.slug}`;
-  const waHref = `/r/wa/${shop.slug}?${new URLSearchParams({ p: product.slug, src: "card" }).toString()}`;
+  const waHref = `/r/wa/${shop.slug}?${new URLSearchParams({ p: product.slug, src: source }).toString()}`;
 
   return (
     <article className="group flex h-full flex-col rounded-3xl bg-white p-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-black/[0.06] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_12px_30px_-12px_rgba(0,0,0,0.18)]">
@@ -54,6 +67,7 @@ export function ProductCard({ shop, product }: { shop: CardShop; product: Storef
       </Link>
 
       <div className="flex flex-1 flex-col px-1.5 pb-1 pt-3 sm:px-2">
+        {shopLabel}
         <Link href={href} className="line-clamp-2 text-[14px] font-medium leading-snug text-gray-800 hover:text-gray-950">
           {product.name}
         </Link>
@@ -79,7 +93,7 @@ export function ProductCard({ shop, product }: { shop: CardShop; product: Storef
           </a>
           <a
             href={shop.phoneHref}
-            onClick={() => trackEvent({ shopId: shop.id, productId: product.id, type: "call_click", source: "card" })}
+            onClick={() => trackEvent({ shopId: shop.id, productId: product.id, type: "call_click", source })}
             aria-label={`Appeler ${shop.name}`}
             title="Appeler"
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-800 transition-colors hover:bg-gray-200"

@@ -15,6 +15,7 @@ const NAV_LINKS = [
   { href: "/#how", key: "nav.how" },
   { href: "/#features", key: "nav.features" },
   { href: "/tarifs", key: "nav.pricing" },
+  { href: "/market", key: "nav.market" },
 ] as const;
 
 export function Navbar() {

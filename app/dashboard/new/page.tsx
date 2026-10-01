@@ -5,7 +5,7 @@ import { NewCreationWizard, type ProductDefaults, type ShopDefaults } from "@/co
 import { getProductById } from "@/lib/shops/products";
 import { getMyShop } from "@/lib/shops/queries";
 import { shopMediaUrl } from "@/lib/shops/media";
-import { getEntitlements } from "@/lib/billing/entitlements";
+import { canUseMultiPhoto, getEntitlements } from "@/lib/billing/entitlements";
 import { canSpend, formatDateFr } from "@/lib/billing/format";
 import { LimitPage } from "@/components/billing/limit-page";
 import { usageUnits } from "@/lib/billing/usage";
@@ -71,6 +71,7 @@ export default async function NewCreationPage({ searchParams }: { searchParams: 
         defaultPhone={defaultPhone}
         shopDefaults={shopDefaults}
         productDefaults={productDefaults}
+        multiPhotoAllowed={canUseMultiPhoto(entitlements)}
         generationBudget={
           entitlements.billingEnabled
             ? {

@@ -1,6 +1,8 @@
 import { logAiCall } from "@/lib/billing/ai-cost";
 import { AI_COST_ESTIMATES_USD } from "@/lib/billing/usage";
 import { NextResponse } from "next/server";
+import { canUseMultiPhoto, getEntitlements } from "@/lib/billing/entitlements";
+import { resolveReferences } from "@/lib/multi-reference";
 import { createClient } from "@/lib/supabase/server";
 import { getTierConfig } from "@/lib/pricing";
 import {
@@ -68,8 +70,10 @@ export async function POST(request: Request) {
 
     // Action unique « Nouvelle version » : les photos secondaires de l'affiche sont reprises et
     // restent intégrées au design (remplace l'ancienne « déclinaison » séparée).
-    const extraPhotos: { base64: string; mediaType: AllowedMediaType }[] = [];
-    for (const extraPath of (creation.extra_photo_paths as string[] | null) ?? []) {
+    // Photos secondaires : offres payantes uniquement (décor multi-image + vraies vignettes).
+    const multiPhotoAllowed = canUseMultiPhoto(await getEntitlements());
+    let extraPhotos: { base64: string; mediaType: AllowedMediaType }[] = [];
+    for (const extraPath of multiPhotoAllowed ? ((creation.extra_photo_paths as string[] | null) ?? []) : []) {
       const { data: extraBlob } = await supabase.storage.from("creations").download(extraPath);
       if (!extraBlob) continue;
       const buf = Buffer.from(await extraBlob.arrayBuffer());
@@ -77,6 +81,16 @@ export async function POST(request: Request) {
         ? (extraBlob.type as AllowedMediaType)
         : "image/jpeg";
       extraPhotos.push({ base64: buf.toString("base64"), mediaType: extraMediaType });
+    }
+
+    // La photo principale reste celle de la création ; l'analyse groupée revérifie les secondaires.
+    const resolved =
+      extraPhotos.length > 0
+        ? await resolveReferences([{ base64: photoBase64, mediaType }, ...extraPhotos], creation.product_name, { heroFixed: true })
+        : null;
+    if (resolved) {
+      const all = [{ base64: photoBase64, mediaType }, ...extraPhotos];
+      extraPhotos = resolved.secondaryIndexes.map((i) => all[i]).filter((x): x is (typeof all)[number] => !!x);
     }
 
     backgroundResult = await buildPosterBackground(
@@ -88,7 +102,8 @@ export async function POST(request: Request) {
       trimmedInstructions,
       extraPhotos,
       undefined,
-      extraPhotos.length > 0
+      extraPhotos.length > 0,
+      { multi: resolved?.multi ?? null, productAnalysis: resolved?.productAnalysis ?? null }
     );
     secondaryBuffers = extraPhotos.map((p) => Buffer.from(p.base64, "base64"));
   } else {

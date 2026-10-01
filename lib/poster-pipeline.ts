@@ -1,7 +1,8 @@
 import { compositeOverlay, finalizeJpeg, buildPlainBackground } from "@/lib/image-compose";
 import { removeBackground } from "@/lib/background-removal";
 import { analyzeProduct, analyzeLogoColors, planThumbnailPlacement, type ProductAnalysis } from "@/lib/product-analyzer";
-import { checkPosterQuality, checkTextAccuracy } from "@/lib/quality-checker";
+import { checkMultiReferenceFidelity, checkPosterQuality, checkTextAccuracy } from "@/lib/quality-checker";
+import type { MultiReferenceContext } from "@/lib/multi-reference";
 import { getIndustry, type Industry } from "@/lib/knowledge/industries";
 import { pickHeritageCue } from "@/lib/knowledge/senegal-heritage";
 import { getRelevantEvents } from "@/lib/knowledge/events";
@@ -110,9 +111,13 @@ function getNegativeSpaceInstruction(layout: LayoutVariant, thumbCount = 0): str
 // La DISPOSITION est décidée par l'IA en regardant l'affiche finie (planThumbnailPlacement) ;
 // le code se charge seulement de poser les vraies photos au pixel près.
 
-/** Consigne aux modèles d'image : prévoir de la place, sans imposer d'endroit ni dessiner les vignettes. */
+/**
+ * Consigne aux modèles d'image : prévoir de la place pour les vraies photos, que l'APPLICATION
+ * pose ensuite. Formulée pour qu'ils ne dessinent jamais eux-mêmes de vignette ni de vue en plus.
+ */
 function thumbnailZoneInstruction(count: number): string {
-  return `Photo insets: ${count} real photo${count > 1 ? "s" : ""} of the product (other angles / details) will be inset afterward as small thumbnail${count > 1 ? "s" : ""} (each roughly 15-22% of the poster width). Leave natural breathing room for ${count > 1 ? "them" : "it"} wherever it best suits THIS composition and product — you decide where; do not always use the same corner. Do NOT draw any thumbnail, inset, frame or extra product photo yourself, and keep that breathing room free of text.`;
+  const photos = count > 1 ? `${count} small photographic insets` : "1 small photographic inset";
+  return `Secondary photo insets: ${photos} (real photos of the same product, each roughly 15-22% of the poster width) will be composited by the application AFTER generation. Keep a visually appropriate area for ${count > 1 ? "them" : "it"}, wherever it best suits THIS composition — do not always use the same corner. Do NOT draw, generate or simulate these insets yourself, and do NOT create additional copies or views of the product to stand in for them. Do not place critical text or the hero product where it would conflict with these future insets.`;
 }
 
 /** Repli si l'IA de placement échoue : coin opposé au bloc de texte principal. */
@@ -236,20 +241,21 @@ function buildComposedPosterPrompt(params: {
   isCutout: boolean;
   analysis: ProductAnalysis | null;
   customInstructions?: string | null;
-  photoCount?: number;
-  showSecondaryPhotos?: boolean;
+  /** Nombre de vraies photos secondaires que le code posera en vignettes (0 à 2). */
+  thumbCount: number;
+  /** Chemin multi-image : la photo principale est la 1re référence, les secondaires suivent. */
+  multi: MultiReferenceContext | null;
+  /** Nouvel essai : défauts relevés par le contrôle qualité sur l'essai précédent. */
+  retryIssues?: string[];
   creativeBrief: CreativeBrief;
 }): string {
   const industry = getIndustry(params.industryKey ?? undefined);
   const seasonalNote = getSeasonalVisualNote(new Date());
-  const multiPhoto = (params.photoCount ?? 1) > 1;
 
-  const subjectLine = params.isCutout
-    ? "You are given the subject (a product, or something representing a service being offered — e.g. a vehicle, equipment, a person at work) completely isolated on a transparent background — no original scene, no props, no distracting context. Everything visible in the reference image is the subject itself."
-    : multiPhoto
-      ? params.showSecondaryPhotos
-        ? "You are given several reference photos of the same subject. The FIRST reference image is the MAIN photo chosen for this poster: the hero of your composition MUST show the subject exactly as in that first image — same view, same angle, same orientation. The other photos are ONLY there to help you understand the subject (hidden sides, details, textures): never use their angle as the hero, and do not reproduce them as extra shots — they will be inset as real thumbnails afterward by us."
-        : "You are given several reference photos of the same subject from different angles/contexts — use them together to understand it fully (all its sides, details, textures) and compose a single richer, more faithful visual."
+  const subjectLine = params.multi
+    ? multiReferenceSubjectLine(params.multi, params.isCutout)
+    : params.isCutout
+      ? "You are given the subject (a product, or something representing a service being offered — e.g. a vehicle, equipment, a person at work) completely isolated on a transparent background — no original scene, no props, no distracting context. Everything visible in the reference image is the subject itself."
       : "You are given a photo of the subject — a product, or something representing a service being offered (e.g. a vehicle, equipment, a person at work) — in its original setting.";
 
   const analysisBlock = params.analysis
@@ -275,7 +281,7 @@ ${CONCEPT_FIRST_INSTRUCTION}
 
 Product/service fidelity (absolute, overrides everything else below):
 - The subject shown is the absolute hero of the composition — preserve its exact colors, proportions, textures, and any text or logo already visible on it. Never redesign, restyle or reinterpret the subject itself — no exceptions, regardless of the creative direction below.${
-    ""
+    params.multi ? `\n\n${multiReferenceIdentityBlock(params.multi)}` : ""
   }
 
 ${formatCreativeBrief(params.creativeBrief)}
@@ -301,10 +307,63 @@ ${getCulturalHeritageInstruction(industry)}
 
 Distribution channels: Facebook, Instagram and WhatsApp — the visual must read clearly even as a small thumbnail.
 ${seasonalNote ? `\n${seasonalNote}` : ""}
-${getNegativeSpaceInstruction(params.layout, multiPhoto && params.showSecondaryPhotos ? Math.min(2, (params.photoCount ?? 1) - 1) : 0)}
+${getNegativeSpaceInstruction(params.layout, Math.min(2, params.thumbCount))}
 ${params.customInstructions ? `\nThe merchant asked for these specific changes compared to the previous version — prioritize honoring this request while still respecting the fidelity rule above: "${params.customInstructions}"` : ""}
+${params.retryIssues?.length ? `\n${retryFeedbackBlock(params.retryIssues)}` : ""}
 
 ${SELF_CRITIQUE_INSTRUCTION}`;
+}
+
+// ——— Multi-image (offres payantes) : blocs propres au chemin 2-3 photos ———
+
+const PURPOSE_LABEL: Record<MultiReferenceContext["secondaries"][number]["purpose"], string> = {
+  detail: "close-up detail",
+  alternate_angle: "another viewpoint",
+  texture: "material / texture",
+  usage: "worn / in use / contextual shot",
+  other: "additional reference",
+};
+
+/** Remplace la phrase de référence : la 1re image est la SEULE référence du héros. */
+function multiReferenceSubjectLine(multi: MultiReferenceContext, heroIsCutout: boolean): string {
+  const total = multi.secondaries.length + 1;
+  const list = multi.secondaries
+    .map((s, i) => `- Reference image ${i + 2}: ${PURPOSE_LABEL[s.purpose]}${s.note ? ` — ${s.note}` : ""}`)
+    .join("\n");
+  return `You are given ${total} reference images of ONE SAME SUBJECT (a product, or something representing a service being offered).
+
+The FIRST reference image is the PRIMARY HERO REFERENCE${
+    heroIsCutout ? " — the subject cut out from the merchant's main photo, isolated on a transparent background" : ""
+  }. Only this first image determines the hero representation of the subject: main angle, orientation, silhouette, proportions and visible configuration.
+
+The remaining images are SECONDARY REFERENCE IMAGES:
+${list}
+They exist ONLY to help you understand details, materials, textures, construction and features of the SAME subject that are hidden or unclear in the first image. They are NOT additional products and NOT separate hero shots. Do NOT reproduce them as additional objects, do NOT combine different viewpoints into a new impossible viewpoint, do NOT duplicate the product, do NOT redesign it, and never take a person, a hand or a setting from a worn / in-use reference into the scene.
+
+When references conflict, the PRIMARY HERO REFERENCE always wins for the visual representation; use secondary references only to clarify details not visible in it. The final scene must contain ONE single, coherent representation of the subject.`;
+}
+
+/** Bloc d'identité produit, placé juste après la règle de fidélité. */
+function multiReferenceIdentityBlock(multi: MultiReferenceContext): string {
+  const a = multi.analysis;
+  const bullets = (items: string[]) => items.map((x) => `- ${x}`).join("\n");
+  const identity = [
+    a.product_identity.shape && `shape: ${a.product_identity.shape}`,
+    a.product_identity.dominant_colors.length > 0 && `colors: ${a.product_identity.dominant_colors.join(", ")}`,
+    a.product_identity.materials.length > 0 && `materials: ${a.product_identity.materials.join(", ")}`,
+    a.product_identity.visible_branding.length > 0 && `visible branding: ${a.product_identity.visible_branding.join(", ")}`,
+  ].filter((x): x is string => !!x);
+  return `Multi-reference product identity — NON-NEGOTIABLE:
+The following characteristics define the exact identity of the subject and must remain consistent:
+${bullets([...identity, ...a.critical_features])}${
+    a.features_to_preserve.length ? `\nPreserve:\n${bullets(a.features_to_preserve)}` : ""
+  }${a.potential_conflicts.length ? `\nDo not invent:\n${bullets(a.potential_conflicts)}` : ""}
+The secondary references are evidence about the SAME subject, not additional subjects. They will be added later by the application as real photographic insets: do NOT create, draw, simulate or reproduce thumbnails yourself, and do NOT create additional copies of the product representing them. The generated scene must contain only the main hero representation of the subject.`;
+}
+
+/** Nouvel essai : on dit précisément ce qui a échoué, sans abandonner le concept créatif. */
+function retryFeedbackBlock(issues: string[]): string {
+  return `Previous attempt failed quality control for these reasons: ${issues.join("; ")}. Correct ONLY these issues while preserving the creative concept.`;
 }
 
 /**
@@ -313,25 +372,20 @@ ${SELF_CRITIQUE_INSTRUCTION}`;
  */
 async function generateComposedPoster(
   images: { base64: string; mediaType: AllowedMediaType }[],
-  industryKey: string | null,
-  layout: LayoutVariant,
-  isCutout: boolean,
-  analysis: ProductAnalysis | null,
-  customInstructions: string | null | undefined,
-  creativeBrief: CreativeBrief,
-  showSecondaryPhotos?: boolean
+  opts: {
+    industryKey: string | null;
+    layout: LayoutVariant;
+    isCutout: boolean;
+    analysis: ProductAnalysis | null;
+    customInstructions: string | null | undefined;
+    creativeBrief: CreativeBrief;
+    thumbCount: number;
+    multi: MultiReferenceContext | null;
+    retryIssues?: string[];
+  }
 ) {
   try {
-    const prompt = buildComposedPosterPrompt({
-      industryKey,
-      layout,
-      isCutout,
-      analysis,
-      customInstructions,
-      photoCount: images.length,
-      showSecondaryPhotos,
-      creativeBrief,
-    });
+    const prompt = buildComposedPosterPrompt(opts);
 
     const res = await fetch("https://openrouter.ai/api/v1/images", {
       method: "POST",
@@ -375,7 +429,17 @@ export async function buildPosterBackground(
   customInstructions?: string | null,
   extraPhotos?: { base64: string; mediaType: AllowedMediaType }[],
   forcedLayout?: LayoutVariant,
-  showSecondaryPhotos?: boolean
+  showSecondaryPhotos?: boolean,
+  opts?: {
+    /**
+     * Chemin multi-image (offres payantes, voir lib/multi-reference.ts). Absent : pipeline « une
+     * image » — le décor est composé à partir de la photo principale SEULE, les éventuelles
+     * photos secondaires ne servent qu'aux vignettes posées par le code.
+     */
+    multi?: MultiReferenceContext | null;
+    /** Analyse déjà faite (analyse groupée) : évite de réanalyser la photo principale. */
+    productAnalysis?: ProductAnalysis | null;
+  }
 ): Promise<{
   backgroundBuffer: Buffer;
   imageError: string | null;
@@ -388,63 +452,51 @@ export async function buildPosterBackground(
 }> {
   const layout = forcedLayout ?? pickLayoutVariant();
   const extras = extraPhotos ?? [];
+  const multi = opts?.multi && extras.length > 0 ? opts.multi : null;
+  const thumbCount = showSecondaryPhotos ? Math.min(2, extras.length) : 0;
   const creativeBrief = buildCreativeBrief();
 
   const [analysis, cutoutOutcome] = await Promise.all([
-    analyzeProduct(photoBase64, mediaType, productName),
+    opts?.productAnalysis ? Promise.resolve(opts.productAnalysis) : analyzeProduct(photoBase64, mediaType, productName),
     removeBackground(photoBuffer)
       .then((buf) => ({ ok: true as const, buf }))
       .catch((err) => ({ ok: false as const, err })),
   ]);
 
   const isCutout = cutoutOutcome.ok;
-  const primaryImageBase64 = isCutout ? cutoutOutcome.buf.toString("base64") : photoBase64;
-  const primaryMediaType: AllowedMediaType = isCutout ? "image/png" : mediaType;
-  const primaryImages = [{ base64: primaryImageBase64, mediaType: primaryMediaType }, ...extras];
+  const hero = isCutout
+    ? { base64: cutoutOutcome.buf.toString("base64"), mediaType: "image/png" as AllowedMediaType }
+    : { base64: photoBase64, mediaType };
+  // Multi-image : principale (détourée si possible) en 1re position, secondaires brutes ensuite —
+  // elles restent de simples références, pas besoin de les détourer.
+  const referencesFor = (h: { base64: string; mediaType: AllowedMediaType }) => (multi ? [h, ...extras] : [h]);
 
-  let genResult = await generateComposedPoster(
-    primaryImages,
-    industry,
-    layout,
-    isCutout,
-    analysis,
-    customInstructions,
-    creativeBrief,
-    showSecondaryPhotos
-  );
+  const baseOpts = { industryKey: industry, layout, analysis, customInstructions, creativeBrief, thumbCount, multi };
+
+  let genResult = await generateComposedPoster(referencesFor(hero), { ...baseOpts, isCutout });
 
   // Repli si le détourage a réussi mais que la composition IA échoue quand même : retente avec la photo brute.
+  let usedCutoutHero = isCutout;
   if (!genResult.imageBase64 && isCutout) {
-    const fallbackImages = [{ base64: photoBase64, mediaType }, ...extras];
-    genResult = await generateComposedPoster(
-      fallbackImages,
-      industry,
-      layout,
-      false,
-      analysis,
-      customInstructions,
-      creativeBrief,
-      showSecondaryPhotos
-    );
+    genResult = await generateComposedPoster(referencesFor({ base64: photoBase64, mediaType }), { ...baseOpts, isCutout: false });
+    usedCutoutHero = false;
   }
 
   let finalImageBase64 = genResult.imageBase64;
   let qualityRetried = false;
 
   if (finalImageBase64) {
-    // Plusieurs photos : on vérifie aussi que le héros reprend bien la vue de la photo PRINCIPALE.
-    const { passed } = await checkPosterQuality(photoBase64, mediaType, finalImageBase64, extras.length > 0);
+    const { passed, issues } = multi
+      ? await checkMultiReferenceFidelity({ base64: photoBase64, mediaType }, extras, finalImageBase64, multi.analysis.critical_features)
+      : await checkPosterQuality(photoBase64, mediaType, finalImageBase64, false);
     if (!passed) {
-      const retry = await generateComposedPoster(
-        primaryImages,
-        industry,
-        layout,
-        isCutout,
-        analysis,
-        customInstructions,
-        creativeBrief,
-        showSecondaryPhotos
-      );
+      // Un seul nouvel essai, qui reçoit les défauts relevés pour les corriger précisément.
+      const retryHero = usedCutoutHero ? hero : { base64: photoBase64, mediaType };
+      const retry = await generateComposedPoster(referencesFor(retryHero), {
+        ...baseOpts,
+        isCutout: usedCutoutHero,
+        retryIssues: issues,
+      });
       if (retry.imageBase64) {
         finalImageBase64 = retry.imageBase64;
         qualityRetried = true;
@@ -456,7 +508,7 @@ export async function buildPosterBackground(
   return {
     backgroundBuffer,
     imageError: genResult.imageError,
-    usedCutout: isCutout,
+    usedCutout: usedCutoutHero,
     qualityRetried,
     layout,
     accentGradient: analysis?.accentGradient ?? getIndustryAccent(industry),

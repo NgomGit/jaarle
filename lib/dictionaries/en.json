@@ -7,7 +7,8 @@
     "cta": "Try for free",
     "openMenu": "Open menu",
     "features": "Features",
-    "shops": "Shops"
+    "shops": "Shops",
+    "market": "Market"
   },
   "hero": {
     "kicker": "Built for African merchants",
@@ -251,6 +252,10 @@
     "photosTitleOptional": "Add up to 3 photos (optional)",
     "photosHint": "The main photo is featured, the others appear as thumbnails on the poster.",
     "photosAdd": "Add",
+    "photosTitleSingle": "Add a photo of your product",
+    "photosHintSingle": "A sharp, well-lit photo showing the whole product.",
+    "photosProLock": "+2 photos with Pro",
+    "photosProHint": "Add more views of your product: the AI uses them for a more faithful poster and places them as insets.",
     "photosMainBadge": "Main",
     "photosSetMain": "Set as main photo",
     "photosMainAuto": "The AI picks the main photo. Tap ★ to choose it yourself.",
@@ -377,7 +382,18 @@
     "qrDownloadStatus": "Download the status visual",
     "qrOnly": "QR only",
     "qrKitHint": "Every scan is counted in your statistics.",
-    "qrStatusAlt": "Your shop QR code visual for WhatsApp status"
+    "qrStatusAlt": "Your shop QR code visual for WhatsApp status",
+    "mk_subtitle": "Your products in Market searches, categories and city pages.",
+    "mk_listed": "Live on the Market",
+    "mk_notListed": "Not on the Market yet",
+    "mk_pro": "Active Pro plan",
+    "mk_published": "Shop published",
+    "mk_industry": "Product-selling activity (fashion, beauty, grocery, home…)",
+    "mk_products": "At least 3 products for sale with a photo ({n}/3)",
+    "mk_fix": "Fix",
+    "mk_uncategorized": "{n} product(s) without a Market category: they don't show on category pages.",
+    "mk_uncategorizedCta": "Categorize them",
+    "mk_see": "See the Market →"
   },
   "products": {
     "title": "My products",
@@ -448,7 +464,11 @@
     "importedNote": "Product imported from your poster. Check the details, then publish it.",
     "publishDraft": "Publish product",
     "keepDraft": "Keep as draft",
-    "createContent": "Create content"
+    "createContent": "Create content",
+    "marketCategoryLabel": "Jaarle Market category",
+    "marketCategoryHint": "Where your product appears on the Market (Pro plan).",
+    "marketCategoryNone": "Choose a category",
+    "noBrandHint": "No brand names (Nike, Supreme…): they are removed automatically."
   },
   "stats": {
     "title": "Statistics",

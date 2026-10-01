@@ -73,7 +73,7 @@ export default function RegisterPage({
                 <label htmlFor="phone-local" className="text-sm font-medium">
                   {t("auth.phone")}
                 </label>
-                <PhoneInput
+                <PhoneInput strict
                   id="phone-local"
                   value={phone}
                   onChange={setPhone}
@@ -98,7 +98,7 @@ export default function RegisterPage({
                     {t("auth.sameAsPhone")}
                   </label>
                 </div>
-                <PhoneInput
+                <PhoneInput strict
                   id="whatsapp-local"
                   value={whatsappValue}
                   onChange={setWhatsapp}

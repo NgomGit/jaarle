@@ -5,6 +5,9 @@ import { revalidatePath } from "next/cache";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 
+/** +221 suivi de 9 chiffres (mobiles 7x, fixes 3x). */
+const SENEGAL_PHONE = /^\+221[37]\d{8}$/;
+
 export async function login(formData: FormData) {
   const phone = formData.get("phone") as string;
   const password = formData.get("password") as string;
@@ -31,6 +34,11 @@ export async function signup(formData: FormData) {
   const plan = String(formData.get("plan") || "");
   const code = String(formData.get("code") || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 30);
   const next = plan === "pro" ? `/dashboard/abonnement${code ? `?code=${encodeURIComponent(code)}` : ""}` : "/dashboard";
+
+  // Numéro sénégalais complet obligatoire (le numéro sert d'identifiant et de contact WhatsApp).
+  if (!SENEGAL_PHONE.test(phone) || !SENEGAL_PHONE.test(whatsapp)) {
+    redirect(`/register?error=${encodeURIComponent("Numéro invalide : saisis les 9 chiffres, ex. 77 123 45 67.")}`);
+  }
 
   const supabase = createClient();
   const { data, error } = await supabase.auth.signUp({

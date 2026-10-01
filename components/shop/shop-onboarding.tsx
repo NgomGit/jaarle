@@ -165,7 +165,7 @@ export function ShopOnboarding({ defaultWhatsapp }: { defaultWhatsapp: string })
         {step === 1 && (
           <>
             <Field label={t("shop.whatsappLabel")} htmlFor="shop-whatsapp">
-              <PhoneInput
+              <PhoneInput strict
                 id="shop-whatsapp"
                 value={whatsapp}
                 onChange={setWhatsapp}

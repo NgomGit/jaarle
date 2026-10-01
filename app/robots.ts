@@ -8,7 +8,7 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: "*",
         allow: "/",
         // Espace privé, API, redirections de suivi et pages de connexion : rien à indexer.
-        disallow: ["/dashboard", "/api/", "/r/", "/q/", "/login", "/auth/"],
+        disallow: ["/dashboard", "/api/", "/r/", "/q/", "/login", "/auth/", "/market/recherche"],
       },
     ],
     sitemap: absoluteUrl("/sitemap.xml"),

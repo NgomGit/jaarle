@@ -6,7 +6,7 @@ import type { ShopEventType } from "@/lib/shops/types";
 // avec la clé service_role (la table shop_events n'accepte aucune écriture depuis le navigateur).
 // Jamais bloquant : un échec de suivi ne doit jamais empêcher un client de contacter le vendeur.
 
-const SOURCES = new Set(["wa", "qr", "ig", "fb", "tt", "direct", "share", "poster", "card"]);
+const SOURCES = new Set(["wa", "qr", "ig", "fb", "tt", "direct", "share", "poster", "card", "market"]);
 
 export function normalizeSource(raw: string | null | undefined): string | null {
   const s = (raw || "").toLowerCase().slice(0, 16);

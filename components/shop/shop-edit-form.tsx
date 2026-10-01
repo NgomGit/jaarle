@@ -125,7 +125,7 @@ export function ShopEditForm({ shop, logoUrl }: { shop: Shop; logoUrl: string | 
         </Field>
 
         <Field label={t("shop.whatsappLabel")} htmlFor="shop-whatsapp">
-          <PhoneInput id="shop-whatsapp" value={whatsapp} onChange={setWhatsapp} placeholder={t("shop.whatsappPlaceholder")} required />
+          <PhoneInput strict id="shop-whatsapp" value={whatsapp} onChange={setWhatsapp} placeholder={t("shop.whatsappPlaceholder")} required />
         </Field>
 
         <CityFields city={city} district={district} onCity={setCity} onDistrict={setDistrict} />

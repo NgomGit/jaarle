@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { UploadCloud, CheckCircle2, Circle, Sparkles, X, Plus, Star } from "lucide-react";
+import { UploadCloud, CheckCircle2, Circle, Sparkles, X, Plus, Star, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -55,6 +55,7 @@ export function NewCreationWizard({
   shopDefaults = null,
   productDefaults = null,
   generationBudget = null,
+  multiPhotoAllowed = true,
 }: {
   userId: string;
   defaultPhone: string;
@@ -62,9 +63,12 @@ export function NewCreationWizard({
   productDefaults?: ProductDefaults | null;
   /** Jaarle 2.0 : coût en générations (abonnement / crédits). null = affichage historique en FCFA. */
   generationBudget?: GenerationBudget | null;
+  /** Offres payantes : jusqu'à 3 photos (décor multi-image + vignettes). Gratuit : 1 seule photo. */
+  multiPhotoAllowed?: boolean;
 }) {
   const { t } = useLocale();
   const searchParams = useSearchParams();
+  const maxPhotos = multiPhotoAllowed ? MAX_POSTER_PHOTOS : 1;
   const [step, setStep] = React.useState<Step>(0);
   const [subjectType, setSubjectType] = React.useState<SubjectType>("product");
   // Photos de l'affiche (1 à 3) choisies en une fois. `mainIndex` = photo principale désignée par
@@ -112,7 +116,7 @@ export function NewCreationWizard({
     setLoadingProductPhotos(true);
     (async () => {
       const files = await Promise.all(
-        productDefaults.imageUrls.slice(0, MAX_POSTER_PHOTOS).map(async (url, i) => {
+        productDefaults.imageUrls.slice(0, maxPhotos).map(async (url, i) => {
           try {
             const res = await fetch(url);
             if (!res.ok) return null;
@@ -127,7 +131,7 @@ export function NewCreationWizard({
       setPhotos(
         files
           .filter((f): f is File => !!f)
-          .slice(0, MAX_POSTER_PHOTOS)
+          .slice(0, maxPhotos)
           .map((f) => ({ file: f, url: URL.createObjectURL(f) }))
       );
       setLoadingProductPhotos(false);
@@ -172,7 +176,7 @@ export function NewCreationWizard({
     e.target.value = "";
     if (picked.length === 0) return;
     setPhotos((prev) => {
-      const room = Math.max(0, MAX_POSTER_PHOTOS - prev.length);
+      const room = Math.max(0, maxPhotos - prev.length);
       return [...prev, ...picked.slice(0, room).map((f) => ({ file: f, url: URL.createObjectURL(f) }))];
     });
     setError(null);
@@ -199,7 +203,7 @@ export function NewCreationWizard({
     setSuggestingName(true);
     try {
       const fd = new FormData();
-      for (const p of photos.slice(0, MAX_POSTER_PHOTOS)) {
+      for (const p of photos.slice(0, maxPhotos)) {
         fd.append("photos", await toSmallJpeg(p.file), "photo.jpg");
       }
       const res = await fetch("/api/creations/suggest-name", { method: "POST", body: fd });
@@ -575,10 +579,14 @@ export function NewCreationWizard({
 
             <div className="flex flex-col gap-2">
               <span className="text-sm font-medium">
-                {subjectType === "service" ? t("creation.photosTitleOptional") : t("creation.photosTitle")}
+                {subjectType === "service"
+                  ? t("creation.photosTitleOptional")
+                  : t(multiPhotoAllowed ? "creation.photosTitle" : "creation.photosTitleSingle")}
               </span>
               <span className="-mt-1 text-[11px] text-muted-foreground">
-                {subjectType === "service" ? t("creation.servicePhotoHint") : t("creation.photosHint")}
+                {subjectType === "service"
+                  ? t("creation.servicePhotoHint")
+                  : t(multiPhotoAllowed ? "creation.photosHint" : "creation.photosHintSingle")}
               </span>
               <div className="grid grid-cols-3 gap-2.5">
                 {photos.map((p, i) => {
@@ -618,7 +626,7 @@ export function NewCreationWizard({
                     </div>
                   );
                 })}
-                {photos.length < MAX_POSTER_PHOTOS && (
+                {photos.length < maxPhotos && (
                   <label
                     htmlFor="creation-photo"
                     className={cn(
@@ -636,6 +644,19 @@ export function NewCreationWizard({
                     <span className="text-xs font-semibold">{t("creation.photosAdd")}</span>
                     {photos.length === 0 && <span className="text-[11px] text-muted-foreground">{t("preview.uploadHint")}</span>}
                   </label>
+                )}
+                {/* Offre Gratuite : 1 photo. Les photos 2 et 3 (plus de fidélité + vignettes) sont réservées à Pro. */}
+                {!multiPhotoAllowed && photos.length === 1 && (
+                  <Link
+                    href="/dashboard/abonnement"
+                    className="col-span-2 flex flex-col justify-center gap-1 rounded-xl border border-dashed border-primary/40 bg-accent/40 p-3 transition-colors hover:border-primary"
+                  >
+                    <span className="flex items-center gap-1.5 text-xs font-semibold text-primary">
+                      <Lock className="h-3.5 w-3.5" />
+                      {t("creation.photosProLock")}
+                    </span>
+                    <span className="text-[11px] leading-snug text-muted-foreground">{t("creation.photosProHint")}</span>
+                  </Link>
                 )}
               </div>
               <input id="creation-photo" type="file" accept="image/*" multiple className="hidden" onChange={handlePhotosChange} />

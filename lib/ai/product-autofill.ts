@@ -2,6 +2,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { industries } from "@/lib/knowledge/industries";
+import { marketLeafOptions } from "@/lib/market/categories";
+import { stripBrands, stripBrandsFromName } from "@/lib/shops/brands";
 
 // « Photo → fiche produit » : l'IA PROPOSE nom, description, catégorie, mots-clés et
 // caractéristiques visibles ; le commerçant valide et ajoute le prix. Rien n'est publié ici.
@@ -11,6 +13,9 @@ import { industries } from "@/lib/knowledge/industries";
 const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
 
 const INDUSTRY_KEYS = industries.map((i) => i.key) as [string, ...string[]];
+const MARKET_GROUPS = marketLeafOptions();
+const MARKET_KEYS = MARKET_GROUPS.flatMap((g) => g.options.map((o) => o.key)) as [string, ...string[]];
+const MARKET_LIST = MARKET_GROUPS.map((g) => `${g.group} : ${g.options.map((o) => `${o.key} (${o.label})`).join(", ")}`).join("\n");
 
 export const ProductSuggestionSchema = z.object({
   subjectType: z.enum(["product", "service"]),
@@ -18,6 +23,7 @@ export const ProductSuggestionSchema = z.object({
   description: z.string(),
   category: z.string(),
   industryKey: z.enum([...INDUSTRY_KEYS, "none"] as [string, ...string[]]),
+  marketCategory: z.enum([...MARKET_KEYS, "none"] as [string, ...string[]]),
   keywords: z.array(z.string()).max(5),
   attributes: z
     .array(z.object({ name: z.string(), value: z.string() }))
@@ -47,10 +53,13 @@ Contexte de la boutique :
 ${shopContext || "(non renseigné)"}
 
 Propose une fiche produit en FRANÇAIS, simple et vendeuse, comme l'écrirait un bon vendeur à Dakar :
-- name : nom commercial court (2 à 6 mots), ex. « Boubou homme bazin bleu ». N'invente jamais de marque ni de référence non visible.
-- description : 2 ou 3 phrases concrètes (matière, usage, occasion), 300 caractères maximum, sans prix, sans emoji, sans promesse invérifiable.
+- name : nom commercial court (2 à 6 mots), ex. « Boubou homme bazin bleu ». JAMAIS de nom de marque (Nike, Supreme, Gucci…), même si un logo est visible : décris l'article (« T-shirt graphique oversize »), et n'invente aucune référence.
+- description : 2 ou 3 phrases concrètes (matière, usage, occasion), 300 caractères maximum, sans prix, sans emoji, sans promesse invérifiable, sans aucun nom de marque.
 - category : catégorie courte pour ranger le produit dans la boutique, ex. « Boubous homme », « Soins visage », « Plats ».
 - industryKey : le secteur le plus proche parmi la liste fournie, ou "none".
+- marketCategory : la catégorie Jaarle Market la plus précise pour CE produit, parmi la liste ci-dessous (la clé seulement), ou "none" si aucune ne convient (service, produit hors liste) :
+${MARKET_LIST}
+  Le TYPE d'article doit correspondre exactement (un jean ou un short n'est jamais un t-shirt) ; sinon "none".
 - keywords : 3 à 5 mots-clés de recherche.
 - attributes : caractéristiques VISIBLES uniquement (couleur, matière, motif, contenance lisible sur l'étiquette…). N'invente pas de tailles, de quantités ni de stock.
 - subjectType : "service" seulement si la photo montre clairement une prestation plutôt qu'un objet à vendre.
@@ -70,8 +79,9 @@ Ne donne jamais de prix.`,
   const out = message.parsed_output;
   return {
     ...out,
-    name: out.name.trim().slice(0, 120),
-    description: out.description.trim().slice(0, 600),
+    // Filet de sécurité : les noms de marques sont retirés même si le modèle en met un.
+    name: stripBrandsFromName(out.name.trim()).slice(0, 120),
+    description: stripBrands(out.description.trim()).slice(0, 600),
     category: out.category.trim().slice(0, 60),
     keywords: out.keywords.map((k) => k.trim()).filter(Boolean).slice(0, 5),
     attributes: out.attributes.filter((a) => a.name.trim() && a.value.trim()).slice(0, 5),

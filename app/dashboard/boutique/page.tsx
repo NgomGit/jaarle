@@ -7,6 +7,7 @@ import { countShopProducts } from "@/lib/shops/products";
 import { shopQrSvg } from "@/lib/shops/qr";
 import { ShopOnboarding } from "@/components/shop/shop-onboarding";
 import { ShopOverview } from "@/components/shop/shop-overview";
+import { MarketStatusCard, type MarketStatus } from "@/components/shop/market-status";
 
 export default async function ShopPage({ searchParams }: { searchParams: { created?: string; published?: string } }) {
   const supabase = createClient();
@@ -22,7 +23,12 @@ export default async function ShopPage({ searchParams }: { searchParams: { creat
     return <ShopOnboarding defaultWhatsapp={toLocalSenegal(accountWhatsapp).replace(/\D/g, "").slice(0, 9)} />;
   }
 
-  const [productCounts, qrSvg] = await Promise.all([countShopProducts(supabase, shop.id), shopQrSvg(shop.slug)]);
+  const [productCounts, qrSvg, market] = await Promise.all([
+    countShopProducts(supabase, shop.id),
+    shopQrSvg(shop.slug),
+    // Statut Jaarle Market (migration 0020) ; absent si la migration n'est pas encore appliquée.
+    supabase.rpc("my_market_status").then(({ data }) => (data as MarketStatus | null) ?? null, () => null),
+  ]);
   return (
     <ShopOverview
       shop={shop}
@@ -31,6 +37,7 @@ export default async function ShopPage({ searchParams }: { searchParams: { creat
       justPublished={searchParams.published === "1"}
       productCounts={productCounts}
       qrSvg={qrSvg}
+      marketSlot={market ? <MarketStatusCard status={market} /> : null}
     />
   );
 }

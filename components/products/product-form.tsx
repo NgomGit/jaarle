@@ -16,6 +16,7 @@ import type { ProductWithImages } from "@/lib/shops/products";
 import type { ProductStatus, SubjectType } from "@/lib/shops/types";
 import type { ProductSuggestion } from "@/lib/ai/product-autofill";
 import { useLocale } from "@/lib/locale-context";
+import { marketLeafOptions } from "@/lib/market/categories";
 import { cn } from "@/lib/utils";
 
 const MAX_PHOTOS = 4;
@@ -35,6 +36,8 @@ interface OptionDraft {
 }
 
 type AiState = "idle" | "analyzing" | "done" | "error";
+const MARKET_OPTIONS = marketLeafOptions();
+
 type AiField = "name" | "description" | "category";
 
 /**
@@ -62,6 +65,8 @@ export function ProductForm({ product, importedNote = false }: { product?: Produ
   const [priceOnRequest, setPriceOnRequest] = React.useState(isEdit && product?.price == null);
   const [description, setDescription] = React.useState(product?.description ?? "");
   const [category, setCategory] = React.useState(product?.category ?? "");
+  const [marketCategory, setMarketCategory] = React.useState(product?.market_category ?? "");
+  const marketTouched = React.useRef(isEdit && !!product?.market_category);
   const [options, setOptions] = React.useState<OptionDraft[]>(
     (product?.options ?? []).map((o) => ({ name: o.name, values: o.values.join(", ") }))
   );
@@ -110,6 +115,7 @@ export function ProductForm({ product, importedNote = false }: { product?: Produ
         setCategory(s.category);
         filled.add("category");
       }
+      if (!marketTouched.current && s.marketCategory && s.marketCategory !== "none") setMarketCategory(s.marketCategory);
       if (!isEdit) setSubjectType(s.subjectType === "service" ? "service" : "product");
       setAiFilled(filled);
       setAiSuggestion(s);
@@ -188,6 +194,7 @@ export function ProductForm({ product, importedNote = false }: { product?: Produ
         price: priceOnRequest ? null : Number(price.replace(/\D/g, "")),
         description,
         category,
+        marketCategory: marketCategory || null,
         status: nextStatus,
         options: options
           .map((o) => ({
@@ -386,7 +393,7 @@ export function ProductForm({ product, importedNote = false }: { product?: Produ
             ))}
           </div>
 
-          <Field label={<>{t("products.nameLabel")}<AiHint field="name" /></>} htmlFor="product-name">
+          <Field label={<>{t("products.nameLabel")}<AiHint field="name" /></>} htmlFor="product-name" hint={t("products.noBrandHint")}>
             <Input
               id="product-name"
               value={name}
@@ -448,6 +455,29 @@ export function ProductForm({ product, importedNote = false }: { product?: Produ
               placeholder={t("products.categoryPlaceholder")}
               maxLength={60}
             />
+          </Field>
+
+          <Field label={t("products.marketCategoryLabel")} htmlFor="product-market-category" optional hint={t("products.marketCategoryHint")}>
+            <select
+              id="product-market-category"
+              value={marketCategory}
+              onChange={(e) => {
+                marketTouched.current = true;
+                setMarketCategory(e.target.value);
+              }}
+              className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm"
+            >
+              <option value="">{t("products.marketCategoryNone")}</option>
+              {MARKET_OPTIONS.map((g) => (
+                <optgroup key={g.group} label={g.group}>
+                  {g.options.map((o) => (
+                    <option key={o.key} value={o.key}>
+                      {o.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
           </Field>
 
           <Field label={t("products.optionsLabel")} optional hint={t("products.optionsHint")}>

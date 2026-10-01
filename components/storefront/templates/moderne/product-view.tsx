@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, MapPin, ShieldCheck } from "lucide-react";
 import { ProductOrder } from "@/components/storefront/product-order";
+import { ReportButton } from "@/components/storefront/report-button";
 import { ShareButton } from "@/components/storefront/share-button";
 import { TrackView } from "@/components/storefront/track-view";
 import { Gallery } from "@/components/storefront/templates/moderne/gallery";
@@ -96,6 +97,7 @@ export function ModerneProductView({ shop, product, related, theme }: ProductVie
               </div>
               <span className="text-xs font-semibold text-[var(--sf-accent)]">Voir la boutique</span>
             </Link>
+            <ReportButton shopSlug={shop.slug} shopName={shop.name} productSlug={product.slug} productName={product.name} className="mt-4" />
           </div>
         </div>
 

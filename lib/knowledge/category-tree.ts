@@ -55,6 +55,9 @@ export const categoryTree: CategoryNode[] = [
           { key: "boubous-femme", label: "Boubous & grand boubou" },
           { key: "tenues-wax", label: "Tenues en wax / pagne" },
           { key: "voiles-abayas", label: "Abayas & voiles" },
+          { key: "hauts-femme", label: "Hauts, chemisiers & t-shirts" },
+          { key: "pantalons-femme", label: "Pantalons & jeans femme" },
+          { key: "jupes", label: "Jupes" },
         ],
       },
       {
@@ -63,7 +66,12 @@ export const categoryTree: CategoryNode[] = [
         leaves: [
           { key: "ensembles-homme", label: "Ensembles homme" },
           { key: "boubous-homme", label: "Boubous & caftans" },
-          { key: "chemises-tshirts", label: "Chemises & t-shirts" },
+          { key: "chemises-tshirts", label: "Chemises, t-shirts & polos" },
+          { key: "pantalons-homme", label: "Pantalons & jeans" },
+          { key: "shorts-homme", label: "Shorts & bermudas" },
+          { key: "survetements-homme", label: "Joggings & survêtements" },
+          { key: "vestes-homme", label: "Vestes, sweats & hoodies" },
+          { key: "sous-vetements-homme", label: "Sous-vêtements" },
           { key: "costumes", label: "Costumes" },
         ],
       },
@@ -94,6 +102,7 @@ export const categoryTree: CategoryNode[] = [
           { key: "bijoux", label: "Bijoux & montres" },
           { key: "foulards", label: "Foulards & châles" },
           { key: "lunettes", label: "Lunettes" },
+          { key: "casquettes-chapeaux", label: "Casquettes, bonnets & chapeaux" },
         ],
       },
       {
@@ -142,7 +151,7 @@ export const categoryTree: CategoryNode[] = [
         ],
       },
       {
-        key: "parfums",
+        key: "parfums-encens",
         label: "Parfums & encens",
         leaves: [
           { key: "parfums", label: "Parfums" },

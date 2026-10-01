@@ -7,7 +7,8 @@
     "cta": "Essayer gratuitement",
     "openMenu": "Ouvrir le menu",
     "features": "Fonctionnalités",
-    "shops": "Boutiques"
+    "shops": "Boutiques",
+    "market": "Market"
   },
   "hero": {
     "kicker": "Fait pour les commerçants d'Afrique",
@@ -251,6 +252,10 @@
     "photosTitleOptional": "Ajoute jusqu'à 3 photos (facultatif)",
     "photosHint": "La photo principale est mise en avant, les autres apparaissent en vignettes sur l'affiche.",
     "photosAdd": "Ajouter",
+    "photosTitleSingle": "Ajoute une photo de ton produit",
+    "photosHintSingle": "Une photo nette, bien éclairée, le produit entier.",
+    "photosProLock": "+2 photos avec Pro",
+    "photosProHint": "Ajoute d'autres vues du produit : l'IA s'en sert pour être plus fidèle et les pose en vignettes sur l'affiche.",
     "photosMainBadge": "Principale",
     "photosSetMain": "Définir comme photo principale",
     "photosMainAuto": "L'IA choisit la photo principale. Touche ★ pour la choisir toi-même.",
@@ -377,7 +382,18 @@
     "qrDownloadStatus": "Télécharger le visuel pour mon statut",
     "qrOnly": "QR seul",
     "qrKitHint": "Chaque scan est compté dans tes statistiques.",
-    "qrStatusAlt": "Visuel QR code de ta boutique pour le statut WhatsApp"
+    "qrStatusAlt": "Visuel QR code de ta boutique pour le statut WhatsApp",
+    "mk_subtitle": "Tes produits dans les recherches, catégories et villes du Market.",
+    "mk_listed": "En ligne sur le Market",
+    "mk_notListed": "Pas encore sur le Market",
+    "mk_pro": "Abonnement Pro actif",
+    "mk_published": "Boutique publiée",
+    "mk_industry": "Activité de vente de produits (mode, beauté, épicerie, maison…)",
+    "mk_products": "Au moins 3 produits en vente avec photo ({n}/3)",
+    "mk_fix": "Régler",
+    "mk_uncategorized": "{n} produit(s) sans catégorie Market : ils n'apparaissent pas dans les pages catégorie.",
+    "mk_uncategorizedCta": "Les classer",
+    "mk_see": "Voir le Market →"
   },
   "products": {
     "title": "Mes produits",
@@ -448,7 +464,11 @@
     "importedNote": "Produit importé depuis ton affiche. Vérifie les infos, puis publie-le.",
     "publishDraft": "Publier le produit",
     "keepDraft": "Garder en brouillon",
-    "createContent": "Créer du contenu"
+    "createContent": "Créer du contenu",
+    "marketCategoryLabel": "Catégorie sur Jaarle Market",
+    "marketCategoryHint": "Où ton produit apparaît sur le Market (offre Pro).",
+    "marketCategoryNone": "Choisir une catégorie",
+    "noBrandHint": "Pas de nom de marque (Nike, Supreme…) : ils sont retirés automatiquement."
   },
   "stats": {
     "title": "Statistiques",

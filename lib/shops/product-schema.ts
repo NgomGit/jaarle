@@ -1,5 +1,6 @@
 // Validation des produits (partagée client / server actions).
 import { z } from "zod";
+import { isMarketLeaf } from "@/lib/market/categories";
 
 export const PRODUCT_STATUSES = ["draft", "active", "sold_out", "hidden"] as const;
 
@@ -31,6 +32,12 @@ export const ProductInputSchema = z.object({
     .max(60)
     .optional()
     .transform((v) => (v ? v : null)),
+  // Catégorie Jaarle Market : clé d'une feuille de l'arbre (lib/market/categories.ts), ou vide.
+  marketCategory: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((v) => (v && isMarketLeaf(v) ? v : null)),
   options: z.array(OptionSchema).max(3).default([]),
   status: z.enum(PRODUCT_STATUSES).default("active"),
   images: z.array(ImageSchema).max(4, "4 photos maximum."),

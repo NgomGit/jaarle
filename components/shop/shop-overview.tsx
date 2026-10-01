@@ -37,6 +37,7 @@ export function ShopOverview({
   justPublished = false,
   productCounts = { total: 0, visible: 0 },
   qrSvg = null,
+  marketSlot,
 }: {
   shop: Shop;
   logoUrl: string | null;
@@ -44,6 +45,8 @@ export function ShopOverview({
   justPublished?: boolean;
   productCounts?: { total: number; visible: number };
   qrSvg?: string | null;
+  /** Carte Jaarle Market (rendue par la page). */
+  marketSlot?: React.ReactNode;
 }) {
   const { t } = useLocale();
   const router = useRouter();
@@ -223,6 +226,8 @@ export function ShopOverview({
       </section>
 
       {/* Le générateur existant reste accessible tel quel */}
+      {marketSlot}
+
       <section className="flex flex-col items-start gap-3 rounded-2xl border border-dashed border-border p-4 sm:flex-row sm:items-center sm:p-5">
         <div className="flex-1">
           <p className="text-sm font-semibold">{t("shop.ov_posterTitle")}</p>

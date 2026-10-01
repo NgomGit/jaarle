@@ -1,6 +1,8 @@
 import { logAiCall } from "@/lib/billing/ai-cost";
 import { AI_COST_ESTIMATES_USD } from "@/lib/billing/usage";
 import { NextResponse } from "next/server";
+import { canUseMultiPhoto, getEntitlements } from "@/lib/billing/entitlements";
+import { resolveReferences } from "@/lib/multi-reference";
 import { createClient } from "@/lib/supabase/server";
 import {
   ALLOWED_MEDIA_TYPES,
@@ -77,8 +79,10 @@ export async function POST(request: Request, { params }: { params: { id: string 
       ? (photoBlob.type as AllowedMediaType)
       : "image/jpeg";
 
-    const extraPhotos: { base64: string; mediaType: AllowedMediaType }[] = [];
-    for (const extraPath of creation.extra_photo_paths ?? []) {
+    // Photos secondaires : offres payantes uniquement (décor multi-image + vraies vignettes).
+    const multiPhotoAllowed = canUseMultiPhoto(await getEntitlements());
+    let extraPhotos: { base64: string; mediaType: AllowedMediaType }[] = [];
+    for (const extraPath of multiPhotoAllowed ? (creation.extra_photo_paths ?? []) : []) {
       const { data: extraBlob } = await supabase.storage.from("creations").download(extraPath);
       if (extraBlob) {
         const buf = Buffer.from(await extraBlob.arrayBuffer());
@@ -87,6 +91,15 @@ export async function POST(request: Request, { params }: { params: { id: string 
           : "image/jpeg";
         extraPhotos.push({ base64: buf.toString("base64"), mediaType: extraMediaType });
       }
+    }
+
+    const resolved =
+      extraPhotos.length > 0
+        ? await resolveReferences([{ base64: photoBase64, mediaType }, ...extraPhotos], creation.product_name, { heroFixed: true })
+        : null;
+    if (resolved) {
+      const all = [{ base64: photoBase64, mediaType }, ...extraPhotos];
+      extraPhotos = resolved.secondaryIndexes.map((i) => all[i]).filter((x): x is (typeof all)[number] => !!x);
     }
 
     backgroundResult = await buildPosterBackground(
@@ -98,7 +111,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
       trimmedInstructions,
       extraPhotos,
       opposingLayout,
-      !!creation.show_secondary_photos
+      !!creation.show_secondary_photos && extraPhotos.length > 0,
+      { multi: resolved?.multi ?? null, productAnalysis: resolved?.productAnalysis ?? null }
     );
     if (creation.show_secondary_photos) secondaryBuffers = extraPhotos.map((p) => Buffer.from(p.base64, "base64"));
   } else {

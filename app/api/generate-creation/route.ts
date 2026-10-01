@@ -16,8 +16,9 @@ import {
   renderFinalPoster,
 } from "@/lib/poster-pipeline";
 import { ARTISAN_INDUSTRIES } from "@/lib/art-directions";
-import { selectHeroAndSecondaries } from "@/lib/product-analyzer";
-import { getEntitlements } from "@/lib/billing/entitlements";
+import { resolveReferences, type MultiReferenceContext } from "@/lib/multi-reference";
+import type { ProductAnalysis } from "@/lib/product-analyzer";
+import { canUseMultiPhoto, getEntitlements } from "@/lib/billing/entitlements";
 import { attachUsage, consumeUsage, limitPayload, refundUsage } from "@/lib/billing/consume";
 import { logAiCall } from "@/lib/billing/ai-cost";
 import { AI_COST_ESTIMATES_USD, usageUnits } from "@/lib/billing/usage";
@@ -201,11 +202,13 @@ export async function POST(request: Request) {
     mediaType = ALLOWED_MEDIA_TYPES.includes(photoBlob.type as AllowedMediaType) ? (photoBlob.type as AllowedMediaType) : "image/jpeg";
   }
 
-  // Jusqu'à 2 photos secondaires du même produit / service : elles sont intégrées au design en
-  // vignettes, autour de la photo principale.
+  // Jusqu'à 2 photos secondaires du même produit / service (offres payantes uniquement) : elles
+  // servent de références au décor (chemin multi-image) et sont posées en vraies vignettes.
+  // Offre Gratuite : une seule photo, les éventuelles secondaires sont ignorées.
+  const multiPhotoAllowed = canUseMultiPhoto(entitlements);
   const extraPhotos: { base64: string; mediaType: AllowedMediaType }[] = [];
   const extraDownloadedPaths: string[] = [];
-  if (extraPhotoPaths?.length) {
+  if (multiPhotoAllowed && photoPath && extraPhotoPaths?.length) {
     for (const extraPath of extraPhotoPaths.slice(0, maxExtraPhotos)) {
       const { data: extraBlob } = await supabase.storage.from("creations").download(extraPath);
       if (extraBlob) {
@@ -219,33 +222,29 @@ export async function POST(request: Request) {
     }
   }
 
-  // Photo principale : si le commerçant l'a désignée, on la garde telle quelle (elle arrive en
-  // `photoPath`). Sinon, l'IA choisit la meilleure photo comme image principale
-  // et ordonne les autres comme secondaires. On réordonne buffers ET chemins pour que l'affiche
-  // ET les métadonnées (régénération, aperçu) utilisent bien la photo choisie comme hero.
+  // Plusieurs photos : UNE analyse groupée choisit la principale (si le commerçant ne l'a pas
+  // désignée), vérifie que les secondaires montrent bien le même produit (les autres sont
+  // écartées) et prépare le contexte du décor multi-image. On réordonne buffers ET chemins pour
+  // que l'affiche ET les métadonnées (nouvelle version) utilisent la même sélection.
   let effectivePhotoPath = photoPath;
   let effectiveExtraPaths = extraDownloadedPaths.slice();
-  if (!mainPhotoChosen && photoBuffer && photoBase64 && extraPhotos.length > 0) {
+  let multiContext: MultiReferenceContext | null = null;
+  let groupedAnalysis: ProductAnalysis | null = null;
+  if (photoBuffer && photoBase64 && extraPhotos.length > 0) {
     const allImages = [{ base64: photoBase64, mediaType }, ...extraPhotos];
     const allPaths: (string | null)[] = [photoPath, ...extraDownloadedPaths];
-    const selection = await selectHeroAndSecondaries(allImages, productName);
-    if (selection) {
-      const hero = allImages[selection.heroIndex];
-      const secondaries = selection.secondaryIndexes
-        .map((i) => allImages[i])
-        .filter((x): x is { base64: string; mediaType: AllowedMediaType } => !!x);
-      if (hero) {
-        photoBase64 = hero.base64;
-        mediaType = hero.mediaType;
-        photoBuffer = Buffer.from(hero.base64, "base64");
-        extraPhotos.length = 0;
-        extraPhotos.push(...secondaries);
-        effectivePhotoPath = allPaths[selection.heroIndex] ?? photoPath;
-        effectiveExtraPaths = selection.secondaryIndexes
-          .map((i) => allPaths[i])
-          .filter((p): p is string => !!p);
-      }
-    }
+    const resolved = await resolveReferences(allImages, productName, { heroFixed: !!mainPhotoChosen });
+    const hero = allImages[resolved.heroIndex] ?? allImages[0];
+    const secondaries = resolved.secondaryIndexes.map((i) => allImages[i]).filter((x): x is (typeof allImages)[number] => !!x);
+    photoBase64 = hero.base64;
+    mediaType = hero.mediaType;
+    photoBuffer = Buffer.from(hero.base64, "base64");
+    extraPhotos.length = 0;
+    extraPhotos.push(...secondaries);
+    effectivePhotoPath = allPaths[resolved.heroIndex] ?? photoPath;
+    effectiveExtraPaths = resolved.secondaryIndexes.map((i) => allPaths[i]).filter((p): p is string => !!p);
+    multiContext = resolved.multi;
+    groupedAnalysis = resolved.productAnalysis;
   }
 
   // Les photos secondaires sont toujours montrées sur l'affiche quand il y en a.
@@ -287,7 +286,8 @@ export async function POST(request: Request) {
             null,
             extraPhotos,
             undefined,
-            normalizedShowSecondaryPhotos
+            normalizedShowSecondaryPhotos,
+            { multi: multiContext, productAnalysis: groupedAnalysis }
           )
         : await buildServiceBackground(productName, serviceDescription, normalizedItems, industry);
 

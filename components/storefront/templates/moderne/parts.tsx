@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Instagram, Facebook, MapPin } from "lucide-react";
+import { ReportButton } from "@/components/storefront/report-button";
 import { ShareButton } from "@/components/storefront/share-button";
 import { WhatsAppIcon } from "@/components/storefront/whatsapp-icon";
 import { shopInitials } from "@/lib/shops/media";
@@ -135,6 +136,7 @@ export function StoreFooter({ shop }: { shop: StorefrontShop }) {
               ))}
             </div>
           )}
+          <ReportButton shopSlug={shop.slug} shopName={shop.name} />
         </div>
       </div>
       {/* Offre gratuite : mention Jaarle + lien d'inscription parrainé par ce commerçant (boucle virale). */}

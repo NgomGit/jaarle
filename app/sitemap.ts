@@ -1,6 +1,9 @@
 import type { MetadataRoute } from "next";
 import { createPublicClient } from "@/lib/supabase/public";
 import { absoluteUrl, isShopIndexable } from "@/lib/seo";
+import { allMarketCategories } from "@/lib/market/categories";
+import { MARKET_CITIES } from "@/lib/market/cities";
+import { getMarketCounts, isLandingIndexable, totalsFor } from "@/lib/market/queries";
 
 // Plan du site : pages publiques + boutiques indexables (au moins 3 produits, comme la règle
 // robots de la page boutique) et leurs fiches produit. Régénéré au plus toutes les heures.
@@ -30,6 +33,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: absoluteUrl("/"), lastModified: now, changeFrequency: "weekly", priority: 1 },
     { url: absoluteUrl("/tarifs"), lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: absoluteUrl("/boutiques"), lastModified: now, changeFrequency: "daily", priority: 0.8 },
+    { url: absoluteUrl("/market"), lastModified: now, changeFrequency: "daily", priority: 0.9 },
     { url: absoluteUrl("/register"), lastModified: now, changeFrequency: "yearly", priority: 0.4 },
   ];
 
@@ -60,8 +64,33 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         entries.push({ url: `${shopUrl}/p/${p.slug}`, lastModified: new Date(p.updated_at), changeFrequency: "weekly", priority: 0.6 });
       }
     }
-    return [...staticPages, ...entries];
+    return [...staticPages, ...(await marketEntries(now)), ...entries];
   } catch {
     return staticPages;
   }
+}
+
+/**
+ * Pages du Market qui passent le seuil d'indexation (voir isLandingIndexable) : catégories,
+ * villes et catégorie × ville. Même règle que le robots des pages.
+ */
+async function marketEntries(now: Date): Promise<MetadataRoute.Sitemap> {
+  const counts = await getMarketCounts();
+  if (counts.length === 0) return [];
+  const out: MetadataRoute.Sitemap = [];
+  for (const city of MARKET_CITIES) {
+    if (isLandingIndexable(totalsFor(counts, null, city.slug))) {
+      out.push({ url: absoluteUrl(`/market/${city.slug}`), lastModified: now, changeFrequency: "daily", priority: 0.6 });
+    }
+  }
+  for (const cat of allMarketCategories()) {
+    if (!isLandingIndexable(totalsFor(counts, cat, null), "category")) continue;
+    out.push({ url: absoluteUrl(`/market/${cat.slug}`), lastModified: now, changeFrequency: "daily", priority: cat.level === 1 ? 0.8 : 0.7 });
+    for (const city of MARKET_CITIES) {
+      if (isLandingIndexable(totalsFor(counts, cat, city.slug))) {
+        out.push({ url: absoluteUrl(`/market/${cat.slug}/${city.slug}`), lastModified: now, changeFrequency: "daily", priority: 0.7 });
+      }
+    }
+  }
+  return out;
 }

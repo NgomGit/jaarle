@@ -9,6 +9,7 @@ import { storeProductImage } from "@/lib/shops/media-server";
 import { productSlug } from "@/lib/shops/slug";
 import { SHOP_MEDIA_BUCKET, type ProductStatus, type Shop } from "@/lib/shops/types";
 import { LIMIT_MESSAGES } from "@/lib/billing/format";
+import { stripBrands, stripBrandsFromName } from "@/lib/shops/brands";
 
 export type ProductActionResult = { ok: true; id: string } | { ok: false; error: string; limit?: "products" };
 
@@ -30,6 +31,7 @@ function revalidateShop(shop: Shop, productSlugValue?: string) {
   revalidatePath("/dashboard", "layout");
   revalidatePath(`/boutique/${shop.slug}`);
   if (productSlugValue) revalidatePath(`/boutique/${shop.slug}/p/${productSlugValue}`);
+  revalidatePath("/market", "layout");
 }
 
 async function uniqueProductSlug(supabase: Supabase, shopId: string, name: string): Promise<string> {
@@ -64,12 +66,14 @@ export async function saveProduct(input: ProductInput, productId?: string): Prom
     return { ok: false, error: "Photo invalide." };
   }
 
+  // Règle de vente : aucun nom de marque dans les annonces (retiré automatiquement).
   const fields = {
     subject_type: data.subjectType,
-    name: data.name,
+    name: stripBrandsFromName(data.name),
     price: data.price,
-    description: data.description,
+    description: data.description ? stripBrands(data.description) || null : null,
     category: data.category,
+    market_category: data.marketCategory ?? null,
     options: data.options,
     status: data.status,
   };
@@ -78,7 +82,7 @@ export async function saveProduct(input: ProductInput, productId?: string): Prom
   let slug: string;
 
   if (!id) {
-    slug = await uniqueProductSlug(supabase, shop.id, data.name);
+    slug = await uniqueProductSlug(supabase, shop.id, fields.name);
     const { data: row, error } = await supabase
       .from("products")
       .insert({

@@ -120,3 +120,11 @@ export async function getEntitlementsFor(userId: string): Promise<Entitlements> 
   if (error || !data) return LEGACY_ENTITLEMENTS;
   return toEntitlements(data as Raw);
 }
+
+/**
+ * Affiche multi-photos (2-3 photos du produit : références pour le décor + vraies vignettes) :
+ * réservée aux offres payantes. Sans facturation active (migration absente), rien n'est bloqué.
+ */
+export function canUseMultiPhoto(e: Entitlements): boolean {
+  return !e.billingEnabled || e.plan !== "free";
+}
