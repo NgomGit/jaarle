@@ -32,6 +32,7 @@ function revalidateShop(shop: Shop, productSlugValue?: string) {
   revalidatePath(`/boutique/${shop.slug}`);
   if (productSlugValue) revalidatePath(`/boutique/${shop.slug}/p/${productSlugValue}`);
   revalidatePath("/market", "layout");
+  revalidatePath("/boutiques", "layout");
 }
 
 async function uniqueProductSlug(supabase: Supabase, shopId: string, name: string): Promise<string> {

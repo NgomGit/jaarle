@@ -165,6 +165,10 @@ export async function updateShop(input: ShopInput): Promise<ActionResult> {
   }
 
   revalidatePath("/dashboard", "layout");
+  // Nom, logo, ville… changés : vitrine, Market et annuaire à jour tout de suite.
+  revalidatePath(`/boutique/${slug}`, "layout");
+  revalidatePath("/market", "layout");
+  revalidatePath("/boutiques", "layout");
   return { ok: true, slug };
 }
 
@@ -200,5 +204,8 @@ export async function setShopPublished(published: boolean): Promise<ActionResult
 
   revalidatePath("/dashboard", "layout");
   revalidatePath(`/boutique/${shop.slug}`, "layout");
+  // Hors ligne → disparaît tout de suite du Market et de l'annuaire (pages en cache 5 min sinon).
+  revalidatePath("/market", "layout");
+  revalidatePath("/boutiques", "layout");
   return { ok: true, slug: shop.slug };
 }
