@@ -17,6 +17,8 @@ const ImageSchema = z.object({
 
 export const ProductInputSchema = z.object({
   subjectType: z.enum(["product", "service"]).default("product"),
+  // Service : image affichée en vitrine et sur le Market (l'affiche ou les photos).
+  displayMedia: z.enum(["poster", "photos"]).default("poster"),
   name: z.string().trim().min(1, "Donne un nom à ton produit.").max(120, "120 caractères maximum."),
   // null = « Prix sur demande »
   price: z.number().int().min(0, "Prix invalide.").max(100_000_000, "Prix invalide.").nullable(),

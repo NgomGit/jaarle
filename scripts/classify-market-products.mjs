@@ -74,22 +74,20 @@ async function diagnose(shop, isPro) {
     .select("id, subject_type, product_images(id)")
     .eq("shop_id", shop.id)
     .in("status", ["active", "sold_out"]);
-  // Visible sur le Market : produit avec photo, ou service avec affiche débloquée (migration 0023).
+  // Visible sur le Market : une image affichable — photo, ou affiche débloquée pour un service (migration 0024).
   let withPhoto = 0;
-  let servicesWithoutPoster = 0;
   for (const p of products ?? []) {
-    if (p.subject_type === "service") {
+    if ((p.product_images ?? []).length > 0) withPhoto++;
+    else if (p.subject_type === "service") {
       const { data: key } = await db.rpc("product_poster_key", { p_product: p.id });
       if (key) withPhoto++;
-      else servicesWithoutPoster++;
-    } else if ((p.product_images ?? []).length > 0) withPhoto++;
+    }
   }
   return [
     [isPro, "abonnement Pro actif"],
     [shop.status === "published", "boutique publiée"],
-    [MARKET_INDUSTRY_KEYS.has(shop.industry), `secteur de vente de produits (actuel : ${shop.industry ?? "aucun"})`],
-    [withPhoto >= 3, `au moins 3 annonces visibles — produit avec photo ou service avec affiche (${withPhoto})`],
-    [servicesWithoutPoster === 0, `services avec leur affiche (${servicesWithoutPoster} sans affiche, invisibles sur le Market)`],
+    [MARKET_INDUSTRY_KEYS.has(shop.industry), `secteur ouvert au Market (actuel : ${shop.industry ?? "aucun"})`],
+    [withPhoto >= 3, `au moins 3 annonces avec une image — photo ou affiche (${withPhoto})`],
   ];
 }
 

@@ -394,7 +394,7 @@
     "mk_uncategorized": "{n} product(s) without a Market category: they don't show on category pages.",
     "mk_uncategorizedCta": "Categorize them",
     "mk_see": "See the Market →",
-    "mk_noPoster": "{n} service(s) without a poster: a service only shows on the Market with its (unlocked) poster.",
+    "mk_noPoster": "{n} service(s) set to « poster » don't have one yet: their photo is shown meanwhile.",
     "mk_noPosterCta": "Create the posters"
   },
   "products": {
@@ -470,7 +470,13 @@
     "marketCategoryLabel": "Jaarle Market category",
     "marketCategoryHint": "Where your product appears on the Market (Pro plan).",
     "marketCategoryNone": "Choose a category",
-    "noBrandHint": "No brand names (Nike, Supreme…): they are removed automatically."
+    "noBrandHint": "No brand names (Nike, Supreme…): they are removed automatically.",
+    "displayLabel": "Image shown for this service",
+    "displayPoster": "The poster",
+    "displayPosterHint": "Best if your photo shows yourself (hairdressing, make-up, lessons…).",
+    "displayPhotos": "The photos",
+    "displayPhotosHint": "Best when people want to see the item (cars, apartments, venues…).",
+    "displayHint": "Used in your shop and on Jaarle Market. If the poster doesn't exist yet, the photo is shown meanwhile."
   },
   "stats": {
     "title": "Statistics",

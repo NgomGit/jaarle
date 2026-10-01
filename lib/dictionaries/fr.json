@@ -394,7 +394,7 @@
     "mk_uncategorized": "{n} produit(s) sans catégorie Market : ils n'apparaissent pas dans les pages catégorie.",
     "mk_uncategorizedCta": "Les classer",
     "mk_see": "Voir le Market →",
-    "mk_noPoster": "{n} service(s) sans affiche : un service n'apparaît sur le Market qu'avec son affiche (débloquée).",
+    "mk_noPoster": "{n} service(s) réglé(s) sur « affiche » n'en ont pas encore : leur photo s'affiche en attendant.",
     "mk_noPosterCta": "Créer les affiches"
   },
   "products": {
@@ -470,7 +470,13 @@
     "marketCategoryLabel": "Catégorie sur Jaarle Market",
     "marketCategoryHint": "Où ton produit apparaît sur le Market (offre Pro).",
     "marketCategoryNone": "Choisir une catégorie",
-    "noBrandHint": "Pas de nom de marque (Nike, Supreme…) : ils sont retirés automatiquement."
+    "noBrandHint": "Pas de nom de marque (Nike, Supreme…) : ils sont retirés automatiquement.",
+    "displayLabel": "Image affichée pour ce service",
+    "displayPoster": "L'affiche",
+    "displayPosterHint": "Idéal si votre photo vous montre vous-même (coiffure, maquillage, cours…).",
+    "displayPhotos": "Les photos",
+    "displayPhotosHint": "Idéal quand on veut voir le bien (voitures, appartements, salle…).",
+    "displayHint": "Utilisé dans votre boutique et sur Jaarle Market. Si l'affiche n'existe pas encore, on montre la photo en attendant."
   },
   "stats": {
     "title": "Statistiques",

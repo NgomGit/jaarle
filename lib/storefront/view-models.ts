@@ -44,13 +44,22 @@ export function toStorefrontShop(
 }
 
 /**
- * Carte produit / service. Un service s'affiche avec son affiche (`posterKey`, voir
- * lib/shops/posters.ts) ; sans affiche (pas encore créée), on garde sa photo dans la vitrine.
+ * Image principale d'une fiche (même règle que product_media en SQL, migration 0024) :
+ * produit → sa 1re photo ; service → l'affiche ou les photos selon le choix du vendeur,
+ * et l'autre en attendant si l'image choisie n'existe pas encore.
  */
+function mainMedia(p: ProductWithImages, posterKey?: string | null): { poster: string | null; photo: string | null } {
+  const photo = p.product_images[0]?.path ?? null;
+  if (p.subject_type !== "service") return { poster: null, photo };
+  const poster = posterUrl(posterKey);
+  if (p.display_media === "photos") return photo ? { poster: null, photo } : { poster, photo: null };
+  return poster ? { poster, photo: null } : { poster: null, photo };
+}
+
+/** Carte produit / service (voir mainMedia pour l'image). */
 export function toProductCard(shopSlug: string, p: ProductWithImages, posterKey?: string | null): StorefrontProductCard {
-  const main = p.product_images[0]?.path;
   const isService = p.subject_type === "service";
-  const poster = isService ? posterUrl(posterKey) : null;
+  const { poster, photo: main } = mainMedia(p, posterKey);
   return {
     id: p.id,
     slug: p.slug,
@@ -71,12 +80,14 @@ export function toProductCard(shopSlug: string, p: ProductWithImages, posterKey?
 export function toProductDetail(shopSlug: string, p: ProductWithImages, posterKey?: string | null): StorefrontProductDetail {
   const card = toProductCard(shopSlug, p, posterKey);
   const photos = p.product_images.map((img) => shopMediaUrl(img.path)).filter((u): u is string => !!u);
-  const poster = card.isService ? posterUrl(posterKey) : null;
+  const { poster } = mainMedia(p, posterKey);
+  const extraPoster = card.isService && !poster ? posterUrl(posterKey) : null;
   return {
     ...card,
     description: p.description,
-    // Service avec affiche : l'affiche seule (la photo envoyée ne sert qu'à créer l'affiche).
-    images: poster ? [poster] : photos,
+    // Service « affiche » : l'affiche seule (la photo, souvent celle du vendeur, ne sert qu'à la créer).
+    // Service « photos » : les photos, puis l'affiche si elle existe.
+    images: poster ? [poster] : extraPoster ? [...photos, extraPoster] : photos,
     options: p.options ?? [],
   };
 }

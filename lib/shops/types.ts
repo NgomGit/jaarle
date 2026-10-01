@@ -4,6 +4,7 @@
 export type ShopStatus = "draft" | "published" | "suspended";
 export type ProductStatus = "draft" | "active" | "sold_out" | "hidden";
 export type SubjectType = "product" | "service";
+export type DisplayMedia = "poster" | "photos";
 
 export interface ShopBrand {
   /** Template de vitrine (voir components/storefront/templates). Défaut : "moderne". */
@@ -61,6 +62,8 @@ export interface Product {
   category: string | null;
   /** Catégorie Jaarle Market (clé de feuille), migration 0020. */
   market_category?: string | null;
+  /** Service : image affichée (migration 0024) — l'affiche ou les photos. */
+  display_media?: DisplayMedia;
   options: ProductOption[];
   status: ProductStatus;
   position: number;

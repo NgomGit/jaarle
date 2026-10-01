@@ -69,6 +69,7 @@ export async function saveProduct(input: ProductInput, productId?: string): Prom
   // Règle de vente : aucun nom de marque dans les annonces (retiré automatiquement).
   const fields = {
     subject_type: data.subjectType,
+    display_media: data.displayMedia,
     name: stripBrandsFromName(data.name),
     price: data.price,
     description: data.description ? stripBrands(data.description) || null : null,

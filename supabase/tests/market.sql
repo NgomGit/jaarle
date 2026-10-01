@@ -1,4 +1,4 @@
--- Vérifications de Jaarle Market (migrations 0020 → 0023). Transaction annulée : rien n'est conservé.
+-- Vérifications de Jaarle Market (migrations 0020 → 0024). Transaction annulée : rien n'est conservé.
 begin;
 
 create or replace function pg_temp.expect_fail(sql text, label text) returns void language plpgsql as $$
@@ -98,20 +98,21 @@ set local request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000d1';
 select pg_temp.expect(not (public.my_market_status() ->> 'eligible_industry')::boolean, 'D : secteur hors Market');
 reset role;
 
--- ── Services : affichés avec leur affiche débloquée, jamais sans ──────────
+-- ── Services : affiche ou photos, au choix du vendeur (0024) ──────────────
 insert into public.products (id, shop_id, owner_id, slug, name, price, status, subject_type, market_category)
 values ('00000000-0000-0000-0000-0000000005e1', '00000000-0000-0000-0000-00000000a5a5', '00000000-0000-0000-0000-0000000000a1',
         'retouches', 'Retouches', 2000, 'active', 'service', 'retouches');
 insert into public.product_images (product_id, owner_id, path, position)
 values ('00000000-0000-0000-0000-0000000005e1', '00000000-0000-0000-0000-0000000000a1', 'x/retouches.webp', 0);
 set local role anon;
-select pg_temp.expect((select count(*) from public.market_products(p_type => 'service')) = 0, 'Service sans affiche : invisible (même avec une photo)');
+select pg_temp.expect((select count(*) from public.market_products(p_type => 'service')) = 1, 'Service sans affiche mais avec photo : visible avec sa photo');
+select pg_temp.expect((select image_path from public.market_products(p_type => 'service')) = 'x/retouches.webp', 'Sans affiche : la photo en attendant');
 reset role;
 -- Affiche verrouillée (non payée) : toujours invisible
 insert into public.creations (id, user_id, product_name, style, poster_path, unlocked, product_id)
 values ('00000000-0000-0000-0000-00000000c0c1', '00000000-0000-0000-0000-0000000000a1', 'Retouches', 'auto', 'a1/poster-locked.jpg', false, '00000000-0000-0000-0000-0000000005e1');
 set local role anon;
-select pg_temp.expect((select count(*) from public.market_products(p_type => 'service')) = 0, 'Affiche non débloquée : service invisible');
+select pg_temp.expect((select poster_key from public.market_products(p_type => 'service')) is null, 'Affiche non débloquée : jamais montrée');
 reset role;
 -- Affiche débloquée + une nouvelle version : la clé est celle de la dernière version
 insert into public.creations (id, user_id, product_name, style, poster_path, unlocked, product_id)
@@ -122,7 +123,7 @@ values ('00000000-0000-0000-0000-00000000f001', '00000000-0000-0000-0000-0000000
 set local role anon;
 select pg_temp.expect((select count(*) from public.market_products(p_type => 'service')) = 1, 'Service avec affiche débloquée : visible');
 select pg_temp.expect((select poster_key from public.market_products(p_type => 'service')) = '00000000-0000-0000-0000-00000000f002', 'Clé = dernière version de l''affiche');
-select pg_temp.expect((select image_path from public.market_products(p_type => 'service')) is null, 'Service : jamais la photo envoyée');
+select pg_temp.expect((select image_path from public.market_products(p_type => 'service')) is null, 'Choix « affiche » (défaut) : l''affiche, pas la photo');
 select pg_temp.expect((select count(*) from public.market_products(p_type => 'product')) = 5, 'Filtre produits seuls');
 select pg_temp.expect((select count(*) from public.market_products()) = 6, 'Sans filtre : produits + services');
 select pg_temp.expect((select count(*) from public.shop_service_posters('00000000-0000-0000-0000-00000000a5a5')) = 1, 'Vitrine : affiche du service accessible par sa clé');
@@ -131,6 +132,51 @@ reset role;
 set local role authenticated;
 set local request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000a1';
 select pg_temp.expect((public.my_market_status() ->> 'services_without_poster')::int = 0, 'A : aucun service sans affiche');
+reset role;
+-- Choix « photos » (ex. location de voitures) : la photo, même si une affiche existe
+update public.products set display_media = 'photos' where id = '00000000-0000-0000-0000-0000000005e1';
+set local role anon;
+select pg_temp.expect((select image_path from public.market_products(p_type => 'service')) = 'x/retouches.webp', 'Choix « photos » : la photo');
+select pg_temp.expect((select poster_key from public.market_products(p_type => 'service')) is null, 'Choix « photos » : pas l''affiche');
+reset role;
+-- Choix « photos » sans photo : l'affiche en attendant
+delete from public.product_images where product_id = '00000000-0000-0000-0000-0000000005e1';
+set local role anon;
+select pg_temp.expect((select poster_key from public.market_products(p_type => 'service')) = '00000000-0000-0000-0000-00000000f002', 'Choix « photos » sans photo : l''affiche');
+reset role;
+select pg_temp.expect_fail('update public.products set display_media = ''video'' where id = ''00000000-0000-0000-0000-0000000005e1''', 'display_media limité à poster / photos');
+-- Service sans affiche ni photo : invisible
+insert into public.products (id, shop_id, owner_id, slug, name, price, status, subject_type, market_category)
+values ('00000000-0000-0000-0000-0000000005e2', '00000000-0000-0000-0000-00000000a5a5', '00000000-0000-0000-0000-0000000000a1',
+        'ourlets', 'Ourlets', 1000, 'active', 'service', 'retouches');
+set local role anon;
+select pg_temp.expect((select count(*) from public.market_products(p_type => 'service')) = 1, 'Service sans affiche ni photo : invisible');
+reset role;
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000a1';
+select pg_temp.expect((public.my_market_status() ->> 'services_without_poster')::int = 1, 'A : 1 service réglé sur l''affiche sans affiche');
+reset role;
+delete from public.products where id = '00000000-0000-0000-0000-0000000005e2';
+
+-- ── Commandes du panier (shop_orders) ─────────────────────────────────────
+set local role service_role;
+insert into public.shop_orders (code, shop_id, items, item_count, total, source)
+values ('AB23CD45', '00000000-0000-0000-0000-00000000a5a5',
+        '[{"slug":"robe-1","name":"Robe","qty":2,"unit_price":5000,"image_path":"x/1.webp"}]', 2, 10000, 'cart');
+select pg_temp.expect((select count(*) from public.shop_orders) = 1, 'service_role enregistre une commande');
+reset role;
+select pg_temp.expect_fail('insert into public.shop_orders (code, shop_id, items, item_count) values (''bad'', ''00000000-0000-0000-0000-00000000a5a5'', ''[{}]'', 1)', 'code de commande au format imposé');
+select pg_temp.expect_fail('insert into public.shop_orders (code, shop_id, items, item_count) values (''ZZ23CD45'', ''00000000-0000-0000-0000-00000000a5a5'', ''[]'', 1)', 'commande vide refusée');
+set local role anon;
+select pg_temp.expect_fail('select * from public.shop_orders', 'anon ne lit pas les commandes');
+select pg_temp.expect_fail('insert into public.shop_orders (code, shop_id, items, item_count) values (''QQ23CD45'', ''00000000-0000-0000-0000-00000000a5a5'', ''[{}]'', 1)', 'anon ne crée pas de commande');
+reset role;
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000a1';
+select pg_temp.expect((select count(*) from public.shop_orders) = 1, 'A lit les commandes de sa boutique');
+select pg_temp.expect_fail('insert into public.shop_orders (code, shop_id, items, item_count) values (''QQ23CD46'', ''00000000-0000-0000-0000-00000000a5a5'', ''[{}]'', 1)', 'le vendeur ne crée pas de commande lui-même');
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000b1';
+select pg_temp.expect((select count(*) from public.shop_orders) = 0, 'B ne voit pas les commandes de A');
 reset role;
 
 -- ── Expiration de l'abonnement : A sort du Market immédiatement ────────────

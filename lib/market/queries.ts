@@ -75,7 +75,8 @@ function area(district: string | null, city: string | null): string | null {
 
 function toProduct(r: ProductRow): MarketProduct {
   const isService = r.subject_type === "service";
-  const poster = isService ? posterUrl(r.poster_key) : null;
+  // Service : affiche OU photo selon le choix du vendeur (la base renvoie l'une ou l'autre).
+  const poster = posterUrl(r.poster_key);
   return {
     id: r.id,
     slug: r.slug,
@@ -86,8 +87,8 @@ function toProduct(r: ProductRow): MarketProduct {
     isNew: Date.now() - new Date(r.created_at).getTime() < NEW_DAYS * 86_400_000,
     isService,
     url: productPublicUrl(r.shop_slug, r.slug),
-    thumbUrl: isService ? poster : shopMediaThumbUrl(r.image_path),
-    fullUrl: isService ? poster : shopMediaUrl(r.image_path),
+    thumbUrl: poster ?? shopMediaThumbUrl(r.image_path),
+    fullUrl: poster ?? shopMediaUrl(r.image_path),
     shop: {
       id: r.shop_id, slug: r.shop_slug, name: r.shop_name, city: r.shop_city,
       area: area(r.shop_district, r.shop_city), logoUrl: shopMediaUrl(r.shop_logo_path),

@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Camera, Loader2, Megaphone, Plus, Sparkles, Star, Trash2, X } from "lucide-react";
+import { ArrowLeft, Camera, Images, Loader2, Megaphone, Plus, Sparkles, Star, Trash2, X } from "lucide-react";
 import { saveProduct } from "@/app/dashboard/produits/actions";
 import { LimitDialog, type LimitReason } from "@/components/billing/upgrade-card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import { ErrorNote, Field } from "@/components/shop/shop-fields";
 import { uploadShopMedia } from "@/lib/client-image";
 import { shopMediaUrl } from "@/lib/shops/media";
 import type { ProductWithImages } from "@/lib/shops/products";
-import type { ProductStatus, SubjectType } from "@/lib/shops/types";
+import type { DisplayMedia, ProductStatus, SubjectType } from "@/lib/shops/types";
 import type { ProductSuggestion } from "@/lib/ai/product-autofill";
 import { useLocale } from "@/lib/locale-context";
 import { marketLeafOptions } from "@/lib/market/categories";
@@ -60,6 +60,7 @@ export function ProductForm({ product, importedNote = false }: { product?: Produ
     }))
   );
   const [subjectType, setSubjectType] = React.useState<SubjectType>(product?.subject_type ?? "product");
+  const [displayMedia, setDisplayMedia] = React.useState<DisplayMedia>(product?.display_media ?? "poster");
   const [name, setName] = React.useState(product?.name ?? "");
   const [price, setPrice] = React.useState(product?.price != null ? String(product.price) : "");
   const [priceOnRequest, setPriceOnRequest] = React.useState(isEdit && product?.price == null);
@@ -190,6 +191,7 @@ export function ProductForm({ product, importedNote = false }: { product?: Produ
     const res = await saveProduct(
       {
         subjectType,
+        displayMedia,
         name,
         price: priceOnRequest ? null : Number(price.replace(/\D/g, "")),
         description,
@@ -392,6 +394,44 @@ export function ProductForm({ product, importedNote = false }: { product?: Produ
               </button>
             ))}
           </div>
+
+          {subjectType === "service" && (
+            <fieldset className="flex flex-col gap-2">
+              <legend className="mb-2 text-sm font-medium">{t("products.displayLabel")}</legend>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {(["poster", "photos"] as const).map((mode) => (
+                  <label
+                    key={mode}
+                    className={cn(
+                      "flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors",
+                      displayMedia === mode ? "border-primary bg-accent" : "border-border hover:bg-muted/50"
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      name="display-media"
+                      value={mode}
+                      checked={displayMedia === mode}
+                      onChange={() => setDisplayMedia(mode)}
+                      className="sr-only"
+                    />
+                    {mode === "poster" ? (
+                      <Megaphone className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                    ) : (
+                      <Images className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                    )}
+                    <span className="flex flex-col gap-0.5">
+                      <span className="text-sm font-semibold">{mode === "poster" ? t("products.displayPoster") : t("products.displayPhotos")}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {mode === "poster" ? t("products.displayPosterHint") : t("products.displayPhotosHint")}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">{t("products.displayHint")}</p>
+            </fieldset>
+          )}
 
           <Field label={<>{t("products.nameLabel")}<AiHint field="name" /></>} htmlFor="product-name" hint={t("products.noBrandHint")}>
             <Input

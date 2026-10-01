@@ -168,7 +168,7 @@ export function CartWidget({ shopSlug, shopName, aboveMobileBar = true }: { shop
                   <span className="text-sm text-gray-600">Total{total == null ? " (hors prix à confirmer)" : ""}</span>
                   <span className="text-xl font-bold">{fcfa(total ?? items.reduce((n, i) => n + (i.price ?? 0) * i.qty, 0))}</span>
                 </div>
-                <p className="mt-1 text-xs text-gray-500">Livraison et paiement à convenir avec la boutique.</p>
+                <p className="mt-1 text-xs text-gray-500">Un récapitulatif avec les photos est joint au message. Livraison et paiement à convenir avec la boutique.</p>
                 <a
                   href={cartWhatsappHref(shopSlug, items)}
                   rel="nofollow"

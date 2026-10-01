@@ -15,6 +15,7 @@ const nextConfig = {
       "/opengraph-image": ["./public/fonts/**/*", "./public/images/logo-icon-96.png", "./public/images/premium-examples/*-600.webp"],
       "/market/**/opengraph-image": ["./public/fonts/**/*", "./public/images/logo-icon-96.png"],
       "/market/opengraph-image": ["./public/fonts/**/*", "./public/images/logo-icon-96.png"],
+      "/recu/[code]/opengraph-image": ["./public/fonts/**/*", "./public/images/logo-icon-96.png"],
     },
   },
 };

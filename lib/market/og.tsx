@@ -12,7 +12,7 @@ export const OG_SIZE = { width: 1200, height: 630 };
 // Inter embarquée (public/fonts, tracée dans le bundle via next.config) : sans elle, le rendu
 // n'a qu'une graisse et les titres paraissent maigres.
 let fonts: Promise<{ name: string; data: Buffer; weight: 500 | 700 | 800; style: "normal" }[]> | null = null;
-function loadFonts() {
+export function loadFonts() {
   fonts ??= Promise.all(
     ([500, 700, 800] as const).map(async (weight) => ({
       name: "Inter",
@@ -27,7 +27,7 @@ function loadFonts() {
   return fonts;
 }
 
-async function jaarleMark(): Promise<string | null> {
+export async function jaarleMark(): Promise<string | null> {
   try {
     return `data:image/png;base64,${(await readFile(join(process.cwd(), "public/images/logo-icon-96.png"))).toString("base64")}`;
   } catch {
