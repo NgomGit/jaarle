@@ -254,7 +254,9 @@ export function CreationDetail({
             focusIndex={focus}
             onIndexChange={setCurrentIndex}
             download={
-              locked
+              // Jaarle 2.0 : l'affiche non débloquée est servie signée du logo Jaarle (route preview),
+              // donc téléchargeable telle quelle. Ancien mode (paiement à l'unité) : pas avant paiement.
+              locked && !unlockOptions
                 ? undefined
                 : {
                     hrefFor: (i) => images[i] ?? "#",
@@ -275,7 +277,17 @@ export function CreationDetail({
           {/* 3. Action principale */}
           {locked && unlockOptions ? (
             // Jaarle 2.0 (abonnement / crédits) : plus de prix à l'unité affiché. L'affiche est déjà
-            // utilisable avec le logo Jaarle ; on explique comment le retirer.
+            // utilisable avec le logo Jaarle : on la propose au téléchargement, puis on explique comment
+            // retirer le logo.
+            <>
+            <Button variant="secondary" size="lg" className="w-full gap-1.5 border-primary/30 text-primary" asChild>
+              <a href={currentUrl || "#"} download={`affiche-${safeIndex + 1}.jpg`}>
+                <Download className="h-4 w-4" />
+                {images.length > 1
+                  ? t("creation.downloadVariation").replace("{n}", String(safeIndex + 1))
+                  : t("creation.download")}
+              </a>
+            </Button>
             <div className="rounded-2xl border border-primary/25 bg-card p-5 shadow-sm">
               <p className="text-base font-bold">{t("billing.removeLogoTitle")}</p>
               <p className="mt-0.5 text-sm text-muted-foreground">{t("billing.removeLogoDesc")}</p>
@@ -322,6 +334,7 @@ export function CreationDetail({
               </div>
               <p className="mt-2.5 text-center text-[11px] text-muted-foreground">{t("billing.removeLogoHint")}</p>
             </div>
+            </>
           ) : locked ? (
             <div className="rounded-2xl border border-primary/25 bg-card p-5 shadow-sm">
               <p className="text-base font-bold">{t("creation.unlockTitle")}</p>

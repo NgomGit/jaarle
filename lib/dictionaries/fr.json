@@ -195,7 +195,7 @@
     "imageFallbackLabel": "Photo originale",
     "imageFallbackNote": "La stylisation IA de l'image n'a pas pu être générée pour cette création. Voici ta photo originale — le texte ci-dessous est bien généré par l'IA.",
     "aiLabel": "Généré par l'IA",
-    "download": "Télécharger la photo",
+    "download": "Télécharger l'affiche",
     "variation": "Variante {n}",
     "downloadVariation": "Télécharger la variante {n}",
     "delete": "Supprimer",
