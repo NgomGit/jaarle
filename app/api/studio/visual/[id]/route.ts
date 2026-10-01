@@ -17,6 +17,7 @@ import { getEntitlements } from "@/lib/billing/entitlements";
 //   v  : index de variante (défaut : variante sélectionnée)
 //   (l'aperçu est exactement le visuel téléchargé, en plus léger ; signé du logo Jaarle en Gratuit)
 //   dl : 1 = téléchargement (fichier propre + compteur de téléchargements)
+//   share : 1 = même fichier, pour le partage vers un réseau (compteur de partages, 0027)
 // Visuel recalculé à la volée (aucun stockage).
 //  - Pack « affiche » : l'affiche choisie, adaptée au format. Tant que l'affiche n'est pas
 //    débloquée (payée), l'aperçu est TOUJOURS filigrané et réduit, et le téléchargement refusé (402).
@@ -53,7 +54,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const requested = Number(url.searchParams.get("v"));
   const index = Number.isInteger(requested) && requested >= 0 && requested < post.variants.length ? requested : post.selected_variant;
   const variant: PostVariant | undefined = post.variants[index] ?? post.variants[0];
-  const download = url.searchParams.get("dl") === "1";
+  // share=1 : même fichier que le téléchargement, demandé par le bouton « Publier sur … » (compté à part).
+  const share = url.searchParams.get("share") === "1";
+  const download = url.searchParams.get("dl") === "1" || share;
   const platformSlug = slugify(PLATFORM_BY_KEY[post.platform].shortLabel);
   // Offre gratuite : signature Jaarle sur les visuels créés depuis un produit (retirée avec Pro).
   const branding = (await getEntitlements()).brandingBadge;
@@ -97,7 +100,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       }
 
       if (download) {
-        await supabase.rpc("marketing_post_track", { p_post_id: post.id, p_action: "download" }).then(undefined, () => undefined);
+        await supabase.rpc("marketing_post_track", { p_post_id: post.id, p_action: share ? "share" : "download" }).then(undefined, () => undefined);
       }
       return new NextResponse(new Uint8Array(out), {
         headers: {
@@ -153,7 +156,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   });
 
   if (download) {
-    await supabase.rpc("marketing_post_track", { p_post_id: post.id, p_action: "download" }).then(undefined, () => undefined);
+    await supabase.rpc("marketing_post_track", { p_post_id: post.id, p_action: share ? "share" : "download" }).then(undefined, () => undefined);
   }
 
   const filename = `${product.slug}-${platformSlug}.png`;

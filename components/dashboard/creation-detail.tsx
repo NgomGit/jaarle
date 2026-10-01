@@ -199,6 +199,12 @@ export function CreationDetail({
 
   async function share() {
     if (!currentUrl) return;
+    // Instagram, TikTok et Facebook ignorent le texte d'un partage : la légende est copiée avant,
+    // dans le geste de l'utilisateur, pour être collée dans l'application choisie.
+    if (fullCaption) navigator.clipboard?.writeText(fullCaption).then(() => {
+      setCopied("text");
+      setTimeout(() => setCopied(null), 2500);
+    }, () => undefined);
     setSharing(true);
     try {
       const res = await fetch(currentUrl);

@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { ErrorNote } from "@/components/shop/shop-fields";
 import { PlatformMock, type MockShop } from "@/components/studio/mockups";
+import { ShareToNetwork, shareFileBaseName } from "@/components/studio/share-to-network";
 import { OBJECTIVES, type StudioObjective } from "@/lib/studio/objectives";
 import { PLATFORM_BY_KEY, PLATFORMS, type StudioPlatform } from "@/lib/studio/platforms";
 import type { MarketingPack, MarketingPost, PostVariant } from "@/lib/studio/types";
@@ -345,6 +346,7 @@ function PostPanel({
   const textsLocked = locked && STUDIO_TEXTS_REQUIRE_UNLOCK;
   const previewUrl = `/api/studio/visual/${post.id}?v=${index}&t=${stamp}`;
   const downloadUrl = `/api/studio/visual/${post.id}?v=${index}&dl=1`;
+  const shareUrl = `/api/studio/visual/${post.id}?v=${index}&share=1&t=${stamp}`;
 
   function choose(i: number) {
     setIndex(i);
@@ -459,7 +461,15 @@ function PostPanel({
         </div>
 
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <Button variant="accent" size="lg" className="col-span-2 sm:col-span-3" asChild>
+          {/* Publier : partage du téléphone vers l'application (légende copiée automatiquement). */}
+          <ShareToNetwork
+            className="col-span-2 sm:col-span-3"
+            platform={post.platform}
+            fileUrl={shareUrl}
+            fileBaseName={shareFileBaseName(shop.name, post.platform)}
+            caption={textsLocked ? "" : variantText(variant, "all")}
+          />
+          <Button variant="secondary" className="col-span-2 sm:col-span-3" asChild>
             <a href={downloadUrl} download>
               <Download className="h-4 w-4" />
               {t("studio.download")}

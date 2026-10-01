@@ -32,6 +32,9 @@ insert into public.marketing_posts (id, pack_id, owner_id, platform, format, var
 values ('40000000-0000-0000-0000-0000000000a1', '30000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000a1', 'instagram_feed', 'square', '[{"caption":"x"}]');
 select public.marketing_post_track('40000000-0000-0000-0000-0000000000a1', 'copy');
 select pg_temp.expect_count($q$select 1 from public.marketing_posts where copy_count = 1$q$, 1, 'Compteur de copie incrémenté');
+-- 0027 : partages comptés à part des téléchargements.
+select public.marketing_post_track('40000000-0000-0000-0000-0000000000a1', 'share');
+select pg_temp.expect_count($q$select 1 from public.marketing_posts where share_count = 1 and last_shared_at is not null and download_count = 0$q$, 1, 'Compteur de partage incrémenté (0027)');
 select pg_temp.expect_fail($q$insert into public.marketing_packs (shop_id, owner_id, objective)
   values ('10000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000a1', 'promo')$q$, 'Objectif promo sans offre décrite');
 select pg_temp.expect_fail($q$insert into public.marketing_posts (pack_id, owner_id, platform, format)
