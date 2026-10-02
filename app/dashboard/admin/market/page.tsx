@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ExternalLink, Megaphone, Settings2, Tags } from "lucide-react";
+import { ExternalLink, Megaphone, Settings2, Sparkles, Tags } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ActionFlash } from "@/components/admin/admin-nav";
@@ -11,7 +11,8 @@ import { BOOST_PLACEMENTS, BOOST_STATE_LABELS, boostState, frDate, inclusiveDayF
 import { getMarketCategory } from "@/lib/market/categories";
 import { getMarketCity, MARKET_CITIES } from "@/lib/market/cities";
 import { shopMediaThumbUrl } from "@/lib/shops/media";
-import { createBoostAction, saveMarketSettingsAction, setProductCategoryAction, toggleBoostAction } from "../actions";
+import { posterUrl } from "@/lib/shops/posters";
+import { createBoostAction, saveMarketSettingsAction, setProductCategoryAction, toggleBoostAction, toggleMarketPickAction } from "../actions";
 
 // Admin du Market : règles d'entrée (période d'ouverture), mises en avant des boutiques Pro,
 // annonces à classer. Migration 0026.
@@ -25,13 +26,18 @@ type Boost = {
   shops: { name: string; slug: string } | { name: string; slug: string }[] | null;
   products: { name: string; slug: string } | { name: string; slug: string }[] | null;
 };
+type PickCandidate = {
+  product_id: string; name: string; slug: string; status: string; subject_type: string; price: number | null;
+  image_path: string | null; poster_key: string | null; visible: boolean; picked: boolean;
+  shop_id: string; shop_name: string; shop_slug: string; shop_city: string | null; shop_visible_items: number; min_items: number;
+};
 const one = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v);
 
 export default async function AdminMarketPage({ searchParams }: { searchParams: { ok?: string; erreur?: string } }) {
   await requireAdmin();
   const admin = createAdminClient();
 
-  const [settingsRes, listedRes, boostsRes] = await Promise.all([
+  const [settingsRes, listedRes, boostsRes, picksRes] = await Promise.all([
     admin.from("market_settings").select("launch_until, launch_min_items, pro_min_items, updated_at").maybeSingle(),
     admin.rpc("market_shop_ids"),
     admin
@@ -39,6 +45,7 @@ export default async function AdminMarketPage({ searchParams }: { searchParams: 
       .select("id, shop_id, product_id, placement, title, subtitle, category_slug, city, starts_at, ends_at, priority, active, shops(name, slug), products(name, slug)")
       .order("created_at", { ascending: false })
       .limit(100),
+    admin.rpc("admin_market_pick_candidates"),
   ]);
 
   if (settingsRes.error && !settingsRes.data) {
@@ -84,6 +91,16 @@ export default async function AdminMarketPage({ searchParams }: { searchParams: 
   const uncategorized = (uncategorizedRes.data ?? []) as { id: string; name: string; slug: string; shop_id: string; category: string | null; product_images: { path: string; position: number }[] | null }[];
   const boosts = (boostsRes.data ?? []) as Boost[];
   const cityOptions = MARKET_CITIES.map((c) => ({ value: c.slug, label: c.name }));
+  // Annonces des boutiques sous le seuil, groupées par boutique (celles qui ont déjà des choix d'abord).
+  const pickGroups = new Map<string, { shop: PickCandidate; items: PickCandidate[]; picked: number }>();
+  for (const c of (picksRes.data ?? []) as PickCandidate[]) {
+    const g = pickGroups.get(c.shop_id) ?? { shop: c, items: [], picked: 0 };
+    g.items.push(c);
+    if (c.picked && c.visible) g.picked += 1;
+    pickGroups.set(c.shop_id, g);
+  }
+  const pickShops = [...pickGroups.values()].sort((a, b) => (b.picked > 0 ? 1 : 0) - (a.picked > 0 ? 1 : 0) || a.shop.shop_name.localeCompare(b.shop.shop_name, "fr"));
+  const pickedTotal = pickShops.reduce((n, g) => n + g.picked, 0);
   const inAWeek = new Date(Date.now() + 6 * 86_400_000).toISOString().slice(0, 10);
 
   return (
@@ -195,6 +212,76 @@ export default async function AdminMarketPage({ searchParams }: { searchParams: 
               );
             })}
           </ul>
+        )}
+      </section>
+
+      {/* Annonces choisies (boutiques sous le seuil) */}
+      <section id="choisies" className="rounded-2xl border border-border bg-card p-5">
+        <SectionTitle icon={<Sparkles className="h-4 w-4" />} title={`Annonces choisies — boutiques sous le seuil (${pickedTotal} sur le Market)`} />
+        <p className="mb-4 text-sm text-muted-foreground">
+          Ces boutiques ont moins de <strong className="text-foreground">{settings.launch_min_items} annonces visibles</strong> : elles ne sont pas sur le Market.
+          Choisis les annonces qui y entrent quand même. La boutique, elle, n&apos;apparaît pas dans la liste des boutiques. Dès qu&apos;elle atteint le seuil,
+          toutes ses annonces entrent et ces choix ne comptent plus.
+        </p>
+        {picksRes.error ? (
+          <p className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm">
+            Exécute la migration <code className="font-mono">0032_market_admin_picks.sql</code> dans Supabase pour activer cette section.
+            <span className="text-muted-foreground"> ({picksRes.error.message})</span>
+          </p>
+        ) : pickShops.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Aucune boutique publiée sous le seuil avec une annonce visible.</p>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {pickShops.map(({ shop, items, picked }) => (
+              <div key={shop.shop_id} className="rounded-xl border border-border">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">{shop.shop_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {shop.shop_city ? `${shop.shop_city} · ` : ""}
+                      {shop.shop_visible_items}/{shop.min_items} annonces visibles · {picked} choisie{picked > 1 ? "s" : ""}
+                    </p>
+                  </div>
+                  <Link href={`/boutique/${shop.shop_slug}`} target="_blank" className="text-muted-foreground hover:text-foreground" aria-label={`Ouvrir ${shop.shop_name}`}>
+                    <ExternalLink className="h-4 w-4" />
+                  </Link>
+                </div>
+                <ul className="divide-y divide-border">
+                  {items.map((p) => {
+                    const thumb = posterUrl(p.poster_key) ?? shopMediaThumbUrl(p.image_path);
+                    return (
+                      <li key={p.product_id} className="flex items-center gap-3 px-3 py-2.5">
+                        {thumb ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={thumb} alt="" width={44} height={44} loading="lazy" className="h-11 w-11 shrink-0 rounded-lg bg-muted object-cover" />
+                        ) : (
+                          <span className="h-11 w-11 shrink-0 rounded-lg bg-muted" />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="truncate text-sm font-medium">{p.name}</span>
+                            {p.picked && p.visible && <Badge variant="success">Sur le Market</Badge>}
+                            {p.status === "sold_out" && <Badge variant="warning">Épuisé</Badge>}
+                          </div>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {p.subject_type === "service" ? "Service" : "Produit"}
+                            {p.visible ? "" : " · sans photo ni affiche : ne peut pas entrer"}
+                          </p>
+                        </div>
+                        {p.visible || p.picked ? (
+                          <form action={toggleMarketPickAction}>
+                            <input type="hidden" name="productId" value={p.product_id} />
+                            <input type="hidden" name="pick" value={p.picked ? "false" : "true"} />
+                            <Button size="sm" variant={p.picked ? "ghost" : "secondary"}>{p.picked ? "Retirer" : "Mettre sur le Market"}</Button>
+                          </form>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
         )}
       </section>
 

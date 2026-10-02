@@ -217,3 +217,23 @@ export async function setProductCategoryAction(fd: FormData) {
   revalidatePublic();
   back(MARKET, { ok: "Annonce classée." });
 }
+
+// ── Annonces choisies (boutiques sous le seuil, migration 0032) ──────────────
+
+export async function toggleMarketPickAction(fd: FormData) {
+  const { userId } = await requireAdmin();
+  const productId = str(fd, "productId", 64);
+  const pick = str(fd, "pick", 5) === "true";
+  if (!productId) back(MARKET, { erreur: "Annonce introuvable." });
+  const admin = createAdminClient();
+  const { data: product } = await admin.from("products").select("id, shops(slug)").eq("id", productId).maybeSingle();
+  if (!product) back(MARKET, { erreur: "Annonce introuvable." });
+  const { error } = pick
+    ? await admin.from("market_product_picks").upsert({ product_id: productId, picked_by: userId }, { onConflict: "product_id" })
+    : await admin.from("market_product_picks").delete().eq("product_id", productId);
+  if (error) back(MARKET, { erreur: error.message });
+  await logAdminAction(userId, pick ? "product.market_pick" : "product.market_unpick", "product", productId, {});
+  const shop = (product as { shops: { slug: string } | { slug: string }[] | null }).shops;
+  revalidatePublic(Array.isArray(shop) ? shop[0]?.slug : shop?.slug);
+  back(MARKET, { ok: pick ? "Annonce ajoutée au Market." : "Annonce retirée du Market." });
+}
