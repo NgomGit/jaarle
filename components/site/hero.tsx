@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { BadgeCheck, Megaphone, Share2 } from "lucide-react";
+import { BadgeCheck, Gift, Share2, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { WhatsAppIcon } from "@/components/storefront/whatsapp-icon";
 import { useLocale } from "@/lib/locale-context";
+import { launchDate, type LaunchOffer } from "@/components/site/market-showcase";
 
 // Jaarle 2.0 : la promesse complète — boutique en ligne + affiches + publications réseaux,
 // et des clients qui arrivent sur WhatsApp. La maquette montre une vraie vitrine Jaarle.
@@ -15,8 +16,8 @@ const PRODUCTS = [
   { img: "/images/premium-examples/example-3-600.webp", name: "home.mockP3", price: "home.mockPrice3" },
 ];
 
-export function Hero() {
-  const { t } = useLocale();
+export function Hero({ offer }: { offer?: LaunchOffer | null }) {
+  const { t, locale } = useLocale();
   return (
     <section className="overflow-hidden pb-12 pt-12 sm:pt-20">
       <div className="container grid grid-cols-1 items-center gap-12 md:grid-cols-[1.05fr_0.95fr]">
@@ -35,9 +36,19 @@ export function Hero() {
               <Link href="/register">{t("home.ctaPrimary")}</Link>
             </Button>
             <Button variant="secondary" size="lg" asChild>
-              <Link href="/tarifs">{t("home.ctaSecondary")}</Link>
+              <Link href="/market">{t("home.ctaSecondary")}</Link>
             </Button>
           </div>
+          {/* Offre de lancement du Market : lue en base, disparaît d'elle-même à la date de fin. */}
+          {offer?.active && (
+            <p className="mb-4 flex max-w-lg items-start gap-2.5 rounded-2xl border border-primary/25 bg-accent/60 px-4 py-3 text-sm text-accent-foreground">
+              <Gift className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+              <span>
+                <span className="font-semibold">{t("home.launchTitle").replace("{date}", launchDate(offer.lastDay, locale))}</span>{" "}
+                {t("home.launchDesc").replace("{n}", String(offer.minItems))}
+              </span>
+            </p>
+          )}
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <BadgeCheck className="h-4 w-4 shrink-0 text-success" />
             {t("home.reassure")}
@@ -54,7 +65,7 @@ export function Hero() {
               {t("home.badgeOrder")}
             </div>
               <div className="absolute bottom-[120px] right-[calc(100%-40px)] z-10 hidden items-center gap-2 whitespace-nowrap rounded-2xl border border-border bg-card px-4 py-3 text-sm font-semibold shadow-glow-md lg:flex">
-              <Megaphone className="h-4 w-4 text-primary" />
+              <Store className="h-4 w-4 text-primary" />
               {t("home.badgePosts")}
             </div>
           <div className="relative h-[540px] w-[280px] overflow-hidden rounded-[36px] border border-border bg-[#F6F6F8] shadow-glow-lg">

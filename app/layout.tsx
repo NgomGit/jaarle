@@ -5,13 +5,14 @@ import { siteUrl } from "@/lib/shops/format";
 import { ThemeProvider } from "@/components/theme-provider";
 import { LocaleProvider } from "@/lib/locale-context";
 import { WhatsAppFloatButton } from "@/components/whatsapp-float-button";
+import { MetaPixel } from "@/components/meta-pixel";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
-const title = "Jaarle — Ta boutique en ligne, tes affiches et tes publications";
+const title = "Jaarle — Crée ta boutique gratuitement et gagne en visibilité sur Jaarle Market";
 const description =
-  "Crée ta boutique en ligne gratuitement. Jaarle fait tes affiches, prépare tes publications Instagram, Facebook, TikTok et WhatsApp, et tes clients commandent sur WhatsApp.";
+  "Crée ta boutique en ligne gratuitement et mets tes produits sur Jaarle Market. Jaarle fait tes affiches, prépare tes publications WhatsApp, Instagram, Facebook et TikTok, et tes clients te contactent sur WhatsApp.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
@@ -23,6 +24,8 @@ export const metadata: Metadata = {
     "boutique en ligne Sénégal",
     "créer une boutique en ligne gratuite",
     "vendre sur WhatsApp",
+    "Jaarle Market",
+    "marketplace Sénégal",
     "affiche produit IA",
     "publication Instagram",
     "statut WhatsApp",
@@ -63,6 +66,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <WhatsAppFloatButton />
           </LocaleProvider>
         </ThemeProvider>
+        <MetaPixel />
       </body>
     </html>
   );

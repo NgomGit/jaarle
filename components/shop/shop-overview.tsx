@@ -14,6 +14,7 @@ import {
   Package,
   PartyPopper,
   Pencil,
+  Plus,
   BarChart3,
   Rocket,
   Sparkles,
@@ -165,18 +166,25 @@ export function ShopOverview({
         ) : (
           shop.status === "draft" && (
             <div className="mt-3">
-              <Button
-                variant="accent"
-                size="lg"
-                className="w-full"
-                disabled={publishing || productCounts.visible === 0}
-                onClick={() => togglePublished(true)}
-              >
-                {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
-                {publishing ? t("shop.ov_publishing") : t("shop.ov_publish")}
-              </Button>
-              {productCounts.visible === 0 && (
-                <p className="mt-2 text-xs text-muted-foreground">{t("shop.ov_publishNeedProduct")}</p>
+              {productCounts.visible === 0 ? (
+                // Pas encore publiable : on mène directement à l'étape qui manque (jamais un bouton grisé sans issue).
+                <>
+                  <Button variant="accent" size="lg" className="w-full" asChild>
+                    <Link href={productCounts.total === 0 ? "/dashboard/produits/nouveau" : "/dashboard/produits"}>
+                      {productCounts.total === 0 ? <Plus className="h-4 w-4" /> : <Package className="h-4 w-4" />}
+                      {t(productCounts.total === 0 ? "shop.ov_addFirstProduct" : "shop.ov_makeProductAvailable")}
+                    </Link>
+                  </Button>
+                  <p className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
+                    <Rocket className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
+                    {t(productCounts.total === 0 ? "shop.ov_publishAfterProduct" : "shop.ov_publishAfterAvailable")}
+                  </p>
+                </>
+              ) : (
+                <Button variant="accent" size="lg" className="w-full" disabled={publishing} onClick={() => togglePublished(true)}>
+                  {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
+                  {publishing ? t("shop.ov_publishing") : t("shop.ov_publish")}
+                </Button>
               )}
             </div>
           )
