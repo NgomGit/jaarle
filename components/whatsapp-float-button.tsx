@@ -19,7 +19,7 @@ export function WhatsAppFloatButton() {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Contacter Jaarle sur WhatsApp"
-      className={`fixed ${dashboard ? "bottom-24 md:bottom-5" : "bottom-5"} right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] shadow-lg shadow-black/20 transition-transform hover:scale-105`}
+      className={`jaarle-wa-float fixed ${dashboard ? "bottom-24 md:bottom-5" : "bottom-5"} right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] shadow-lg shadow-black/20 transition-transform hover:scale-105`}
     >
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
         <path

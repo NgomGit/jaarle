@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { SettingsForm } from "./settings-form";
 import { getEntitlements } from "@/lib/billing/entitlements";
+import { NotificationSettings } from "@/components/pwa/notification-settings";
+import { getNotificationSettings } from "./push-actions";
 
 export default async function SettingsPage({
   searchParams,
@@ -22,7 +24,7 @@ export default async function SettingsPage({
   const phone = (user.phone || "").replace(/^\+?221/, "");
   const whatsapp = ((user.user_metadata?.whatsapp_number as string | undefined) || "").replace(/^\+?221/, "");
 
-  const entitlements = await getEntitlements();
+  const [entitlements, notifications] = await Promise.all([getEntitlements(), getNotificationSettings()]);
 
   return (
     <>
@@ -45,6 +47,9 @@ export default async function SettingsPage({
       error={searchParams.error}
       message={searchParams.message}
       />
+      <div className="max-w-[480px]">
+        <NotificationSettings configured={notifications.configured} disabled={notifications.disabled} />
+      </div>
     </>
   );
 }

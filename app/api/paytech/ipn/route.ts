@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyPaytechIpn, withoutPaytechFee } from "@/lib/paytech";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { notifyPaymentConfirmed } from "@/lib/push/send";
 
 // PayTech envoie ce webhook en server-to-server, sans session utilisateur —
 // la vérification HMAC ci-dessous EST la sécurité (pas la RLS, contournée volontairement
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
   // Jaarle 2.0 — abonnements et crédits (orders.kind ≠ creation_unlock) : activation atomique et
   // idempotente par la fonction SQL fulfill_order. Le déblocage d'affiche garde son code d'origine
   // ci-dessous. (Sans la migration 0019, la colonne `kind` n'existe pas : on reste sur l'existant.)
-  const { data: billingOrder } = await admin.from("orders").select("kind, amount").eq("ref_command", ref_command).maybeSingle();
+  const { data: billingOrder } = await admin.from("orders").select("kind, amount, user_id, status").eq("ref_command", ref_command).maybeSingle();
   if (billingOrder?.kind && billingOrder.kind !== "creation_unlock") {
     // Le montant payé doit correspondre au montant calculé côté serveur lors du checkout.
     if (Number(item_price) < withoutPaytechFee(Number(billingOrder.amount))) {
@@ -54,6 +55,10 @@ export async function POST(request: Request) {
       console.error("[paytech/ipn] fulfill_order failed:", fulfillError.message);
       return NextResponse.json({ error: fulfillError.message }, { status: 500 });
     }
+    // Notification seulement au premier IPN (PayTech peut renvoyer le même).
+    if (billingOrder.status === "pending" && billingOrder.user_id) {
+      await notifyPaymentConfirmed({ userId: billingOrder.user_id, ref: ref_command, kind: billingOrder.kind });
+    }
     return NextResponse.json({ ok: true });
   }
 
@@ -62,7 +67,7 @@ export async function POST(request: Request) {
     .update({ status: "paid", paid_at: new Date().toISOString(), payment_method: payment_method || null })
     .eq("ref_command", ref_command)
     .eq("status", "pending")
-    .select("creation_id")
+    .select("creation_id, user_id")
     .single();
 
   if (error) {
@@ -72,6 +77,7 @@ export async function POST(request: Request) {
   if (order?.creation_id) {
     await admin.from("creations").update({ unlocked: true }).eq("id", order.creation_id);
   }
+  if (order?.user_id) await notifyPaymentConfirmed({ userId: order.user_id, ref: ref_command, kind: "creation_unlock" });
 
   return NextResponse.json({ ok: true });
 }

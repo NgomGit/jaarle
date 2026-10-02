@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { LocaleProvider } from "@/lib/locale-context";
 import { WhatsAppFloatButton } from "@/components/whatsapp-float-button";
 import { MetaPixel } from "@/components/meta-pixel";
+import { PwaProvider } from "@/components/pwa/pwa-provider";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
@@ -19,6 +20,8 @@ export const metadata: Metadata = {
   title: { default: title, template: "%s | Jaarle" },
   description,
   applicationName: "Jaarle",
+  // PWA sur iPhone : plein écran une fois ajoutée à l'écran d'accueil.
+  appleWebApp: { capable: true, title: "Jaarle", statusBarStyle: "default" },
   keywords: [
     "Jaarle",
     "boutique en ligne Sénégal",
@@ -64,6 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <LocaleProvider>
             {children}
             <WhatsAppFloatButton />
+            <PwaProvider />
           </LocaleProvider>
         </ThemeProvider>
         <MetaPixel />

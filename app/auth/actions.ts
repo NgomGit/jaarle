@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { forgetDevicePushSubscription } from "@/lib/push/device";
 
 /** +221 suivi de 9 chiffres (mobiles 7x, fixes 3x). */
 const SENEGAL_PHONE = /^\+221[37]\d{8}$/;
@@ -109,6 +110,11 @@ export async function updateProfile(formData: FormData) {
 
 export async function logout() {
   const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  // Cet appareil ne doit plus recevoir les notifications de ce compte.
+  if (user) await forgetDevicePushSubscription(user.id);
   await supabase.auth.signOut();
   revalidatePath("/", "layout");
   redirect("/login");

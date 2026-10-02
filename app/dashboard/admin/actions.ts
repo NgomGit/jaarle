@@ -7,6 +7,7 @@ import { logAdminAction, requireAdmin } from "@/lib/admin/guard";
 import { dayEndExclusiveIso, dayStartIso, isValidDay } from "@/lib/admin/market";
 import { getMarketCategory, isMarketLeaf } from "@/lib/market/categories";
 import { getMarketCity } from "@/lib/market/cities";
+import { notifyMarketPick } from "@/lib/push/send";
 
 // Actions des pages admin (formulaires serveur). Toutes revérifient le statut admin et écrivent
 // avec la clé service_role ; chaque action sensible est tracée dans admin_actions (0026).
@@ -233,6 +234,7 @@ export async function toggleMarketPickAction(fd: FormData) {
     : await admin.from("market_product_picks").delete().eq("product_id", productId);
   if (error) back(MARKET, { erreur: error.message });
   await logAdminAction(userId, pick ? "product.market_pick" : "product.market_unpick", "product", productId, {});
+  if (pick) await notifyMarketPick({ productId: productId! });
   const shop = (product as { shops: { slug: string } | { slug: string }[] | null }).shops;
   revalidatePublic(Array.isArray(shop) ? shop[0]?.slug : shop?.slug);
   back(MARKET, { ok: pick ? "Annonce ajoutée au Market." : "Annonce retirée du Market." });

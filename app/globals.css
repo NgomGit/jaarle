@@ -57,3 +57,9 @@
   body { @apply bg-background text-foreground antialiased; }
   ::selection { @apply bg-accent text-accent-foreground; }
 }
+
+/* PWA : page « Pas de connexion » (servie à l'adresse demandée, d'où ce sélecteur plutôt
+   qu'un test sur l'URL) — le bouton WhatsApp ne marcherait pas sans réseau. */
+body:has(#jaarle-offline) .jaarle-wa-float {
+  display: none;
+}

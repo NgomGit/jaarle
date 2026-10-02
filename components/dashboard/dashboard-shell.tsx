@@ -10,6 +10,8 @@ import { MobileDrawer } from "@/components/ui/mobile-drawer";
 import { logout } from "@/app/auth/actions";
 import { useLocale } from "@/lib/locale-context";
 import { cn } from "@/lib/utils";
+import { InstallAppCard, InstallAppMenuItem } from "@/components/pwa/install-app";
+import { PushInviteCard } from "@/components/pwa/push-invite";
 
 // Navigation volontairement courte (Jaarle 2.0) : le Studio regroupe les affiches (ex-« Mes
 // créations ») et la création d'affiche ; les statistiques sont rangées dans « Ma boutique ».
@@ -107,6 +109,7 @@ export function DashboardShell({ children, plan }: { children: React.ReactNode; 
             </Link>
           </Button>
         </div>
+        <InstallAppMenuItem />
         <form action={logout} className="mt-3">
           <button
             type="submit"
@@ -154,7 +157,15 @@ export function DashboardShell({ children, plan }: { children: React.ReactNode; 
             </form>
           </div>
         </header>
-        <main className="flex-1 p-6 pb-28 md:pb-6">{children}</main>
+        <main className="flex-1 p-6 pb-28 md:pb-6">
+          {pathname === "/dashboard" && (
+            <>
+              <InstallAppCard />
+              <PushInviteCard />
+            </>
+          )}
+          {children}
+        </main>
       </div>
 
       {/* Mobile : barre d'onglets fixe (pouce), avec la création d'affiche au centre. */}

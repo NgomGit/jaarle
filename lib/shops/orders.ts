@@ -3,6 +3,7 @@ import { cache } from "react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { siteUrl } from "@/lib/shops/format";
 import type { ProductWithImages } from "@/lib/shops/products";
+import { notifyNewOrder } from "@/lib/push/send";
 
 // Commandes du panier (migration 0024, table shop_orders) : chaque envoi de panier sur WhatsApp
 // crée une commande avec un code court. Le message contient le lien /recu/{code} : WhatsApp en
@@ -119,7 +120,11 @@ export async function createOrder(input: {
         source: input.source,
         visitor_hash: input.visitor,
       });
-      if (!error) return code;
+      if (!error) {
+        // Notification au vendeur (nouvelle commande seulement, pas un panier renvoyé) : jamais bloquante.
+        await notifyNewOrder({ shopId: input.shopId, code, itemCount, total, hasUnpriced }).catch(() => undefined);
+        return code;
+      }
       if (error.code !== "23505") {
         console.error("[orders/createOrder] insert failed:", error);
         return null;
