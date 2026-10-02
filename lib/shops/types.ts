@@ -64,6 +64,8 @@ export interface Product {
   market_category?: string | null;
   /** Service : image affichée (migration 0024) — l'affiche ou les photos. */
   display_media?: DisplayMedia;
+  /** Affiche choisie (version ou affiche) pour les services réglés sur « l'affiche » (migration 0031). */
+  poster_key?: string | null;
   options: ProductOption[];
   status: ProductStatus;
   position: number;

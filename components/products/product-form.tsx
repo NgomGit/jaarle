@@ -17,6 +17,7 @@ import type { DisplayMedia, ProductStatus, SubjectType } from "@/lib/shops/types
 import type { ProductSuggestion } from "@/lib/ai/product-autofill";
 import { useLocale } from "@/lib/locale-context";
 import { MarketCategoryPicker } from "@/components/market/market-category-picker";
+import { PosterChooser } from "@/components/products/poster-chooser";
 import { cn } from "@/lib/utils";
 
 const MAX_PHOTOS = 4;
@@ -428,7 +429,11 @@ export function ProductForm({ product, importedNote = false }: { product?: Produ
                   </label>
                 ))}
               </div>
-              <p className="text-xs text-muted-foreground">{t("products.displayHint")}</p>
+              {displayMedia === "poster" && product ? (
+                <PosterChooser productId={product.id} />
+              ) : (
+                <p className="text-xs text-muted-foreground">{t("products.displayHint")}</p>
+              )}
             </fieldset>
           )}
 
