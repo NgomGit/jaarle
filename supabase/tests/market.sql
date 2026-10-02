@@ -112,13 +112,13 @@ set local role anon;
 select pg_temp.expect((select count(*) from public.market_products(p_type => 'service')) = 1, 'Service sans affiche mais avec photo : visible avec sa photo');
 select pg_temp.expect((select image_path from public.market_products(p_type => 'service')) = 'x/retouches.webp', 'Sans affiche : la photo en attendant');
 reset role;
--- Affiche verrouillée (non payée) : toujours invisible
-insert into public.creations (id, user_id, product_name, style, poster_path, unlocked, product_id)
-values ('00000000-0000-0000-0000-00000000c0c1', '00000000-0000-0000-0000-0000000000a1', 'Retouches', 'auto', 'a1/poster-locked.jpg', false, '00000000-0000-0000-0000-0000000005e1');
+-- Affiche non payée : montrée depuis 0031 (servie signée du logo Jaarle par /affiche/{clé})
+insert into public.creations (id, user_id, product_name, style, poster_path, unlocked, product_id, created_at)
+values ('00000000-0000-0000-0000-00000000c0c1', '00000000-0000-0000-0000-0000000000a1', 'Retouches', 'auto', 'a1/poster-locked.jpg', false, '00000000-0000-0000-0000-0000000005e1', now() - interval '1 day');
 set local role anon;
-select pg_temp.expect((select poster_key from public.market_products(p_type => 'service')) is null, 'Affiche non débloquée : jamais montrée');
+select pg_temp.expect((select poster_key from public.market_products(p_type => 'service')) = '00000000-0000-0000-0000-00000000c0c1', 'Affiche non débloquée : montrée (signée Jaarle)');
 reset role;
--- Affiche débloquée + une nouvelle version : la clé est celle de la dernière version
+-- Affiche débloquée + une nouvelle version : elle passe devant la non débloquée, clé = dernière version
 insert into public.creations (id, user_id, product_name, style, poster_path, unlocked, product_id)
 values ('00000000-0000-0000-0000-00000000c0c2', '00000000-0000-0000-0000-0000000000a1', 'Retouches', 'auto', 'a1/poster.jpg', true, '00000000-0000-0000-0000-0000000005e1');
 insert into public.creation_versions (id, creation_id, user_id, poster_path, kind, created_at)

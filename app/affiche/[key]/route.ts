@@ -1,9 +1,11 @@
 import sharp from "sharp";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { applyJaarleSignature } from "@/lib/studio/signature";
 
 // GET /affiche/{clé} — affiche d'un service, servie au public (Jaarle Market, vitrines, aperçus).
-// Les affiches sont dans le bucket privé « creations » : on ne sert que celles qui sont débloquées,
-// liées à une fiche en vente d'une boutique publiée. Réponse JPEG 1000 px, mise en cache longue
+// Les affiches sont dans le bucket privé « creations » : on ne sert que celles liées à une fiche en
+// vente d'une boutique publiée. Une affiche pas encore débloquée (offre gratuite) est servie réduite
+// et signée du logo Jaarle, comme ses aperçus — jamais la version nette (décision du 2026-10-02). Réponse JPEG 1000 px, mise en cache longue
 // (la clé change à chaque nouvelle version d'affiche).
 
 export const runtime = "nodejs";
@@ -34,7 +36,7 @@ export async function GET(_req: Request, { params }: { params: { key: string } }
     .select("id, poster_path, unlocked, product_id")
     .eq("id", creationId)
     .maybeSingle();
-  if (!creation || !creation.unlocked || !creation.product_id) return notFound();
+  if (!creation || !creation.product_id) return notFound();
   path ??= creation.poster_path as string | null;
   if (!path) return notFound();
 
@@ -48,14 +50,23 @@ export async function GET(_req: Request, { params }: { params: { key: string } }
 
   const { data: blob } = await admin.storage.from("creations").download(path);
   if (!blob) return notFound();
-  const jpeg = await sharp(Buffer.from(await blob.arrayBuffer()))
-    .resize({ width: 1000, height: 1000, fit: "inside", withoutEnlargement: true })
-    .jpeg({ quality: 84, mozjpeg: true })
-    .toBuffer();
+  const source = Buffer.from(await blob.arrayBuffer());
+  let jpeg: Buffer;
+  try {
+    jpeg = creation.unlocked
+      ? await sharp(source).resize({ width: 1000, height: 1000, fit: "inside", withoutEnlargement: true }).jpeg({ quality: 84, mozjpeg: true }).toBuffer()
+      : await applyJaarleSignature(source);
+  } catch {
+    // Jamais la version nette d'une affiche non débloquée si la signature échoue.
+    return notFound();
+  }
   return new Response(new Uint8Array(jpeg), {
     headers: {
       "Content-Type": "image/jpeg",
-      "Cache-Control": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=604800",
+      // Non débloquée : cache court, pour que la version nette arrive vite après déblocage (même clé).
+      "Cache-Control": creation.unlocked
+        ? "public, max-age=86400, s-maxage=604800, stale-while-revalidate=604800"
+        : "public, max-age=300, s-maxage=300",
     },
   });
 }

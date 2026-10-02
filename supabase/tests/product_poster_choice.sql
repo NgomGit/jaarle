@@ -25,10 +25,15 @@ select pg_temp.expect(public.product_poster_key('00000000-0000-0000-0000-0000000
 update public.products set poster_key = '00000000-0000-0000-0000-00000000a0a1' where id = '00000000-0000-0000-0000-0000000000f3';
 select pg_temp.expect(public.product_poster_key('00000000-0000-0000-0000-0000000000f3') = '00000000-0000-0000-0000-00000000a0a1', 'choix : la 1re version de A');
 update public.products set poster_key = '00000000-0000-0000-0000-0000000000c1' where id = '00000000-0000-0000-0000-0000000000f3';
-select pg_temp.expect(public.product_poster_key('00000000-0000-0000-0000-0000000000f3') = '00000000-0000-0000-0000-0000000000b1', 'choix non débloqué : repli sur B');
+select pg_temp.expect(public.product_poster_key('00000000-0000-0000-0000-0000000000f3') = '00000000-0000-0000-0000-0000000000c1', 'choix non débloqué : affiché quand même (signé Jaarle)');
 update public.products set poster_key = '00000000-0000-0000-0000-0000000000a1' where id = '00000000-0000-0000-0000-0000000000f3';
 select pg_temp.expect(public.product_poster_key('00000000-0000-0000-0000-0000000000f3') = '00000000-0000-0000-0000-0000000000b1', 'id d''affiche qui a des versions : refusé, repli sur B');
 update public.creations set product_id = null where id = '00000000-0000-0000-0000-0000000000b1';
 update public.products set poster_key = '00000000-0000-0000-0000-0000000000b1' where id = '00000000-0000-0000-0000-0000000000f3';
 select pg_temp.expect(public.product_poster_key('00000000-0000-0000-0000-0000000000f3') = '00000000-0000-0000-0000-00000000a0a2', 'affiche détachée : repli sur la dernière version de A');
+update public.products set poster_key = '00000000-0000-0000-0000-000000000000' where id = '00000000-0000-0000-0000-0000000000f3';
+select pg_temp.expect(public.product_poster_key('00000000-0000-0000-0000-0000000000f3') is null, 'affiche retirée : aucune (photo)');
+update public.creations set unlocked = false where product_id = '00000000-0000-0000-0000-0000000000f3';
+update public.products set poster_key = null where id = '00000000-0000-0000-0000-0000000000f3';
+select pg_temp.expect(public.product_poster_key('00000000-0000-0000-0000-0000000000f3') = '00000000-0000-0000-0000-0000000000c1', 'aucune débloquée : la plus récente quand même');
 rollback;
