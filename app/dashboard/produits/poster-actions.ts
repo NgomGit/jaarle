@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 // On ne propose que les affiches de CE produit (créées depuis la fiche ou liées à elle), avec leurs
 // versions. Le vendeur peut en choisir une, ou la retirer (la photo s'affiche alors).
 
-export const NO_POSTER = "00000000-0000-0000-0000-000000000000";
+const NO_POSTER = "00000000-0000-0000-0000-000000000000";
 
 export interface PosterOption {
   /** Valeur enregistrée dans products.poster_key : id de version, ou id d'affiche sans versions. */
