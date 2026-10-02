@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { SlidersHorizontal, X } from "lucide-react";
+import { MarketCategoryPicker } from "@/components/market/market-category-picker";
 import { cn } from "@/lib/utils";
 
 // Filtres du Market (recherche, catégories, villes). Formulaires GET : ils marchent sans JavaScript.
@@ -81,9 +82,10 @@ export function MarketFilters({
       <form method="get" action={action} className="hidden flex-wrap items-end gap-3 sm:flex">
         {hiddenInputs}
         {has("category") && categories.length > 0 && (
-          <Field label="Catégorie">
-            <Select name="categorie" defaultValue={values.category ?? ""} onChange={submitOnChange} options={categories} empty="Toutes" />
-          </Field>
+          <div className="flex w-[240px] flex-col gap-1 text-xs font-bold text-[#5E5A6B]">
+            Catégorie
+            <MarketCategoryPicker name="categorie" value={values.category ?? ""} allowGroups autoSubmit placeholder="Toutes" className="font-normal" />
+          </div>
         )}
         {has("city") && cities.length > 0 && (
           <Field label="Ville">
@@ -165,9 +167,10 @@ export function MarketFilters({
                 </div>
               </fieldset>
               {has("category") && categories.length > 0 && (
-                <Field label="Catégorie" strong>
-                  <Select name="categorie" defaultValue={values.category ?? ""} options={categories} empty="Toutes les catégories" />
-                </Field>
+                <div className="flex flex-col gap-2 text-sm font-bold text-[#17151F]">
+                  Catégorie
+                  <MarketCategoryPicker name="categorie" value={values.category ?? ""} allowGroups placeholder="Toutes les catégories" className="font-normal" />
+                </div>
               )}
               {has("city") && cities.length > 0 && (
                 <Field label="Ville" strong>

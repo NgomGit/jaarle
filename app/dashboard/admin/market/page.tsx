@@ -4,10 +4,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ActionFlash } from "@/components/admin/admin-nav";
 import { BoostForm } from "@/components/admin/boost-form";
+import { MarketCategoryPicker } from "@/components/market/market-category-picker";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin/guard";
 import { BOOST_PLACEMENTS, BOOST_STATE_LABELS, boostState, frDate, inclusiveDayFromExclusive, todayIso } from "@/lib/admin/market";
-import { allMarketCategories, getMarketCategory, marketLeafOptions } from "@/lib/market/categories";
+import { getMarketCategory } from "@/lib/market/categories";
 import { getMarketCity, MARKET_CITIES } from "@/lib/market/cities";
 import { shopMediaThumbUrl } from "@/lib/shops/media";
 import { createBoostAction, saveMarketSettingsAction, setProductCategoryAction, toggleBoostAction } from "../actions";
@@ -82,10 +83,6 @@ export default async function AdminMarketPage({ searchParams }: { searchParams: 
   const proProducts = ((proProductsRes.data ?? []) as { id: string; name: string; shop_id: string }[]).map((p) => ({ id: p.id, name: p.name, shopId: p.shop_id }));
   const uncategorized = (uncategorizedRes.data ?? []) as { id: string; name: string; slug: string; shop_id: string; category: string | null; product_images: { path: string; position: number }[] | null }[];
   const boosts = (boostsRes.data ?? []) as Boost[];
-  const leafGroups = marketLeafOptions();
-  const categoryOptions = allMarketCategories()
-    .filter((c) => c.level <= 2)
-    .map((c) => ({ value: c.slug, label: c.level === 1 ? c.label : `— ${c.label}` }));
   const cityOptions = MARKET_CITIES.map((c) => ({ value: c.slug, label: c.name }));
   const inAWeek = new Date(Date.now() + 6 * 86_400_000).toISOString().slice(0, 10);
 
@@ -148,7 +145,6 @@ export default async function AdminMarketPage({ searchParams }: { searchParams: 
           action={createBoostAction}
           shops={proShopOptions}
           products={proProducts}
-          categories={categoryOptions}
           cities={cityOptions}
           today={todayIso()}
           inAWeek={inAWeek}
@@ -233,20 +229,7 @@ export default async function AdminMarketPage({ searchParams }: { searchParams: 
                   </div>
                   <form action={setProductCategoryAction} className="flex w-full items-center gap-2 sm:w-auto">
                     <input type="hidden" name="productId" value={p.id} />
-                    <select name="category" required defaultValue="" className="h-9 min-w-0 flex-1 rounded-lg border border-input bg-card px-2 text-sm sm:w-64">
-                      <option value="" disabled>
-                        Choisir…
-                      </option>
-                      {leafGroups.map((g) => (
-                        <optgroup key={g.group} label={g.group}>
-                          {g.options.map((o) => (
-                            <option key={o.key} value={o.key}>
-                              {o.label}
-                            </option>
-                          ))}
-                        </optgroup>
-                      ))}
-                    </select>
+                    <MarketCategoryPicker name="category" value="" required clearable={false} size="sm" placeholder="Choisir…" className="min-w-0 flex-1 sm:w-72" />
                     <Button size="sm" variant="secondary">Classer</Button>
                   </form>
                 </li>

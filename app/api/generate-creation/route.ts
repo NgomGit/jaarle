@@ -112,9 +112,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
   }
 
-  const unpaidCount = await countUnpaidCreations(supabase, user.id);
-  if (unpaidCount >= MAX_UNPAID_CREATIONS) {
-    return NextResponse.json({ error: "unpaid_limit_reached", limit: MAX_UNPAID_CREATIONS }, { status: 403 });
+  // Plafond de 5 affiches non payées : garde-fou de l'ancien modèle « paiement à l'affiche ».
+  // Avec la facturation Jaarle 2.0, c'est le quota du plan (puis les crédits) qui limite les
+  // générations : on ne bloque plus un commerçant qui a encore des générations ou des crédits.
+  const entitlements = await getEntitlements();
+  if (!entitlements.billingEnabled) {
+    const unpaidCount = await countUnpaidCreations(supabase, user.id);
+    if (unpaidCount >= MAX_UNPAID_CREATIONS) {
+      return NextResponse.json({ error: "unpaid_limit_reached", limit: MAX_UNPAID_CREATIONS }, { status: 403 });
+    }
   }
 
   const {
@@ -168,7 +174,6 @@ export async function POST(request: Request) {
   // remboursé si l'affiche n'a pas pu être produite. Pro / Business (ou paiement en crédit) :
   // l'affiche est livrée débloquée, sans filigrane. Gratuit : comportement historique (aperçu
   // filigrané, déblocage à l'unité via PayTech).
-  const entitlements = await getEntitlements();
   const usage = await consumeUsage({
     userId: user.id,
     action: "poster_generate",

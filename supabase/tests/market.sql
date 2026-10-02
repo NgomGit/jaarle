@@ -23,7 +23,7 @@ update public.market_settings set launch_until = null;
 -- B : Gratuit → annuaire seulement
 -- C : Pro mais boutique non publiée → ni Market ni annuaire
 -- (A a un numéro de connexion tronqué, différent de son WhatsApp : sans effet depuis 0021)
--- D : Pro mais secteur « automobile » → pas sur le Market
+-- D : Pro mais secteur « pharmacie » → pas sur le Market (l'automobile y entre depuis 0030)
 insert into auth.users (id, phone, phone_confirmed_at) values
   ('00000000-0000-0000-0000-0000000000a1', '2217700000', now()),
   ('00000000-0000-0000-0000-0000000000b1', '221770000002', now()),
@@ -38,7 +38,7 @@ insert into public.shops (id, owner_id, slug, name, industry, city, district, wh
   ('00000000-0000-0000-0000-00000000a5a5', '00000000-0000-0000-0000-0000000000a1', 'awa-couture', 'Awa Couture', 'fashion', 'Dakar', 'Sacré-Cœur', '+221770000001', 'published'),
   ('00000000-0000-0000-0000-00000000b5b5', '00000000-0000-0000-0000-0000000000b1', 'bineta-shop', 'Bineta Shop', 'fashion', 'Thiès', null, '+221770000002', 'published'),
   ('00000000-0000-0000-0000-00000000c5c5', '00000000-0000-0000-0000-0000000000c1', 'cheikh-mode', 'Cheikh Mode', 'fashion', 'Dakar', null, '+221770000003', 'draft'),
-  ('00000000-0000-0000-0000-00000000d5d5', '00000000-0000-0000-0000-0000000000d1', 'dibi-resto', 'Auto Dakar', 'automotive', 'Dakar', null, '+221770000004', 'published');
+  ('00000000-0000-0000-0000-00000000d5d5', '00000000-0000-0000-0000-0000000000d1', 'dibi-resto', 'Pharma Dakar', 'pharmacy', 'Dakar', null, '+221770000004', 'published');
 
 -- 4 produits vendables par boutique (+ pour A : 1 brouillon, 1 sans photo, 1 épuisé)
 do $$

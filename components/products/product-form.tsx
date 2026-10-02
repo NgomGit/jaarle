@@ -16,7 +16,7 @@ import type { ProductWithImages } from "@/lib/shops/products";
 import type { DisplayMedia, ProductStatus, SubjectType } from "@/lib/shops/types";
 import type { ProductSuggestion } from "@/lib/ai/product-autofill";
 import { useLocale } from "@/lib/locale-context";
-import { marketLeafOptions } from "@/lib/market/categories";
+import { MarketCategoryPicker } from "@/components/market/market-category-picker";
 import { cn } from "@/lib/utils";
 
 const MAX_PHOTOS = 4;
@@ -36,7 +36,6 @@ interface OptionDraft {
 }
 
 type AiState = "idle" | "analyzing" | "done" | "error";
-const MARKET_OPTIONS = marketLeafOptions();
 
 type AiField = "name" | "description" | "category";
 
@@ -497,27 +496,14 @@ export function ProductForm({ product, importedNote = false }: { product?: Produ
             />
           </Field>
 
-          <Field label={t("products.marketCategoryLabel")} htmlFor="product-market-category" optional hint={t("products.marketCategoryHint")}>
-            <select
-              id="product-market-category"
+          <Field label={t("products.marketCategoryLabel")} optional hint={t("products.marketCategoryHint")}>
+            <MarketCategoryPicker
               value={marketCategory}
-              onChange={(e) => {
+              onChange={(slug) => {
                 marketTouched.current = true;
-                setMarketCategory(e.target.value);
+                setMarketCategory(slug);
               }}
-              className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm"
-            >
-              <option value="">{t("products.marketCategoryNone")}</option>
-              {MARKET_OPTIONS.map((g) => (
-                <optgroup key={g.group} label={g.group}>
-                  {g.options.map((o) => (
-                    <option key={o.key} value={o.key}>
-                      {o.label}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
+            />
           </Field>
 
           <Field label={t("products.optionsLabel")} optional hint={t("products.optionsHint")}>

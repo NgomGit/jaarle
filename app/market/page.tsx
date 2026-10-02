@@ -148,7 +148,7 @@ export default async function MarketHome() {
                         {Icon && <Icon className="h-[15px] w-[15px]" strokeWidth={1.8} aria-hidden />}
                       </span>
                       {cat.label}
-                      <span className="text-xs font-bold text-[#A19DB0]">{n}</span>
+                      {n > 0 && <span className="text-xs font-bold text-[#A19DB0]">{n}</span>}
                     </Link>
                   </li>
                 );
@@ -325,13 +325,19 @@ function autoProBanner(shops: MarketShop[], picks: MarketProduct[]): MarketBanne
 }
 
 /**
- * Puces de catégories : les sous-catégories qui ont des produits (les plus fournies d'abord),
- * sinon les grandes catégories. Jamais de catégorie vide.
+ * Puces de catégories : d'abord celles qui ont des produits (les plus fournies d'abord, avec leur
+ * nombre), puis les autres grandes catégories du Market, sans nombre, pour que l'acheteur voie
+ * tout ce qu'on peut y trouver (mode, beauté, auto & moto, électronique…).
  */
 function categoryChips(counts: Awaited<ReturnType<typeof getMarketCounts>>): { cat: MarketCategory; n: number }[] {
   const withCount = (cats: MarketCategory[]) =>
     cats.map((cat) => ({ cat, n: totalsFor(counts, cat, null).products })).filter((c) => c.n > 0).sort((a, b) => b.n - a.n);
   const subs = withCount(allMarketCategories().filter((c) => c.level === 2));
-  if (subs.length >= 2) return subs.slice(0, 12);
-  return withCount(marketRootCategories()).slice(0, 12);
+  const filled = subs.length >= 2 ? subs.slice(0, 8) : withCount(marketRootCategories());
+  // Grandes catégories déjà couvertes par une puce (elle-même ou une de ses sous-catégories).
+  const covered = new Set(filled.map(({ cat }) => cat.industrySlug));
+  const others = marketRootCategories()
+    .filter((r) => !covered.has(r.slug))
+    .map((cat) => ({ cat, n: totalsFor(counts, cat, null).products }));
+  return [...filled, ...others];
 }

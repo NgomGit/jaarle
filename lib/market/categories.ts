@@ -7,7 +7,7 @@ import { MARKET_CITIES } from "@/lib/market/cities";
 // La valeur stockée sur un produit (products.market_category) est TOUJOURS une clé de feuille.
 // Chaque niveau a sa page /market/{slug} ; les slugs sont uniques (collision = entrée ignorée).
 
-/** Secteurs ouverts au Market — garder synchronisé avec market_shop_ids() (migration 0023). */
+/** Secteurs ouverts au Market — garder synchronisé avec market_shop_ids() (migrations 0029 / 0030). */
 export const MARKET_INDUSTRIES: { industryKey: string; slug: string; label: string; tone: string }[] = [
   { industryKey: "fashion", slug: "mode", label: "Mode & tenues", tone: "#F1E4D6" },
   { industryKey: "beauty", slug: "beaute", label: "Beauté & parfums", tone: "#F3DEDF" },
@@ -17,6 +17,8 @@ export const MARKET_INDUSTRIES: { industryKey: string; slug: string; label: stri
   { industryKey: "furniture", slug: "maison-deco", label: "Maison & déco", tone: "#E9DDD2" },
   { industryKey: "electronics", slug: "electronique", label: "Électronique", tone: "#E7E2F3" },
   { industryKey: "artisanat", slug: "artisanat", label: "Artisanat", tone: "#F4E3D0" },
+  // Véhicules, pièces & accessoires auto, location de voitures (migration 0030)
+  { industryKey: "automotive", slug: "auto-moto", label: "Auto & moto", tone: "#E2E5EA" },
   // Services (affichés avec leur affiche)
   { industryKey: "services", slug: "services", label: "Services & artisans", tone: "#DDEBE3" },
   { industryKey: "events", slug: "evenementiel", label: "Événementiel", tone: "#EDE2F1" },

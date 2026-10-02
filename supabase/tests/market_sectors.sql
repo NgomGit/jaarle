@@ -1,4 +1,4 @@
--- Vérifications de 0029 : boutiques sans secteur renseigné. Transaction annulée.
+-- Vérifications de 0029 / 0030 : secteur vide accepté, auto & moto ouvert. Transaction annulée.
 begin;
 create or replace function pg_temp.expect(cond boolean, label text) returns void language plpgsql as $$
 begin
@@ -12,7 +12,7 @@ insert into auth.users (id) values ('00000000-0000-0000-0000-0000000000e1'), ('0
 insert into public.shops (id, owner_id, slug, name, industry, city, whatsapp, status) values
   ('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-0000000000e1', 'sans-secteur', 'Sans secteur', null, 'Dakar', '+221770000011', 'published'),
   ('00000000-0000-0000-0000-0000000000e2', '00000000-0000-0000-0000-0000000000e2', 'pharma', 'Pharma', 'pharmacy', 'Dakar', '+221770000012', 'published'),
-  ('00000000-0000-0000-0000-0000000000e3', '00000000-0000-0000-0000-0000000000e3', 'nouveau-secteur', 'Nouveau secteur', 'fashion', 'Dakar', '+221770000013', 'published');
+  ('00000000-0000-0000-0000-0000000000e3', '00000000-0000-0000-0000-0000000000e3', 'nouveau-secteur', 'Garage auto', 'automotive', 'Dakar', '+221770000013', 'published');
 do $$
 declare s record; i int; pid uuid;
 begin
@@ -27,7 +27,7 @@ end $$;
 set local role anon;
 select pg_temp.expect((select count(*) from public.market_shops() where slug = 'sans-secteur') = 1, 'secteur vide + 6 annonces : sur le Market');
 select pg_temp.expect((select count(*) from public.market_shops() where slug = 'pharma') = 0, 'pharmacie : toujours écartée');
-select pg_temp.expect((select count(*) from public.market_shops() where slug = 'nouveau-secteur') = 1, 'secteur ouvert : sur le Market');
+select pg_temp.expect((select count(*) from public.market_shops() where slug = 'nouveau-secteur') = 1, 'automobile (0030) : sur le Market');
 select pg_temp.expect((select count(*) from public.market_products(p_shop => '00000000-0000-0000-0000-0000000000e1')) = 6, 'ses 6 annonces sont visibles');
 reset role;
 set local role authenticated;

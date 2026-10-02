@@ -20,7 +20,7 @@ grant execute on function pg_temp.expect(boolean, text) to anon, authenticated, 
 -- F6 : Gratuit, 6 annonces      → Market pendant l'ouverture seulement
 -- F5 : Gratuit, 5 annonces      → pas sur le Market (il en faut plus de 5)
 -- S  : Gratuit, 7 annonces mais suspendue → jamais
--- X  : Gratuit, 7 annonces, secteur automobile → jamais
+-- X  : Gratuit, 7 annonces, secteur voyage → jamais (l'automobile entre depuis 0030)
 insert into auth.users (id) values
   ('00000000-0000-0000-0000-0000000000a1'), ('00000000-0000-0000-0000-0000000000a2'), ('00000000-0000-0000-0000-0000000000a3'),
   ('00000000-0000-0000-0000-0000000000a4'), ('00000000-0000-0000-0000-0000000000a5');
@@ -32,7 +32,7 @@ insert into public.shops (id, owner_id, slug, name, industry, city, whatsapp, st
   ('00000000-0000-0000-0000-0000000000f2', '00000000-0000-0000-0000-0000000000a2', 'six-shop', 'Six Shop', 'beauty', 'Thiès', '+221770000002', 'published'),
   ('00000000-0000-0000-0000-0000000000f3', '00000000-0000-0000-0000-0000000000a3', 'five-shop', 'Five Shop', 'fashion', 'Dakar', '+221770000003', 'published'),
   ('00000000-0000-0000-0000-0000000000f4', '00000000-0000-0000-0000-0000000000a4', 'susp-shop', 'Susp Shop', 'fashion', 'Dakar', '+221770000004', 'published'),
-  ('00000000-0000-0000-0000-0000000000f5', '00000000-0000-0000-0000-0000000000a5', 'auto-shop', 'Auto Shop', 'automotive', 'Dakar', '+221770000005', 'published');
+  ('00000000-0000-0000-0000-0000000000f5', '00000000-0000-0000-0000-0000000000a5', 'auto-shop', 'Voyage Shop', 'travel', 'Dakar', '+221770000005', 'published');
 
 do $$
 declare s record; i int; pid uuid; n int;

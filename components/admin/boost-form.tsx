@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
+import { MarketCategoryPicker } from "@/components/market/market-category-picker";
 import { BOOST_PLACEMENTS } from "@/lib/admin/market";
 
 // Formulaire de création d'une mise en avant : la liste des produits suit la boutique choisie.
@@ -12,7 +13,6 @@ export function BoostForm({
   action,
   shops,
   products,
-  categories,
   cities,
   today,
   inAWeek,
@@ -20,7 +20,6 @@ export function BoostForm({
   action: (fd: FormData) => void | Promise<void>;
   shops: Option[];
   products: { id: string; name: string; shopId: string }[];
-  categories: Option[];
   cities: Option[];
   today: string;
   inAWeek: string;
@@ -91,17 +90,10 @@ export function BoostForm({
         </>
       )}
 
-      <label className={label}>
+      <div className={label}>
         Catégorie ciblée
-        <select name="category" className={field} defaultValue="">
-          <option value="">Partout</option>
-          {categories.map((c) => (
-            <option key={c.value} value={c.value}>
-              {c.label}
-            </option>
-          ))}
-        </select>
-      </label>
+        <MarketCategoryPicker name="category" value="" allowGroups size="sm" placeholder="Partout" />
+      </div>
       <label className={label}>
         Ville ciblée
         <select name="city" className={field} defaultValue="">
