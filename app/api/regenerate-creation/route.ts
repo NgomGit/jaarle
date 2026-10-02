@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { canUseMultiPhoto, getEntitlements } from "@/lib/billing/entitlements";
 import { resolveReferences } from "@/lib/multi-reference";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getTierConfig } from "@/lib/pricing";
 import {
   ALLOWED_MEDIA_TYPES,
@@ -54,12 +55,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Limite de régénérations atteinte." }, { status: 400 });
   }
 
+  // Réservation de la régénération AVANT l'appel IA (écriture serveur, migration 0034) : la ligne
+  // n'est mise à jour que si le compteur n'a pas bougé entre-temps — deux clics simultanés ne
+  // donnent donc pas deux régénérations. Rendue si la génération échoue.
+  const admin = createAdminClient();
+  const regenerationsUsed = creation.regenerations_used + 1;
+  const { data: reserved } = await admin
+    .from("creations")
+    .update({ regenerations_used: regenerationsUsed })
+    .eq("id", creation.id)
+    .eq("user_id", user.id)
+    .eq("regenerations_used", creation.regenerations_used)
+    .select("id");
+  if (!reserved?.length) {
+    return NextResponse.json({ error: "Limite de régénérations atteinte." }, { status: 400 });
+  }
+  const releaseReservation = () =>
+    admin.from("creations").update({ regenerations_used: creation.regenerations_used }).eq("id", creation.id).eq("regenerations_used", regenerationsUsed);
+
   let backgroundResult: Awaited<ReturnType<typeof buildPosterBackground>> | Awaited<ReturnType<typeof buildServiceBackground>>;
   let secondaryBuffers: Buffer[] = [];
 
   if (creation.photo_path) {
     const { data: photoBlob, error: downloadError } = await supabase.storage.from("creations").download(creation.photo_path);
     if (downloadError || !photoBlob) {
+      await releaseReservation();
       return NextResponse.json({ error: "Photo introuvable." }, { status: 500 });
     }
     const photoBuffer = Buffer.from(await photoBlob.arrayBuffer());
@@ -148,7 +168,7 @@ export async function POST(request: Request) {
     });
 
     posterPath = `${user.id}/${Date.now()}-poster.jpg`;
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await admin.storage
       .from("creations")
       .upload(posterPath, finalBuffer, { contentType: "image/jpeg" });
     if (uploadError) posterPath = null;
@@ -157,14 +177,15 @@ export async function POST(request: Request) {
   }
 
   if (!posterPath) {
+    await releaseReservation();
     return NextResponse.json({ error: imageError || "Échec de la régénération." }, { status: 500 });
   }
 
-  const regenerationsUsed = creation.regenerations_used + 1;
-  const { error: updateError } = await supabase
+  const { error: updateError } = await admin
     .from("creations")
-    .update({ poster_path: posterPath, regenerations_used: regenerationsUsed })
-    .eq("id", creation.id);
+    .update({ poster_path: posterPath })
+    .eq("id", creation.id)
+    .eq("user_id", user.id);
 
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
@@ -172,7 +193,7 @@ export async function POST(request: Request) {
 
   // Historique : la régénération est conservée comme une nouvelle version (l'ancienne reste,
   // son fichier n'est pas écrasé — chaque génération crée un nouveau chemin).
-  await supabase.from("creation_versions").insert({
+  await admin.from("creation_versions").insert({
     creation_id: creation.id,
     user_id: user.id,
     poster_path: posterPath,

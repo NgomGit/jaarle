@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import sharp from "sharp";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { formatPrice, formatSenegalPhone } from "@/lib/shops/format";
 import { shopMediaUrl } from "@/lib/shops/media";
@@ -72,8 +73,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
     const signed = locked;
 
     const path = await creationPosterPath(supabase, user.id, pack.creation_id, pack.creation_version_id);
-    if (!path) return NextResponse.json({ error: "Affiche introuvable." }, { status: 404 });
-    const { data: blob } = await supabase.storage.from("creations").download(path);
+    if (!path || !path.startsWith(`${user.id}/`)) return NextResponse.json({ error: "Affiche introuvable." }, { status: 404 });
+    // Les affiches nettes ne sont lisibles que par le serveur (migration 0034).
+    const { data: blob } = await createAdminClient().storage.from("creations").download(path);
     if (!blob) return NextResponse.json({ error: "Affiche introuvable." }, { status: 404 });
     const poster = Buffer.from(await blob.arrayBuffer());
     const filename = `${slugify(loaded.creation.product_name)}-${platformSlug}.jpg`;

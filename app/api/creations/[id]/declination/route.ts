@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { canUseMultiPhoto, getEntitlements } from "@/lib/billing/entitlements";
 import { resolveReferences } from "@/lib/multi-reference";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   ALLOWED_MEDIA_TYPES,
   type AllowedMediaType,
@@ -162,7 +163,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
     });
 
     posterPath2 = `${user.id}/${Date.now()}-poster-2.jpg`;
-    const { error: uploadError } = await supabase.storage
+    // Affiche nette : écrite par le serveur seulement (migration 0034).
+    const { error: uploadError } = await createAdminClient().storage
       .from("creations")
       .upload(posterPath2, finalBuffer, { contentType: "image/jpeg" });
     if (uploadError) posterPath2 = null;
@@ -174,13 +176,24 @@ export async function POST(request: Request, { params }: { params: { id: string 
     return NextResponse.json({ error: "Échec de la génération de la déclinaison." }, { status: 500 });
   }
 
-  const { error: updateError } = await supabase.from("creations").update({ poster_path_2: posterPath2 }).eq("id", creation.id);
+  // Écriture serveur (migration 0034), une seule déclinaison : la ligne n'est prise que si elle n'en a pas encore.
+  const admin = createAdminClient();
+  const { data: saved, error: updateError } = await admin
+    .from("creations")
+    .update({ poster_path_2: posterPath2 })
+    .eq("id", creation.id)
+    .eq("user_id", user.id)
+    .is("poster_path_2", null)
+    .select("id");
+  if (!updateError && !saved?.length) {
+    return NextResponse.json({ error: "Une déclinaison a déjà été générée pour cette création." }, { status: 400 });
+  }
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
   // Historique : la déclinaison est conservée comme une version à part entière.
-  await supabase.from("creation_versions").insert({
+  await admin.from("creation_versions").insert({
     creation_id: creation.id,
     user_id: user.id,
     poster_path: posterPath2,

@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { countUnpaidCreations } from "@/lib/supabase/creations";
 import { buildCulturalContext } from "@/lib/knowledge/context";
 import { DEFAULT_TIER, MAX_POSTER_PHOTOS, type Tier } from "@/lib/pricing";
@@ -349,7 +350,8 @@ export async function POST(request: Request) {
     usedLayout = variation.layout;
 
     posterPath = `${user.id}/${Date.now()}-poster.jpg`;
-    const { error: posterUploadError } = await supabase.storage
+    // Affiche nette : écrite (et lue) par le serveur seulement — migration 0034.
+    const { error: posterUploadError } = await createAdminClient().storage
       .from("creations")
       .upload(posterPath, variation.finalBuffer, { contentType: "image/jpeg" });
     if (posterUploadError) posterPath = null;
@@ -370,7 +372,9 @@ export async function POST(request: Request) {
     if (product) productLink = { product_id: product.id as string, shop_id: product.shop_id as string };
   }
 
-  const { data: creation, error: insertError } = await supabase
+  // Écriture par le serveur (migration 0034) : le navigateur ne peut plus créer de ligne lui-même.
+  // Les chemins de photos ont été vérifiés plus haut (téléchargés avec la session du vendeur).
+  const { data: creation, error: insertError } = await createAdminClient()
     .from("creations")
     .insert({
       user_id: user.id,
@@ -389,7 +393,7 @@ export async function POST(request: Request) {
       unlocked: unlockedByPlan,
       tier: normalizedTier,
       regenerations_used: 0,
-      logo_path: logoPath,
+      logo_path: logoBuffer ? logoPath : null,
       business_name: businessName,
       contact_phone: phone || null,
       subject_type: normalizedSubjectType,
@@ -421,7 +425,7 @@ export async function POST(request: Request) {
 
   // Historique : on enregistre l'affiche comme 1ʳᵉ version (variante principale).
   if (posterPath) {
-    await supabase.from("creation_versions").insert({
+    await createAdminClient().from("creation_versions").insert({
       creation_id: creation.id,
       user_id: user.id,
       poster_path: posterPath,

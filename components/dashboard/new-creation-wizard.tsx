@@ -17,6 +17,13 @@ import { CategoryPicker } from "@/components/dashboard/category-picker";
 import { cn } from "@/lib/utils";
 import { LimitDialog, type LimitReason } from "@/components/billing/upgrade-card";
 
+/** Extension de fichier sûre pour le stockage, d'après le type (repli : jpg). */
+function imageExtension(file: File): string {
+  const byType: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/heic": "heic", "image/heif": "heif" };
+  return byType[file.type] ?? "jpg";
+}
+
+
 type Step = 0 | 1 | 2 | 3;
 type Language = "fr" | "wo";
 type SubjectType = "product" | "service";
@@ -313,8 +320,10 @@ export function NewCreationWizard({
       const uploadedPaths: string[] = [];
       for (let i = 0; i < ordered.length; i++) {
         const f = ordered[i].file;
-        const path = `${userId}/${Date.now()}-${i}-${f.name}`;
-        const { error: uploadError } = await supabase.storage.from("creations").upload(path, f);
+        // Nom neutre (le nom du fichier du téléphone peut contenir n'importe quoi) et type image
+        // explicite : le stockage n'accepte que les images (migration 0034).
+        const path = `${userId}/${Date.now()}-${i}-photo.${imageExtension(f)}`;
+        const { error: uploadError } = await supabase.storage.from("creations").upload(path, f, { contentType: f.type || "image/jpeg" });
         if (uploadError) {
           if (i === 0) throw uploadError; // la photo principale est indispensable
           continue;
@@ -327,8 +336,10 @@ export function NewCreationWizard({
       const hasBranding = true;
       let logoPath: string | null = null;
       if (hasBranding && logoFile) {
-        logoPath = `${userId}/${Date.now()}-logo-${logoFile.name}`;
-        const { error: logoUploadError } = await supabase.storage.from("creations").upload(logoPath, logoFile);
+        logoPath = `${userId}/${Date.now()}-logo.${imageExtension(logoFile)}`;
+        const { error: logoUploadError } = await supabase.storage
+          .from("creations")
+          .upload(logoPath, logoFile, { contentType: logoFile.type || "image/png" });
         if (logoUploadError) logoPath = null;
       } else if (hasBranding && useShopLogo) {
         // Logo de la boutique (bucket public shop-media) copié dans le bucket `creations`, que le

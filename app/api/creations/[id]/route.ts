@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -22,11 +23,19 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     return NextResponse.json({ error: "Création introuvable." }, { status: 404 });
   }
 
-  const paths = [creation.photo_path, creation.poster_path, creation.poster_path_2, ...(creation.extra_photo_paths ?? [])].filter(
-    (p): p is string => !!p
-  );
+  // Fichiers de la création et de toutes ses versions. Suppression par le serveur : les affiches
+  // nettes ne sont plus accessibles au vendeur depuis le navigateur (migration 0034). Seuls les
+  // fichiers de son propre dossier sont supprimés.
+  const { data: versions } = await supabase.from("creation_versions").select("poster_path").eq("creation_id", creation.id).eq("user_id", user.id);
+  const paths = [
+    creation.photo_path,
+    creation.poster_path,
+    creation.poster_path_2,
+    ...(creation.extra_photo_paths ?? []),
+    ...((versions ?? []) as { poster_path: string | null }[]).map((v) => v.poster_path),
+  ].filter((p): p is string => !!p && p.startsWith(`${user.id}/`));
   if (paths.length > 0) {
-    await supabase.storage.from("creations").remove(paths);
+    await createAdminClient().storage.from("creations").remove([...new Set(paths)]);
   }
 
   const { error: deleteError } = await supabase.from("creations").delete().eq("id", creation.id).eq("user_id", user.id);

@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // next/image n'est pas utilisé : on coupe l'optimiseur d'images de Next (plusieurs failles
+  // connues sur la branche 14, dont une critique avec les fichiers AVIF — audit du 2026-10-02).
+  images: { unoptimized: true },
   // Sans ça, le Router Cache du client garde une page dynamique (ex: /dashboard/creations)
   // en cache 30s par défaut — après une génération, revenir sur "Mes créations" peut donc
   // afficher un instantané pris avant l'insertion en base, jusqu'à un rechargement complet.
@@ -22,6 +25,19 @@ const nextConfig = {
   // resteraient sur une ancienne version après un déploiement.
   async headers() {
     return [
+      // En-têtes de sécurité sur tout le site (audit du 2026-10-02).
+      {
+        source: "/:path*",
+        headers: [
+          // Interdit d'afficher Jaarle dans un cadre d'un autre site (clickjacking).
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=(), payment=(self)" },
+          { key: "Strict-Transport-Security", value: "max-age=31536000" },
+        ],
+      },
       {
         source: "/sw.js",
         headers: [

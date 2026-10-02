@@ -6,13 +6,24 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { forgetDevicePushSubscription } from "@/lib/push/device";
 
+/**
+ * Destination après connexion : uniquement une page de Jaarle (« /… »). Refuse les adresses
+ * externes (« https://… », « //site », « /\site ») — sinon un lien piégé
+ * /login?next=https://faux-site renverrait le vendeur ailleurs juste après sa connexion.
+ */
+function safeNextPath(value: FormDataEntryValue | null): string {
+  const v = typeof value === "string" ? value.trim() : "";
+  if (!v.startsWith("/") || v.startsWith("//") || v.startsWith("/\\") || /[\u0000-\u001f]/.test(v)) return "/dashboard";
+  return v;
+}
+
 /** +221 suivi de 9 chiffres (mobiles 7x, fixes 3x). */
 const SENEGAL_PHONE = /^\+221[37]\d{8}$/;
 
 export async function login(formData: FormData) {
   const phone = formData.get("phone") as string;
   const password = formData.get("password") as string;
-  const next = (formData.get("next") as string) || "/dashboard";
+  const next = safeNextPath(formData.get("next"));
 
   const supabase = createClient();
   const { error } = await supabase.auth.signInWithPassword({ phone, password });

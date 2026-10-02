@@ -10,8 +10,8 @@ export interface TierConfig {
 }
 
 export const TIERS: Record<Tier, TierConfig> = {
-  premium: { key: "premium", labelFr: "Standard", price: 750, maxRegenerations: 2, maxPhotos: 1, variations: 1 },
-  gold: { key: "gold", labelFr: "Premium", price: 1500, maxRegenerations: 2, maxPhotos: 3, variations: 1 },
+  premium: { key: "premium", labelFr: "Standard", price: 750, maxRegenerations: 1, maxPhotos: 1, variations: 1 },
+  gold: { key: "gold", labelFr: "Premium", price: 1500, maxRegenerations: 1, maxPhotos: 3, variations: 1 },
 };
 
 export function getTierConfig(tier: string): TierConfig {
