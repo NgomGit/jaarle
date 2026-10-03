@@ -17,8 +17,8 @@ export const MARKET_INDUSTRIES: { industryKey: string; slug: string; label: stri
   { industryKey: "furniture", slug: "maison-deco", label: "Maison & déco", tone: "#E9DDD2" },
   { industryKey: "electronics", slug: "electronique", label: "Électronique", tone: "#E7E2F3" },
   { industryKey: "artisanat", slug: "artisanat", label: "Artisanat", tone: "#F4E3D0" },
-  // Véhicules, pièces & accessoires auto, location de voitures (migration 0030)
-  { industryKey: "automotive", slug: "auto-moto", label: "Auto & moto", tone: "#E2E5EA" },
+  // Véhicules, pièces & accessoires auto, location de voitures (migration 0030), vélos (2026-10-03)
+  { industryKey: "automotive", slug: "auto-moto", label: "Auto, moto & vélo", tone: "#E2E5EA" },
   // Services (affichés avec leur affiche)
   { industryKey: "services", slug: "services", label: "Services & artisans", tone: "#DDEBE3" },
   { industryKey: "events", slug: "evenementiel", label: "Événementiel", tone: "#EDE2F1" },

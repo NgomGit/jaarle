@@ -1,15 +1,19 @@
 "use client";
 
 import * as React from "react";
-import { Download, Share, SquarePlus, X } from "lucide-react";
+import { Copy, Download, EllipsisVertical, ExternalLink, Share, SquarePlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { promptInstall, useInstallMode, type InstallMode } from "@/lib/pwa/install";
+import { openInBrowserHref, promptInstall, useInstallMode, type InstallMode } from "@/lib/pwa/install";
 import { cn } from "@/lib/utils";
 
-// Invitation à installer Jaarle sur l'écran d'accueil (tableau de bord).
-// • Android / Chrome : bouton « Installer » (fenêtre native du navigateur) ;
-// • iPhone (Safari) : les 2 gestes à faire (Partager → Sur l'écran d'accueil) ;
-// • navigateur intégré (Facebook, Instagram…) : ouvrir le lien dans Chrome ou Safari.
+// Invitation à installer Jaarle sur l'écran d'accueil (tableau de bord), adaptée à l'appareil
+// détecté (lib/pwa/install.ts) :
+// • Android / ordinateur (Chrome, Edge, Samsung) : bouton « Installer » (fenêtre native) ;
+// • Android sans bouton natif : menu ⋮ → « Ajouter à l'écran d'accueil » ;
+// • iPhone, Safari : Partager → « Sur l'écran d'accueil » ;
+// • iPhone, Chrome / Edge / Firefox : Partager (barre d'adresse) → « Sur l'écran d'accueil » ;
+// • Facebook, Instagram, TikTok… : bouton qui ouvre Jaarle dans Chrome (Android) ou Safari (iPhone),
+//   et « Copier le lien » en secours.
 // Masquée quand l'app est déjà installée ; « Plus tard » la cache 14 jours.
 
 const DISMISS_KEY = "jaarle-install-dismissed";
@@ -24,24 +28,53 @@ function dismissedRecently(): boolean {
   }
 }
 
-function IosSteps({ className }: { className?: string }) {
+function Steps({ steps, className }: { steps: React.ReactNode[]; className?: string }) {
   return (
     <ol className={cn("flex flex-col gap-1.5 text-[13px] text-muted-foreground", className)}>
-      <li className="flex items-center gap-2">
-        <span className="font-semibold text-foreground">1.</span> Appuie sur <Share className="inline h-4 w-4 text-foreground" aria-label="Partager" /> en bas de Safari
-      </li>
-      <li className="flex items-center gap-2">
-        <span className="font-semibold text-foreground">2.</span> Choisis <SquarePlus className="inline h-4 w-4 text-foreground" aria-hidden /> « Sur l&apos;écran d&apos;accueil »
-      </li>
+      {steps.map((step, i) => (
+        <li key={i} className="flex flex-wrap items-center gap-1.5">
+          <span className="font-semibold text-foreground">{i + 1}.</span> {step}
+        </li>
+      ))}
     </ol>
   );
 }
 
-function InAppBrowserHint({ className }: { className?: string }) {
+const ShareIcon = () => <Share className="inline h-4 w-4 text-foreground" aria-label="Partager" />;
+const AddIcon = () => <SquarePlus className="inline h-4 w-4 text-foreground" aria-hidden />;
+const MenuIcon = () => <EllipsisVertical className="inline h-4 w-4 text-foreground" aria-label="Menu" />;
+
+function OpenInBrowser({ mode, className }: { mode: InstallMode; className?: string }) {
+  const [copied, setCopied] = React.useState(false);
+  const href = openInBrowserHref(mode);
+  const browser = mode === "android-in-app" ? "Chrome" : "Safari";
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/dashboard`);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  };
   return (
-    <p className={cn("text-[13px] text-muted-foreground", className)}>
-      Ouvre <strong className="text-foreground">jaarle.com</strong> dans Chrome (ou Safari sur iPhone) pour installer l&apos;application.
-    </p>
+    <div className={cn("flex flex-col gap-2", className)}>
+      <p className="text-[13px] text-muted-foreground">
+        Tu es dans le navigateur d&apos;une autre application : ouvre Jaarle dans <strong className="text-foreground">{browser}</strong> pour l&apos;installer.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {href && (
+          <Button size="sm" variant="accent" asChild>
+            <a href={href}>
+              <ExternalLink className="h-4 w-4" /> Ouvrir dans {browser}
+            </a>
+          </Button>
+        )}
+        <Button size="sm" variant="secondary" onClick={copy}>
+          <Copy className="h-4 w-4" /> {copied ? "Lien copié !" : "Copier le lien"}
+        </Button>
+      </div>
+      {copied && <p className="text-xs text-muted-foreground">Colle-le dans {browser}, puis reviens ici.</p>}
+    </div>
   );
 }
 
@@ -85,23 +118,56 @@ export function InstallAppCard() {
 }
 
 function InstallAction({ mode, className, onDone }: { mode: InstallMode; className?: string; onDone?: () => void }) {
-  if (mode === "prompt") {
-    return (
-      <Button
-        size="sm"
-        variant="accent"
-        className={className}
-        onClick={async () => {
-          if (await promptInstall()) onDone?.();
-        }}
-      >
-        <Download className="h-4 w-4" /> Installer l&apos;application
-      </Button>
-    );
+  switch (mode) {
+    case "prompt":
+      return (
+        <Button
+          size="sm"
+          variant="accent"
+          className={className}
+          onClick={async () => {
+            if (await promptInstall()) onDone?.();
+          }}
+        >
+          <Download className="h-4 w-4" /> Installer l&apos;application
+        </Button>
+      );
+    case "android-manual":
+      return (
+        <Steps
+          className={className}
+          steps={[
+            <>Touche <MenuIcon /> en haut à droite du navigateur</>,
+            <>Choisis « Installer l&apos;application » ou « Ajouter à l&apos;écran d&apos;accueil »</>,
+          ]}
+        />
+      );
+    case "ios-safari":
+      return (
+        <Steps
+          className={className}
+          steps={[
+            <>Touche <ShareIcon /> Partager (en bas de Safari, ou dans le menu •••)</>,
+            <>Choisis <AddIcon /> « Sur l&apos;écran d&apos;accueil », puis « Ajouter »</>,
+          ]}
+        />
+      );
+    case "ios-browser":
+      return (
+        <Steps
+          className={className}
+          steps={[
+            <>Touche <ShareIcon /> Partager, à droite de l&apos;adresse jaarle.com</>,
+            <>Choisis <AddIcon /> « Sur l&apos;écran d&apos;accueil », puis « Ajouter »</>,
+          ]}
+        />
+      );
+    case "android-in-app":
+    case "ios-in-app":
+      return <OpenInBrowser mode={mode} className={className} />;
+    default:
+      return null;
   }
-  if (mode === "ios") return <IosSteps className={className} />;
-  if (mode === "in-app-browser") return <InAppBrowserHint className={className} />;
-  return null;
 }
 
 /** Lien discret « Installer l'application » (menu du tableau de bord) : toujours disponible. */

@@ -358,6 +358,15 @@ export const categoryTree: CategoryNode[] = [
           { key: "linge-lit", label: "Linge de lit" },
         ],
       },
+      {
+        key: "cuisine-vaisselle",
+        label: "Cuisine & vaisselle",
+        leaves: [
+          { key: "vaisselle", label: "Vaisselle & services à café" },
+          { key: "ustensiles-cuisine", label: "Casseroles & ustensiles" },
+          { key: "conservation-rangement", label: "Boîtes de conservation & rangement" },
+        ],
+      },
     ],
   },
   {
@@ -420,6 +429,15 @@ export const categoryTree: CategoryNode[] = [
         key: "location-vehicule",
         label: "Location",
         leaves: [{ key: "location-voiture", label: "Location de voiture" }],
+      },
+      {
+        key: "velo",
+        label: "Vélo",
+        leaves: [
+          { key: "velos", label: "Vélos" },
+          { key: "pieces-velo", label: "Pièces & cadres vélo" },
+          { key: "accessoires-velo", label: "Accessoires & équipement vélo" },
+        ],
       },
     ],
   },

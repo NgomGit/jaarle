@@ -11,7 +11,26 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
-export type InstallMode = "prompt" | "ios" | "in-app-browser" | "installed" | "unavailable";
+/**
+ * Comment installer Jaarle sur l'appareil courant :
+ * • prompt            — Android / ordinateur (Chrome, Edge, Samsung) : bouton natif « Installer » ;
+ * • android-manual    — Android, navigateur sans bouton natif (déjà refusé, Firefox…) : menu ⋮ ;
+ * • android-in-app    — Facebook, Instagram, TikTok… sur Android : bouton « Ouvrir dans Chrome » ;
+ * • ios-safari        — iPhone / iPad, Safari : Partager → Sur l'écran d'accueil ;
+ * • ios-browser       — iPhone, Chrome / Edge / Firefox (iOS 16.4+) : Partager (barre d'adresse) ;
+ * • ios-in-app        — Facebook, Instagram, TikTok… sur iPhone, ou iOS trop ancien : ouvrir dans Safari ;
+ * • installed         — déjà installée (ouverte depuis l'icône) ;
+ * • unavailable       — ordinateur sans installation possible : rien à afficher.
+ */
+export type InstallMode =
+  | "prompt"
+  | "android-manual"
+  | "android-in-app"
+  | "ios-safari"
+  | "ios-browser"
+  | "ios-in-app"
+  | "installed"
+  | "unavailable";
 
 let deferred: BeforeInstallPromptEvent | null = null;
 let installed = false;
@@ -35,16 +54,48 @@ export function isStandalone(): boolean {
   return window.matchMedia?.("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
 }
 
-function detectMode(): InstallMode {
+const IN_APP = /FBAN|FBAV|FB_IAB|FBIOS|Instagram|musical_ly|Bytedance|TikTok|Snapchat|Line\/|LinkedInApp|Twitter/i;
+
+function iosVersion(ua: string): number | null {
+  const m = ua.match(/OS (\d+)_(\d+)/);
+  return m ? Number(m[1]) + Number(m[2]) / 100 : null;
+}
+
+export function detectInstallMode(ua: string = typeof navigator === "undefined" ? "" : navigator.userAgent): InstallMode {
   if (typeof window === "undefined") return "unavailable";
   if (installed || isStandalone()) return "installed";
   if (deferred) return "prompt";
-  const ua = navigator.userAgent;
-  // Navigateurs intégrés (Facebook, Instagram, TikTok…) : impossible d'installer depuis là.
-  if (/FBAN|FBAV|FB_IAB|Instagram|musical_ly|Bytedance|Snapchat|Line\//i.test(ua)) return "in-app-browser";
+
   const ios = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  if (ios) return /CriOS|FxiOS|EdgiOS/i.test(ua) ? "in-app-browser" : "ios";
+  if (ios) {
+    if (IN_APP.test(ua)) return "ios-in-app";
+    if (/CriOS|EdgiOS|FxiOS|OPT\//i.test(ua)) {
+      // Chrome, Edge, Firefox sur iPhone savent ajouter à l'écran d'accueil depuis iOS 16.4.
+      const v = iosVersion(ua);
+      return v !== null && v < 16.4 ? "ios-in-app" : "ios-browser";
+    }
+    return "ios-safari";
+  }
+
+  if (/Android/i.test(ua)) {
+    // Navigateurs intégrés aux réseaux sociaux, ou WebView générique (« ; wv) »).
+    if (IN_APP.test(ua) || /; wv\)/.test(ua)) return "android-in-app";
+    return "android-manual";
+  }
   return "unavailable";
+}
+
+/** Lien qui ouvre la page courante dans le vrai navigateur (Chrome sur Android, Safari sur iPhone). */
+export function openInBrowserHref(mode: InstallMode, path = "/dashboard"): string | null {
+  if (typeof window === "undefined") return null;
+  const host = window.location.host;
+  if (mode === "android-in-app") {
+    const fallback = encodeURIComponent(`https://${host}${path}`);
+    return `intent://${host}${path}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${fallback};end`;
+  }
+  // iOS 17+ : ouvre Safari depuis un navigateur intégré (sans effet sur les versions plus anciennes).
+  if (mode === "ios-in-app") return `x-safari-https://${host}${path}`;
+  return null;
 }
 
 export async function promptInstall(): Promise<boolean> {
@@ -62,7 +113,7 @@ export async function promptInstall(): Promise<boolean> {
 export function useInstallMode(): InstallMode {
   const [mode, setMode] = React.useState<InstallMode>("unavailable");
   React.useEffect(() => {
-    const update = () => setMode(detectMode());
+    const update = () => setMode(detectInstallMode());
     update();
     listeners.add(update);
     return () => {
