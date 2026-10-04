@@ -19,7 +19,7 @@ export async function requireAdmin(): Promise<{ userId: string }> {
 export async function logAdminAction(
   adminId: string,
   action: string,
-  targetType: "shop" | "report" | "boost" | "product" | "settings",
+  targetType: "shop" | "report" | "boost" | "product" | "settings" | "user",
   targetId: string | null,
   details: Record<string, unknown> = {}
 ): Promise<void> {

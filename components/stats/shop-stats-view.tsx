@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowDownRight, ArrowLeft, ArrowUpRight, Eye, Lock, MessageCircle, QrCode, Users } from "lucide-react";
+import { ArrowDownRight, ArrowLeft, ArrowUpRight, Eye, Lock, MessageCircle, PlayCircle, QrCode, Users } from "lucide-react";
 import type { ShopStats, StatsTotals } from "@/lib/shops/stats";
 import { useLocale } from "@/lib/locale-context";
 import { cn } from "@/lib/utils";
@@ -116,6 +116,14 @@ export function ShopStatsView({
             : t("stats.tipShare")}
         </p>
       </div>
+
+      {/* Vidéos produit : affiché seulement quand il y a eu des lectures. */}
+      {current.videoPlays > 0 && (
+        <p className="mt-3 flex items-center gap-2 rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm">
+          <PlayCircle className="h-4 w-4 shrink-0 text-primary" strokeWidth={1.75} />
+          {t("stats.videoPlays").replace("{n}", current.videoPlays.toLocaleString("fr-FR"))}
+        </p>
+      )}
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <section className="rounded-2xl border border-border bg-card p-4">

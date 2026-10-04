@@ -18,6 +18,8 @@ const KINDS = {
   logo: { maxSide: 512, folder: "shops", quality: 90 },
   banner: { maxSide: 1600, folder: "shops", quality: 80 },
   product: { maxSide: 1200, folder: "products", quality: 82 },
+  // Image d'aperçu d'une vidéo produit (frame extraite dans le navigateur) — migration 0035.
+  video_poster: { maxSide: 1280, folder: "videos", quality: 78 },
 } as const;
 
 type Kind = keyof typeof KINDS;

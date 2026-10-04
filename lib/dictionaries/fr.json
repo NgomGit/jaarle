@@ -147,7 +147,18 @@
     "hasAccount": "Déjà un compte ?",
     "createOne": "Crée-en un",
     "signIn": "Connecte-toi",
-    "logout": "Déconnexion"
+    "logout": "Déconnexion",
+    "forgotLink": "Mot de passe oublié ?",
+    "forgotTitle": "Mot de passe oublié",
+    "forgotDesc": "Pas de souci : l'équipe Jaarle te donne un mot de passe provisoire sur WhatsApp. Tu en choisiras un nouveau dès ta connexion.",
+    "forgotPhoneLabel": "Ton numéro de connexion",
+    "forgotCta": "Demander sur WhatsApp",
+    "forgotMessage": "Bonjour Jaarle, j'ai oublié mon mot de passe. Mon numéro de connexion : {phone}",
+    "forgotBack": "Retour à la connexion",
+    "changeTitle": "Choisis un nouveau mot de passe",
+    "changeDesc": "Tu t'es connecté avec un mot de passe provisoire. Choisis-en un nouveau pour continuer.",
+    "newPassword": "Nouveau mot de passe",
+    "changeSubmit": "Enregistrer mon mot de passe"
   },
   "settings": {
     "navLink": "Paramètres",
@@ -155,7 +166,11 @@
     "desc": "Modifie tes informations. Confirme avec ton mot de passe actuel pour valider.",
     "currentPassword": "Mot de passe actuel",
     "currentPasswordPlaceholder": "••••••••",
-    "save": "Enregistrer"
+    "save": "Enregistrer",
+    "passwordTitle": "Mot de passe",
+    "passwordDesc": "Change ton mot de passe de connexion.",
+    "passwordHint": "Au moins 6 caractères.",
+    "passwordSubmit": "Changer mon mot de passe"
   },
   "creation": {
     "next": "Suivant",
@@ -486,7 +501,39 @@
     "displayPosterHint": "Idéal si votre photo vous montre vous-même (coiffure, maquillage, cours…).",
     "displayPhotos": "Les photos",
     "displayPhotosHint": "Idéal quand on veut voir le bien (voitures, appartements, salle…).",
-    "displayHint": "Utilisé dans votre boutique et sur Jaarle Market. Si l'affiche n'existe pas encore, on montre la photo en attendant."
+    "displayHint": "Utilisé dans votre boutique et sur Jaarle Market. Si l'affiche n'existe pas encore, on montre la photo en attendant.",
+    "videoLabel": "Vidéo",
+    "videoAdd": "Ajouter une vidéo",
+    "videoHint": "Montre ton produit en vidéo — 30 secondes maximum",
+    "videoLimit": "1 vidéo / produit",
+    "videoReplace": "Remplacer",
+    "videoRemove": "Supprimer",
+    "videoRetry": "Réessayer",
+    "videoReading": "Lecture de la vidéo…",
+    "videoPreparing": "Préparation de la vidéo… {p} %",
+    "videoUploading": "Envoi de la vidéo… {p} %",
+    "videoStayHint": "Garde cette page ouverte jusqu'à la fin.",
+    "videoReady": "Vidéo prête · {d}",
+    "videoTooLong": "Ta vidéo fait {n} secondes. Sélectionne jusqu'à 30 secondes à garder.",
+    "videoTrimTitle": "Choisis le passage à garder",
+    "videoTrimSelected": "{d} sélectionnées",
+    "videoUsePart": "Utiliser cette partie",
+    "videoCancel": "Annuler",
+    "videoPlaySegment": "Lire le passage",
+    "videoPauseSegment": "Pause",
+    "videoHandleStart": "Début du passage",
+    "videoHandleEnd": "Fin du passage",
+    "videoErrorFormat": "Format vidéo non pris en charge. Choisis une vidéo filmée avec ton téléphone (MP4 ou MOV).",
+    "videoErrorTooBig": "Vidéo trop lourde (500 Mo maximum). Choisis une vidéo plus courte.",
+    "videoErrorBrowser": "Ton navigateur ne peut pas préparer cette vidéo. Mets-le à jour ou essaie avec Chrome.",
+    "videoErrorProcess": "La vidéo n'a pas pu être préparée. Réessaie ou choisis une autre vidéo.",
+    "videoErrorFinalTooBig": "La vidéo reste trop lourde après compression (30 Mo maximum). Garde un passage plus court.",
+    "videoErrorUpload": "L'envoi de la vidéo a été interrompu. Vérifie ta connexion puis réessaie.",
+    "videoErrorSession": "Session expirée. Recharge la page puis réessaie.",
+    "videoBusy": "Attends la fin de l'envoi de la vidéo.",
+    "videoProHint": "Réservé à Jaarle Pro : montre ton produit en vidéo (30 s).",
+    "videoHiddenNotPro": "Cette vidéo est masquée sur ta boutique depuis la fin de ton abonnement Pro.",
+    "videoGoPro": "Repasser Pro"
   },
   "stats": {
     "title": "Statistiques",
@@ -517,7 +564,8 @@
     "src_card": "Carte produit",
     "src_poster": "Affiche",
     "empty": "Pas encore de données sur cette période.",
-    "footnote": "Un même visiteur n'est compté qu'une fois par jour ; aucune donnée personnelle n'est enregistrée."
+    "footnote": "Un même visiteur n'est compté qu'une fois par jour ; aucune donnée personnelle n'est enregistrée.",
+    "videoPlays": "{n} lecture(s) de tes vidéos produit sur la période"
   },
   "studio": {
     "title": "Studio",

@@ -36,7 +36,7 @@ export default function RegisterPage({
     <main className="flex min-h-screen items-center justify-center bg-muted/40 px-4 py-10">
       <div className="w-full max-w-[400px]">
         <Link href="/" className="mb-8 flex justify-center">
-          <Logo />
+          <Logo variant="image" className="text-xl [&_img]:h-9 [&_img]:w-9" />
         </Link>
         <Card>
           <CardHeader>

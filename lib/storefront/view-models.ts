@@ -1,5 +1,6 @@
 import { formatSenegalPhone, shopPublicUrl } from "@/lib/shops/format";
 import { shopMediaThumbUrl, shopMediaUrl } from "@/lib/shops/media";
+import { productVideoUrl } from "@/lib/shops/video";
 import { productPublicUrl } from "@/lib/shops/public";
 import { itemPriceLabel, posterUrl } from "@/lib/shops/posters";
 import type { ProductWithImages } from "@/lib/shops/products";
@@ -74,6 +75,7 @@ export function toProductCard(shopSlug: string, p: ProductWithImages, posterKey?
     thumbUrl: poster ?? shopMediaThumbUrl(main),
     fullUrl: poster ?? shopMediaUrl(main),
     url: productPublicUrl(shopSlug, p.slug),
+    hasVideo: !!p.product_video,
   };
 }
 
@@ -89,6 +91,16 @@ export function toProductDetail(shopSlug: string, p: ProductWithImages, posterKe
     // Service « photos » : les photos, puis l'affiche si elle existe.
     images: poster ? [poster] : extraPoster ? [...photos, extraPoster] : photos,
     options: p.options ?? [],
+    video: p.product_video
+      ? {
+          url: productVideoUrl(p.product_video.path) as string,
+          posterUrl: shopMediaUrl(p.product_video.poster_path),
+          durationMs: p.product_video.duration_ms,
+          width: p.product_video.width,
+          height: p.product_video.height,
+          uploadedAt: p.product_video.created_at,
+        }
+      : null,
   };
 }
 

@@ -42,12 +42,25 @@ export interface StorefrontProductCard {
   thumbUrl: string | null;
   fullUrl: string | null;
   url: string; // lien public du produit (partage)
+  /** Le produit a une vidéo (petit badge ▶ sur la carte, migration 0035). */
+  hasVideo?: boolean;
+}
+
+/** Vidéo d'une fiche produit (30 s max, MP4) — chargée seulement au clic sur lecture. */
+export interface StorefrontProductVideo {
+  url: string;
+  posterUrl: string | null;
+  durationMs: number;
+  width: number | null;
+  height: number | null;
+  uploadedAt: string;
 }
 
 export interface StorefrontProductDetail extends StorefrontProductCard {
   description: string | null;
   images: string[];
   options: ProductOption[];
+  video: StorefrontProductVideo | null;
 }
 
 export interface ShopViewProps {

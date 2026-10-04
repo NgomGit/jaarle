@@ -1,6 +1,7 @@
 // Validation des produits (partagée client / server actions).
 import { z } from "zod";
 import { isMarketLeaf } from "@/lib/market/categories";
+import { MAX_VIDEO_BYTES, MAX_VIDEO_MS_DB } from "@/lib/shops/video";
 
 export const PRODUCT_STATUSES = ["draft", "active", "sold_out", "hidden"] as const;
 
@@ -13,6 +14,16 @@ const ImageSchema = z.object({
   path: z.string().min(1).max(300),
   width: z.number().int().positive().nullable().optional(),
   height: z.number().int().positive().nullable().optional(),
+});
+
+// Vidéo déjà envoyée dans le bucket product-videos (le chemin est revérifié côté serveur).
+const VideoSchema = z.object({
+  path: z.string().min(1).max(300),
+  posterPath: z.string().min(1).max(300).nullable(),
+  durationMs: z.number().int().min(300).max(MAX_VIDEO_MS_DB, "Vidéo trop longue (30 secondes maximum)."),
+  fileSize: z.number().int().positive().max(MAX_VIDEO_BYTES, "Vidéo trop lourde (30 Mo maximum)."),
+  width: z.number().int().min(16).max(1920).nullable(),
+  height: z.number().int().min(16).max(1920).nullable(),
 });
 
 export const ProductInputSchema = z.object({
@@ -43,6 +54,8 @@ export const ProductInputSchema = z.object({
   options: z.array(OptionSchema).max(3).default([]),
   status: z.enum(PRODUCT_STATUSES).default("active"),
   images: z.array(ImageSchema).max(4, "4 photos maximum."),
+  // undefined = vidéo inchangée (imports, appels sans formulaire) ; null = aucune vidéo / suppression.
+  video: VideoSchema.nullable().optional(),
   aiSuggestions: z.record(z.string(), z.unknown()).nullable().optional(),
   sourceCreationId: z.string().uuid().nullable().optional(),
 });

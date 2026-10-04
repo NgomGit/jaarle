@@ -23,7 +23,13 @@ export function ModerneProductView({ shop, product, related, theme, marketCatego
         <ProductBackLink shopSlug={shop.slug} marketCategory={marketCategory} />
 
         <div className="grid gap-6 lg:grid-cols-2 lg:gap-12">
-          <Gallery images={product.images} alt={product.name} soldOut={product.soldOut} />
+          <Gallery
+            images={product.images}
+            alt={product.name}
+            soldOut={product.soldOut}
+            video={product.video}
+            track={{ shopId: shop.id, productId: product.id }}
+          />
 
           <div className="lg:pt-2">
             {product.category && (

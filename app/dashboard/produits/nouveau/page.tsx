@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMyShop } from "@/lib/shops/queries";
 import { ProductForm } from "@/components/products/product-form";
-import { getEntitlements } from "@/lib/billing/entitlements";
+import { canUseProductVideo, getEntitlements } from "@/lib/billing/entitlements";
 import { canAddProduct } from "@/lib/billing/format";
 import { LimitPage } from "@/components/billing/limit-page";
 
@@ -22,5 +22,5 @@ export default async function NewProductPage() {
     return <LimitPage reason="products" limit={entitlements.productsLimit} backHref="/dashboard/produits" backLabelKey="dashboard.nav_products" />;
   }
 
-  return <ProductForm />;
+  return <ProductForm videoAllowed={canUseProductVideo(entitlements)} />;
 }

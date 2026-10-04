@@ -34,7 +34,7 @@ export async function downscaleImage(
   }
 }
 
-export type ShopMediaKind = "logo" | "banner" | "product";
+export type ShopMediaKind = "logo" | "banner" | "product" | "video_poster";
 
 export interface UploadedShopMedia {
   path: string;

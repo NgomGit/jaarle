@@ -7,7 +7,8 @@ import type { ShopEventType } from "@/lib/shops/types";
 // Vérifie que la boutique est bien publiée (client anonyme + RLS) avant d'écrire quoi que ce soit.
 
 // call_click : appel depuis la vitrine (compté dans le KPI « boutiques ayant reçu un contact »).
-const ALLOWED: ShopEventType[] = ["shop_view", "product_view", "share_click", "call_click"];
+// product_video_play : lecture d'une vidéo produit (migration 0035), une fois / visiteur / 30 min.
+const ALLOWED: ShopEventType[] = ["shop_view", "product_view", "share_click", "call_click", "product_video_play"];
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as {
@@ -35,6 +36,8 @@ export async function POST(request: Request) {
       .maybeSingle();
     productId = product?.id ?? null;
   }
+  // Une lecture vidéo n'a de sens que sur un produit visible de cette boutique.
+  if (body.type === "product_video_play" && !productId) return new NextResponse(null, { status: 204 });
 
   await recordShopEvent({
     shopId: body.shopId,

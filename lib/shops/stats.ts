@@ -12,6 +12,7 @@ export interface StatsTotals {
   qrScans: number; // visites arrivées par le QR code
   shares: number;
   calls: number; // appels depuis la vitrine
+  videoPlays: number; // lectures des vidéos produit (migration 0035)
 }
 
 export interface ShopStats {
@@ -41,6 +42,7 @@ function totals(rows: EventRow[]): StatsTotals {
   let qrScans = 0;
   let shares = 0;
   let calls = 0;
+  let videoPlays = 0;
   for (const r of rows) {
     if (r.type === "shop_view" || r.type === "product_view") {
       if (r.visitor_hash) visitors.add(`${r.visitor_hash}|${r.created_at.slice(0, 10)}`);
@@ -52,8 +54,9 @@ function totals(rows: EventRow[]): StatsTotals {
     if (r.type === "share_click") shares++;
     if (r.type === "qr_scan") qrScans++;
     if (r.type === "call_click") calls++;
+    if (r.type === "product_video_play") videoPlays++;
   }
-  return { visitors: visitors.size + anonymousViews, productViews, whatsappClicks, qrScans, shares, calls };
+  return { visitors: visitors.size + anonymousViews, productViews, whatsappClicks, qrScans, shares, calls, videoPlays };
 }
 
 export async function getShopStats(supabase: SupabaseClient, shopId: string, days: number): Promise<ShopStats> {

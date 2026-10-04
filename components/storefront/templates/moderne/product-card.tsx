@@ -2,7 +2,7 @@
 
 import type * as React from "react";
 import Link from "next/link";
-import { ImageOff, Phone } from "lucide-react";
+import { ImageOff, Phone, Play } from "lucide-react";
 import { AddToCartButton } from "@/components/storefront/cart";
 import { ShareButton } from "@/components/storefront/share-button";
 import { trackEvent } from "@/components/storefront/track-view";
@@ -75,6 +75,16 @@ export function ProductCard({
               Nouveau
             </span>
           )
+        )}
+        {product.hasVideo && (
+          // Simple indicateur : aucune vidéo n'est chargée dans les listes.
+          <span
+            className="absolute bottom-2.5 right-2.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm"
+            title="Vidéo disponible"
+          >
+            <Play className="ml-0.5 h-3.5 w-3.5 fill-white" aria-hidden />
+            <span className="sr-only">Vidéo disponible</span>
+          </span>
         )}
       </Link>
 

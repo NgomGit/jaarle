@@ -54,6 +54,7 @@ export function MarketProductCard({ product }: { product: MarketProduct; priorit
     thumbUrl: product.thumbUrl,
     fullUrl: product.fullUrl,
     url: product.url,
+    hasVideo: product.hasVideo,
   };
   return (
     <ProductCard

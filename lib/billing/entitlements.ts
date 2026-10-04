@@ -128,3 +128,11 @@ export async function getEntitlementsFor(userId: string): Promise<Entitlements> 
 export function canUseMultiPhoto(e: Entitlements): boolean {
   return !e.billingEnabled || e.plan !== "free";
 }
+
+/**
+ * Vidéo produit : réservée aux offres payantes (aussi appliqué en base, migration 0036 :
+ * ajout refusé et vidéos masquées du public quand le vendeur n'est plus Pro).
+ */
+export function canUseProductVideo(e: Entitlements): boolean {
+  return !e.billingEnabled || e.plan !== "free";
+}

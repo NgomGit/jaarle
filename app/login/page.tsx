@@ -22,7 +22,7 @@ export default function LoginPage({
     <main className="flex min-h-screen items-center justify-center bg-muted/40 px-4 py-10">
       <div className="w-full max-w-[400px]">
         <Link href="/" className="mb-8 flex justify-center">
-          <Logo />
+          <Logo variant="image" className="text-xl [&_img]:h-9 [&_img]:w-9" />
         </Link>
         <Card>
           <CardHeader>
@@ -57,9 +57,17 @@ export default function LoginPage({
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="password" className="text-sm font-medium">
-                  {t("auth.password")}
-                </label>
+                <div className="flex items-baseline justify-between gap-2">
+                  <label htmlFor="password" className="text-sm font-medium">
+                    {t("auth.password")}
+                  </label>
+                  <Link
+                    href={`/mot-de-passe-oublie${phone ? `?tel=${phone}` : ""}`}
+                    className="text-xs font-medium text-primary hover:underline"
+                  >
+                    {t("auth.forgotLink")}
+                  </Link>
+                </div>
                 <Input
                   id="password"
                   name="password"

@@ -147,7 +147,18 @@
     "hasAccount": "Already have an account?",
     "createOne": "Create one",
     "signIn": "Sign in",
-    "logout": "Log out"
+    "logout": "Log out",
+    "forgotLink": "Forgot password?",
+    "forgotTitle": "Forgot password",
+    "forgotDesc": "No problem: the Jaarle team will send you a temporary password on WhatsApp. You'll choose a new one as soon as you log in.",
+    "forgotPhoneLabel": "Your login number",
+    "forgotCta": "Ask on WhatsApp",
+    "forgotMessage": "Hello Jaarle, I forgot my password. My login number: {phone}",
+    "forgotBack": "Back to login",
+    "changeTitle": "Choose a new password",
+    "changeDesc": "You logged in with a temporary password. Choose a new one to continue.",
+    "newPassword": "New password",
+    "changeSubmit": "Save my password"
   },
   "settings": {
     "navLink": "Settings",
@@ -155,7 +166,11 @@
     "desc": "Update your details. Confirm with your current password to save.",
     "currentPassword": "Current password",
     "currentPasswordPlaceholder": "••••••••",
-    "save": "Save"
+    "save": "Save",
+    "passwordTitle": "Password",
+    "passwordDesc": "Change your login password.",
+    "passwordHint": "At least 6 characters.",
+    "passwordSubmit": "Change my password"
   },
   "creation": {
     "next": "Next",
@@ -486,7 +501,39 @@
     "displayPosterHint": "Best if your photo shows yourself (hairdressing, make-up, lessons…).",
     "displayPhotos": "The photos",
     "displayPhotosHint": "Best when people want to see the item (cars, apartments, venues…).",
-    "displayHint": "Used in your shop and on Jaarle Market. If the poster doesn't exist yet, the photo is shown meanwhile."
+    "displayHint": "Used in your shop and on Jaarle Market. If the poster doesn't exist yet, the photo is shown meanwhile.",
+    "videoLabel": "Video",
+    "videoAdd": "Add a video",
+    "videoHint": "Show your product on video — 30 seconds max",
+    "videoLimit": "1 video / product",
+    "videoReplace": "Replace",
+    "videoRemove": "Remove",
+    "videoRetry": "Try again",
+    "videoReading": "Reading the video…",
+    "videoPreparing": "Preparing the video… {p}%",
+    "videoUploading": "Uploading the video… {p}%",
+    "videoStayHint": "Keep this page open until it finishes.",
+    "videoReady": "Video ready · {d}",
+    "videoTooLong": "Your video is {n} seconds long. Select up to 30 seconds to keep.",
+    "videoTrimTitle": "Choose the part to keep",
+    "videoTrimSelected": "{d} selected",
+    "videoUsePart": "Use this part",
+    "videoCancel": "Cancel",
+    "videoPlaySegment": "Play selection",
+    "videoPauseSegment": "Pause",
+    "videoHandleStart": "Selection start",
+    "videoHandleEnd": "Selection end",
+    "videoErrorFormat": "Unsupported video format. Pick a video filmed with your phone (MP4 or MOV).",
+    "videoErrorTooBig": "Video too large (500 MB max). Pick a shorter video.",
+    "videoErrorBrowser": "Your browser can't prepare this video. Update it or try Chrome.",
+    "videoErrorProcess": "The video couldn't be prepared. Try again or pick another video.",
+    "videoErrorFinalTooBig": "The video is still too large after compression (30 MB max). Keep a shorter part.",
+    "videoErrorUpload": "The video upload was interrupted. Check your connection and try again.",
+    "videoErrorSession": "Session expired. Reload the page and try again.",
+    "videoBusy": "Wait for the video upload to finish.",
+    "videoProHint": "Jaarle Pro feature: show your product on video (30 s).",
+    "videoHiddenNotPro": "This video is hidden from your shop since your Pro subscription ended.",
+    "videoGoPro": "Go Pro again"
   },
   "stats": {
     "title": "Statistics",
@@ -517,7 +564,8 @@
     "src_card": "Product card",
     "src_poster": "Poster",
     "empty": "No data for this period yet.",
-    "footnote": "A visitor is counted once per day; no personal data is stored."
+    "footnote": "A visitor is counted once per day; no personal data is stored.",
+    "videoPlays": "{n} play(s) of your product videos in this period"
   },
   "studio": {
     "title": "Studio",

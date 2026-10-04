@@ -10,8 +10,14 @@ import { productSlug } from "@/lib/shops/slug";
 import { SHOP_MEDIA_BUCKET, type ProductStatus, type Shop } from "@/lib/shops/types";
 import { LIMIT_MESSAGES } from "@/lib/billing/format";
 import { stripBrands, stripBrandsFromName } from "@/lib/shops/brands";
+import { isOwnPosterPath, isOwnVideoPath, PRODUCT_VIDEO_BUCKET, type ProductVideoDraft } from "@/lib/shops/video";
+import { canUseProductVideo, getEntitlements } from "@/lib/billing/entitlements";
 
-export type ProductActionResult = { ok: true; id: string } | { ok: false; error: string; limit?: "products" };
+const VIDEO_PRO_MESSAGE = "La vidéo produit est réservée aux comptes Pro.";
+
+export type ProductActionResult =
+  | { ok: true; id: string; /** Produit enregistré mais vidéo non enregistrée (message à afficher). */ videoError?: string }
+  | { ok: false; error: string; limit?: "products" | "feature" };
 
 type Supabase = ReturnType<typeof createClient>;
 
@@ -53,7 +59,73 @@ async function removeFiles(supabase: Supabase, paths: string[]) {
   await supabase.storage.from(SHOP_MEDIA_BUCKET).remove(all).then(undefined, () => undefined);
 }
 
-/** Crée (productId absent) ou met à jour un produit et synchronise ses photos (4 max). */
+/** Supprime les fichiers d'une vidéo (MP4 dans product-videos, aperçu dans shop-media). Jamais bloquant. */
+async function removeVideoFiles(supabase: Supabase, video: { path: string; poster_path?: string | null }) {
+  await supabase.storage.from(PRODUCT_VIDEO_BUCKET).remove([video.path]).then(undefined, () => undefined);
+  if (video.poster_path) {
+    await supabase.storage.from(SHOP_MEDIA_BUCKET).remove([video.poster_path]).then(undefined, () => undefined);
+  }
+}
+
+/**
+ * Synchronise la vidéo d'un produit (1 maximum) : ajout, remplacement (même ligne, nouveau fichier,
+ * l'ancien est effacé du stockage) ou suppression. Renvoie un message en cas d'échec.
+ */
+async function syncProductVideo(
+  supabase: Supabase,
+  userId: string,
+  productId: string,
+  video: ProductVideoDraft | null
+): Promise<string | null> {
+  const { data: existing, error: readError } = await supabase
+    .from("product_videos")
+    .select("id, path, poster_path")
+    .eq("product_id", productId)
+    .maybeSingle();
+  if (readError) {
+    console.error("[produits/saveProduct] video read failed:", readError);
+    return video ? "Produit enregistré, mais la vidéo n'a pas pu être enregistrée. Réessaie." : null;
+  }
+  const current = existing as { id: string; path: string; poster_path: string | null } | null;
+
+  if (!video) {
+    if (!current) return null;
+    const { error } = await supabase.from("product_videos").delete().eq("id", current.id);
+    if (error) {
+      console.error("[produits/saveProduct] video delete failed:", error);
+      return "La vidéo n'a pas pu être supprimée. Réessaie.";
+    }
+    await removeVideoFiles(supabase, current);
+    return null;
+  }
+
+  const fields = {
+    path: video.path,
+    poster_path: video.posterPath,
+    duration_ms: video.durationMs,
+    file_size: video.fileSize,
+    mime_type: "video/mp4",
+    width: video.width,
+    height: video.height,
+  };
+  if (current?.path === video.path) {
+    if (current.poster_path === video.posterPath) return null;
+    await supabase.from("product_videos").update({ poster_path: video.posterPath }).eq("id", current.id);
+    return null;
+  }
+  const { error } = current
+    ? await supabase.from("product_videos").update(fields).eq("id", current.id)
+    : await supabase.from("product_videos").insert({ ...fields, product_id: productId, owner_id: userId });
+  if (error) {
+    if (error.message?.includes("PRO_REQUIRED:video")) return VIDEO_PRO_MESSAGE;
+    console.error("[produits/saveProduct] video save failed:", error);
+    return "Produit enregistré, mais la vidéo n'a pas pu être enregistrée. Réessaie.";
+  }
+  if (current) await removeVideoFiles(supabase, current);
+  return null;
+}
+
+/** Crée (productId absent) ou met à jour un produit et synchronise ses photos (4 max) et sa vidéo (1 max). */
 export async function saveProduct(input: ProductInput, productId?: string): Promise<ProductActionResult> {
   const parsed = ProductInputSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message || "Informations invalides." };
@@ -65,6 +137,19 @@ export async function saveProduct(input: ProductInput, productId?: string): Prom
 
   if (data.images.some((img) => !img.path.startsWith(`${userId}/products/`))) {
     return { ok: false, error: "Photo invalide." };
+  }
+  if (data.video && (!isOwnVideoPath(userId, data.video.path) || (data.video.posterPath && !isOwnPosterPath(userId, data.video.posterPath)))) {
+    return { ok: false, error: "Vidéo invalide." };
+  }
+  // Nouvelle vidéo (ajout ou remplacement) : offre Pro requise. Garder ou supprimer une vidéo
+  // existante reste possible après un retour en Gratuit. Vérifié AVANT d'enregistrer le produit.
+  if (data.video) {
+    const { data: current } = productId
+      ? await supabase.from("product_videos").select("path").eq("product_id", productId).maybeSingle()
+      : { data: null };
+    if ((current as { path: string } | null)?.path !== data.video.path && !canUseProductVideo(await getEntitlements())) {
+      return { ok: false, error: VIDEO_PRO_MESSAGE, limit: "feature" };
+    }
   }
 
   // Règle de vente : aucun nom de marque dans les annonces (retiré automatiquement).
@@ -145,8 +230,27 @@ export async function saveProduct(input: ProductInput, productId?: string): Prom
     }
   }
 
+  // Vidéo : seulement si le formulaire l'envoie (undefined = inchangée, ex. import d'affiche).
+  const videoError = data.video !== undefined ? await syncProductVideo(supabase, userId, id, data.video ?? null) : null;
+
   revalidateShop(shop, slug);
-  return { ok: true, id };
+  return videoError ? { ok: true, id, videoError } : { ok: true, id };
+}
+
+/**
+ * Vidéo envoyée puis abandonnée dans le formulaire (remplacée ou retirée avant d'enregistrer) :
+ * on efface le fichier tout de suite, s'il n'est rattaché à aucun produit. Jamais bloquant.
+ */
+export async function discardVideoUpload(path: string, posterPath: string | null): Promise<void> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user || !isOwnVideoPath(user.id, path)) return;
+  if (posterPath && !isOwnPosterPath(user.id, posterPath)) return;
+  const { data } = await supabase.from("product_videos").select("id").eq("path", path).maybeSingle();
+  if (data) return; // déjà enregistrée sur un produit : saveProduct s'en chargera
+  await removeVideoFiles(supabase, { path, poster_path: posterPath });
 }
 
 export async function setProductStatus(productId: string, status: ProductStatus): Promise<ProductActionResult> {
@@ -169,6 +273,7 @@ export async function deleteProduct(productId: string): Promise<ProductActionRes
   if ("error" in ctx) return { ok: false, error: ctx.error };
   const { supabase, userId, shop } = ctx;
   const { data: images } = await supabase.from("product_images").select("path").eq("product_id", productId);
+  const { data: video } = await supabase.from("product_videos").select("path, poster_path").eq("product_id", productId).maybeSingle();
   const { data, error } = await supabase
     .from("products")
     .delete()
@@ -178,6 +283,7 @@ export async function deleteProduct(productId: string): Promise<ProductActionRes
     .single();
   if (error || !data) return { ok: false, error: "Produit introuvable." };
   await removeFiles(supabase, ((images ?? []) as { path: string }[]).map((i) => i.path));
+  if (video) await removeVideoFiles(supabase, video as { path: string; poster_path: string | null });
   revalidateShop(shop, data.slug as string);
   return { ok: true, id: productId };
 }

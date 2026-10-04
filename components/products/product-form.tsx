@@ -18,6 +18,8 @@ import type { ProductSuggestion } from "@/lib/ai/product-autofill";
 import { useLocale } from "@/lib/locale-context";
 import { MarketCategoryPicker } from "@/components/market/market-category-picker";
 import { PosterChooser } from "@/components/products/poster-chooser";
+import { ProductVideoField } from "@/components/products/product-video-field";
+import type { ProductVideoDraft } from "@/lib/shops/video";
 import { cn } from "@/lib/utils";
 
 const MAX_PHOTOS = 4;
@@ -44,7 +46,16 @@ type AiField = "name" | "description" | "category";
  * Formulaire produit « photo d'abord » : en création, la 1ʳᵉ photo déclenche l'analyse IA qui
  * propose nom / description / catégorie. Le commerçant vérifie, ajoute le prix, publie.
  */
-export function ProductForm({ product, importedNote = false }: { product?: ProductWithImages | null; importedNote?: boolean }) {
+export function ProductForm({
+  product,
+  importedNote = false,
+  videoAllowed = true,
+}: {
+  product?: ProductWithImages | null;
+  importedNote?: boolean;
+  /** Vidéo produit : offres payantes uniquement (Gratuit → bloc verrouillé « Pro »). */
+  videoAllowed?: boolean;
+}) {
   const { t } = useLocale();
   const router = useRouter();
   const isEdit = !!product;
@@ -78,13 +89,27 @@ export function ProductForm({ product, importedNote = false }: { product?: Produ
   const [saving, setSaving] = React.useState<null | "publish" | "draft" | "save">(null);
   const [error, setError] = React.useState<string | null>(null);
   const [limitReason, setLimitReason] = React.useState<LimitReason | null>(null);
+  const savedVideo = product?.product_video ?? null;
+  const [video, setVideo] = React.useState<ProductVideoDraft | null>(
+    savedVideo
+      ? {
+          path: savedVideo.path,
+          posterPath: savedVideo.poster_path,
+          durationMs: savedVideo.duration_ms,
+          fileSize: savedVideo.file_size,
+          width: savedVideo.width,
+          height: savedVideo.height,
+        }
+      : null
+  );
+  const [videoBusy, setVideoBusy] = React.useState(false);
 
   // Après la proposition IA, il ne reste que le prix à saisir : on y place le curseur.
   React.useEffect(() => {
     if (aiState === "done" && !isEdit) document.getElementById("product-price")?.focus();
   }, [aiState, isEdit]);
 
-  const uploading = photos.some((p) => !p.path && !p.error);
+  const uploading = photos.some((p) => !p.path && !p.error) || videoBusy;
   const readyPaths = photos.filter((p) => p.path).map((p) => p.path as string);
   const showForm = isEdit || photos.length > 0;
 
@@ -187,6 +212,7 @@ export function ProductForm({ product, importedNote = false }: { product?: Produ
     setError(null);
     if (readyPaths.length === 0) return setError(t("products.needPhoto"));
     if (!priceOnRequest && price.trim() === "") return setError(t("products.needPrice"));
+    if (videoBusy) return setError(t("products.videoBusy"));
     setSaving(mode);
     const res = await saveProduct(
       {
@@ -211,6 +237,7 @@ export function ProductForm({ product, importedNote = false }: { product?: Produ
           .filter((p) => p.path)
           .map((p) => ({ path: p.path as string, width: p.width ?? null, height: p.height ?? null })),
         aiSuggestions: aiSuggestion ? (aiSuggestion as unknown as Record<string, unknown>) : undefined,
+        video,
       },
       product?.id
     );
@@ -218,6 +245,12 @@ export function ProductForm({ product, importedNote = false }: { product?: Produ
     if (!res.ok) {
       if (res.limit) setLimitReason(res.limit);
       return setError(res.error);
+    }
+    if (res.videoError) {
+      // Produit enregistré, vidéo non : on reste sur la fiche (celle du produit créé) pour réessayer.
+      setError(res.videoError);
+      if (!isEdit) router.replace(`/dashboard/produits/${res.id}`);
+      return;
     }
     router.push("/dashboard/produits?saved=1");
     router.refresh();
@@ -339,6 +372,16 @@ export function ProductForm({ product, importedNote = false }: { product?: Produ
           </div>
           <p className="mt-1.5 text-xs text-muted-foreground">{t("products.photosHint")}</p>
         </div>
+      )}
+
+      {showForm && (
+        <ProductVideoField
+          value={video}
+          savedPath={savedVideo?.path ?? null}
+          allowed={videoAllowed}
+          onChange={setVideo}
+          onBusyChange={setVideoBusy}
+        />
       )}
 
       {/* État de l'IA */}

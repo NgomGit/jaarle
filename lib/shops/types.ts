@@ -86,7 +86,31 @@ export interface ProductImage {
   created_at: string;
 }
 
-export type ShopEventType = "shop_view" | "product_view" | "whatsapp_click" | "share_click" | "qr_scan" | "order_click" | "call_click";
+/** Vidéo d'un produit (migration 0035) : une au maximum, 30 s, MP4 dans le bucket product-videos. */
+export interface ProductVideo {
+  id: string;
+  product_id: string;
+  owner_id: string;
+  path: string;
+  poster_path: string | null;
+  duration_ms: number;
+  file_size: number;
+  mime_type: string;
+  width: number | null;
+  height: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ShopEventType =
+  | "shop_view"
+  | "product_view"
+  | "whatsapp_click"
+  | "share_click"
+  | "qr_scan"
+  | "order_click"
+  | "call_click"
+  | "product_video_play";
 
 /** Bucket public des images de boutique (≠ bucket privé `creations` du générateur). */
 export const SHOP_MEDIA_BUCKET = "shop-media";

@@ -39,6 +39,8 @@ export interface MarketProduct {
   waHref: string;
   /** Mise en avant « À la une » en cours (spotlight, boutique Pro). */
   boosted: boolean;
+  /** Le produit a une vidéo (badge ▶ discret sur la carte, migration 0035). */
+  hasVideo?: boolean;
 }
 
 export interface MarketShop {
@@ -108,6 +110,25 @@ function toProduct(r: ProductRow): MarketProduct {
   };
 }
 
+/**
+ * Badge « vidéo » : une seule requête légère pour la page (ids → vidéos visibles, RLS publique).
+ * Best-effort : sans la migration 0035 ou en cas d'erreur, les cartes restent sans badge.
+ */
+async function withVideoFlags(items: MarketProduct[]): Promise<MarketProduct[]> {
+  if (items.length === 0) return items;
+  try {
+    const { data, error } = await createPublicClient()
+      .from("product_videos")
+      .select("product_id")
+      .in("product_id", items.map((p) => p.id));
+    if (error || !data) return items;
+    const ids = new Set((data as { product_id: string }[]).map((r) => r.product_id));
+    return items.map((p) => (ids.has(p.id) ? { ...p, hasVideo: true } : p));
+  } catch {
+    return items;
+  }
+}
+
 function toShop(r: ShopRow): MarketShop {
   return {
     id: r.id, slug: r.slug, name: r.name, categoryLabel: r.category_label, city: r.city,
@@ -164,7 +185,7 @@ export async function getMarketProducts(query: ProductQuery): Promise<{ items: M
     if (error && Object.keys(extra).length) ({ data, error } = await client.rpc("market_products", args));
     if (error || !data) return { items: [], total: 0 };
     const rows = data as ProductRow[];
-    return { items: rows.map(toProduct), total: rows.length ? Number(rows[0].total_count) : 0 };
+    return { items: await withVideoFlags(rows.map(toProduct)), total: rows.length ? Number(rows[0].total_count) : 0 };
   } catch {
     return { items: [], total: 0 };
   }
@@ -334,7 +355,7 @@ export async function getProPicks(limit = 8): Promise<MarketProduct[]> {
   try {
     const { data, error } = await createPublicClient().rpc("market_pro_picks", { p_limit: limit });
     if (error || !data) return [];
-    return (data as ProductRow[]).map(toProduct);
+    return withVideoFlags((data as ProductRow[]).map(toProduct));
   } catch {
     return [];
   }

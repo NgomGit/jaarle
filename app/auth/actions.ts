@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { forgetDevicePushSubscription } from "@/lib/push/device";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { MIN_PASSWORD_LENGTH, mustChangePassword } from "@/lib/auth/password";
 
 /**
  * Destination après connexion : uniquement une page de Jaarle (« /… »). Refuse les adresses
@@ -26,13 +28,15 @@ export async function login(formData: FormData) {
   const next = safeNextPath(formData.get("next"));
 
   const supabase = createClient();
-  const { error } = await supabase.auth.signInWithPassword({ phone, password });
+  const { data, error } = await supabase.auth.signInWithPassword({ phone, password });
 
   if (error) {
     redirect(`/login?error=${encodeURIComponent(error.message)}`);
   }
 
   revalidatePath("/", "layout");
+  // Mot de passe provisoire donné par Jaarle : il faut d'abord en choisir un nouveau.
+  if (mustChangePassword(data.user)) redirect("/mot-de-passe");
   redirect(next);
 }
 
@@ -117,6 +121,80 @@ export async function updateProfile(formData: FormData) {
 
   revalidatePath("/dashboard/settings");
   redirect(`/dashboard/settings?message=${encodeURIComponent("Profil mis à jour.")}`);
+}
+
+/**
+ * Nouveau mot de passe choisi par l'utilisateur connecté — obligatoire après une réinitialisation
+ * par l'admin (app_metadata.must_change_password). Écrit avec la clé service_role : pas de
+ * « ré-authentification récente » exigée par Supabase, et le drapeau est levé dans le même appel.
+ */
+export async function changePassword(formData: FormData) {
+  const password = String(formData.get("password") || "");
+  const confirm = String(formData.get("confirmPassword") || "");
+  const fail = (msg: string) => redirect(`/mot-de-passe?error=${encodeURIComponent(msg)}`);
+
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user || !user.phone) redirect("/login");
+
+  if (password.length < MIN_PASSWORD_LENGTH) fail(`Au moins ${MIN_PASSWORD_LENGTH} caractères.`);
+  if (password !== confirm) fail("Les mots de passe ne correspondent pas.");
+
+  // Refuse de garder le mot de passe provisoire (client isolé : la session en cours n'est pas touchée).
+  const verifier = createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { error: sameError } = await verifier.auth.signInWithPassword({ phone: user.phone, password });
+  if (!sameError) fail("Choisis un mot de passe différent de l'actuel.");
+
+  const { error } = await createAdminClient().auth.admin.updateUserById(user.id, {
+    password,
+    app_metadata: { ...user.app_metadata, must_change_password: false },
+  });
+  if (error) fail(error.message);
+
+  // Rafraîchit la session (le jeton contient app_metadata) puis direction le tableau de bord.
+  await supabase.auth.refreshSession().then(undefined, () => undefined);
+  revalidatePath("/", "layout");
+  redirect(`/dashboard?message=${encodeURIComponent("Mot de passe mis à jour.")}`);
+}
+
+/**
+ * Paramètres → « Mot de passe » : l'utilisateur connecté change son mot de passe en confirmant
+ * l'actuel (une session restée ouverte sur un autre téléphone ne suffit pas).
+ */
+export async function updatePassword(formData: FormData) {
+  const current = String(formData.get("currentPassword") || "");
+  const password = String(formData.get("newPassword") || "");
+  const confirm = String(formData.get("confirmNewPassword") || "");
+  const back = (key: "pw_error" | "pw_ok", msg: string) => redirect(`/dashboard/settings?${key}=${encodeURIComponent(msg)}#mot-de-passe`);
+
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user || !user.phone) redirect("/login");
+
+  if (password.length < MIN_PASSWORD_LENGTH) back("pw_error", `Le nouveau mot de passe doit faire au moins ${MIN_PASSWORD_LENGTH} caractères.`);
+  if (password !== confirm) back("pw_error", "Les nouveaux mots de passe ne correspondent pas.");
+  if (password === current) back("pw_error", "Le nouveau mot de passe doit être différent de l'actuel.");
+
+  // Vérification de l'actuel avec un client isolé (la session en cours n'est jamais touchée).
+  const verifier = createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { error: authError } = await verifier.auth.signInWithPassword({ phone: user.phone, password: current });
+  if (authError) back("pw_error", "Mot de passe actuel incorrect.");
+
+  const { error } = await createAdminClient().auth.admin.updateUserById(user.id, {
+    password,
+    app_metadata: { ...user.app_metadata, must_change_password: false },
+  });
+  if (error) back("pw_error", error.message);
+
+  back("pw_ok", "Mot de passe modifié.");
 }
 
 export async function logout() {

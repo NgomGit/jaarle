@@ -158,23 +158,34 @@ export function storeLd(opts: {
     address: shop.city
       ? { "@type": "PostalAddress", addressLocality: shop.city, streetAddress: shop.district ?? undefined, addressCountry: "SN" }
       : { "@type": "PostalAddress", addressCountry: "SN" },
-    hasOfferCatalog: opts.products.length
-      ? {
-          "@type": "OfferCatalog",
-          name: `Produits de ${shop.name}`,
-          itemListElement: opts.products.slice(0, 30).map(({ product, url: purl, image }) => ({
-            "@type": "Offer",
-            ...(product.price != null ? { price: product.price, priceCurrency: "XOF" } : {}),
-            url: purl,
-            itemOffered: { "@type": "Product", name: product.name, url: purl, image: image ?? undefined },
-          })),
-        }
-      : undefined,
+    // Pas de catalogue « Product » ici : Google analysait chaque produit imbriqué comme une fiche
+    // produit sans prix (« Il faut indiquer offers, review ou aggregateRating »). Les données
+    // produit complètes sont sur la page de chaque produit (productLd).
   };
 }
 
+/**
+ * Fiche produit pour Google (résultats enrichis). Google exige « offers » (ou des avis) sur un
+ * Product : un produit SANS PRIX (« Prix sur demande ») n'a donc pas de données Product — sinon
+ * erreur dans la Search Console. Un service est décrit comme « Service », pas comme « Product ».
+ */
 export function productLd(opts: { shop: Shop; shopUrl: string; product: ProductWithImages; url: string; images: string[] }) {
   const { shop, product, url } = opts;
+  if (product.subject_type === "service") {
+    return {
+      "@context": "https://schema.org",
+      "@type": "Service",
+      "@id": `${url}#service`,
+      name: product.name,
+      description: product.description ?? undefined,
+      image: opts.images.length ? opts.images : undefined,
+      url,
+      provider: { "@type": "LocalBusiness", name: shop.name, url: opts.shopUrl },
+      areaServed: shop.city ?? "Sénégal",
+      offers: productOffer(product, url, shop.name),
+    };
+  }
+  if (product.price == null) return null;
   return {
     "@context": "https://schema.org",
     "@type": "Product",
