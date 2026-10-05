@@ -8,6 +8,7 @@ const TABS = [
   { href: "/dashboard/admin", label: "Vue d'ensemble" },
   { href: "/dashboard/admin/signalements", label: "Signalements" },
   { href: "/dashboard/admin/market", label: "Market & mises en avant" },
+  { href: "/dashboard/admin/relances", label: "Boutiques à relancer" },
   { href: "/dashboard/admin/comptes", label: "Comptes" },
 ];
 
