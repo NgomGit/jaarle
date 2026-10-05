@@ -9,13 +9,20 @@ import { shopMediaThumbUrl } from "@/lib/shops/media";
 import { cn } from "@/lib/utils";
 import { ContactButton } from "./contact-button";
 
-// Boutiques à relancer : boutiques en BROUILLON qui ont déjà au moins un produit.
-// L'admin voit leurs produits (les fiches ne sont pas publiques tant que la boutique est en
-// brouillon) et les relance sur WhatsApp ; chaque relance est notée dans admin_actions.
+// Boutiques à relancer, en deux listes :
+//  • « Produits, pas en ligne » : boutiques en BROUILLON qui ont déjà au moins un produit
+//    (l'admin voit leurs produits, non publics tant que la boutique est en brouillon) ;
+//  • « Sans produit » : boutiques créées (brouillon ou publiées, hors suspendues) sans aucun produit.
+// L'admin les relance sur WhatsApp ; chaque relance est notée dans admin_actions.
 
 export const dynamic = "force-dynamic";
 
 const PATH = "/dashboard/admin/relances";
+const SEGMENTS = [
+  { key: "produits", label: "Produits, pas en ligne", reason: "draft_with_products" },
+  { key: "sans-produit", label: "Sans produit", reason: "no_products" },
+] as const;
+
 const FILTERS = [
   { key: "a-relancer", label: "Pas encore relancées" },
   { key: "toutes", label: "Toutes" },
@@ -41,6 +48,7 @@ type ShopRow = {
   city: string | null;
   district: string | null;
   whatsapp: string;
+  status: string;
   category_label: string | null;
   created_at: string;
   products: ProductRow[] | null;
@@ -48,6 +56,14 @@ type ShopRow = {
 
 function relanceMessage(firstName: string | null, shopName: string, count: number): string {
   const hello = firstName ? `Bonjour ${firstName}` : "Bonjour";
+  if (count === 0) {
+    return (
+      `${hello}, c'est l'équipe Jaarle 👋\n` +
+      `Ta boutique « ${shopName} » est créée, il ne manque plus que tes produits !\n` +
+      `C'est rapide : Jaarle → Produits → « Ajouter un produit », prends une photo et Jaarle remplit la fiche pour toi, tu n'as plus qu'à mettre le prix.\n` +
+      `Tu veux qu'on t'aide à ajouter tes premiers produits ?`
+    );
+  }
   return (
     `${hello}, c'est l'équipe Jaarle 👋\n` +
     `Tu as déjà ajouté ${count} produit${count > 1 ? "s" : ""} dans ta boutique « ${shopName} », bravo ! ` +
@@ -57,24 +73,26 @@ function relanceMessage(firstName: string | null, shopName: string, count: numbe
   );
 }
 
-export default async function AdminRelancesPage({ searchParams }: { searchParams: { filtre?: string } }) {
+export default async function AdminRelancesPage({ searchParams }: { searchParams: { filtre?: string; type?: string } }) {
   await requireAdmin();
+  const segment = SEGMENTS.find((s) => s.key === searchParams.type) ?? SEGMENTS[0];
+  const empty = segment.key === "sans-produit";
   const filter = FILTERS.find((f) => f.key === searchParams.filtre) ?? FILTERS[0];
   const admin = createAdminClient();
 
-  const { data, error } = await admin
+  const base = admin
     .from("shops")
     .select(
-      "id, owner_id, name, slug, city, district, whatsapp, category_label, created_at, products(id, name, price, status, subject_type, created_at, updated_at, product_images(path, position))"
-    )
-    .eq("status", "draft")
+      "id, owner_id, name, slug, status, city, district, whatsapp, category_label, created_at, products(id, name, price, status, subject_type, created_at, updated_at, product_images(path, position))"
+    );
+  const { data, error } = await (empty ? base.neq("status", "suspended") : base.eq("status", "draft"))
     .order("created_at", { ascending: false })
-    .limit(500);
+    .limit(1000);
   if (error) return <p className="text-sm text-destructive">Boutiques indisponibles : {error.message}</p>;
 
   const withProducts = ((data ?? []) as ShopRow[])
     .map((s) => ({ ...s, products: [...(s.products ?? [])].sort((a, b) => b.updated_at.localeCompare(a.updated_at)) }))
-    .filter((s) => s.products.length > 0);
+    .filter((s) => (empty ? s.products.length === 0 : s.products.length > 0));
 
   // Dernière relance de chaque boutique (journal admin_actions, 0026).
   const lastContact = new Map<string, string>();
@@ -92,8 +110,12 @@ export default async function AdminRelancesPage({ searchParams }: { searchParams
 
   const shops = withProducts
     .filter((s) => filter.key === "toutes" || !lastContact.has(s.id))
-    // Les plus avancées d'abord (plus de produits), puis la dernière activité.
-    .sort((a, b) => b.products.length - a.products.length || b.products[0].updated_at.localeCompare(a.products[0].updated_at))
+    // Avec produits : les plus avancées d'abord, puis la dernière activité. Sans produit : les plus récentes.
+    .sort((a, b) =>
+      empty
+        ? b.created_at.localeCompare(a.created_at)
+        : b.products.length - a.products.length || b.products[0].updated_at.localeCompare(a.products[0].updated_at)
+    )
     .slice(0, 150);
 
   // Prénom du vendeur (pour un message personnel).
@@ -114,15 +136,16 @@ export default async function AdminRelancesPage({ searchParams }: { searchParams
         <div>
           <h1 className="text-xl font-bold tracking-tight">Boutiques à relancer</h1>
           <p className="text-sm text-muted-foreground">
-            {withProducts.length} boutique{withProducts.length > 1 ? "s" : ""} en brouillon avec des produits · {notContacted} pas encore
-            relancée{notContacted > 1 ? "s" : ""}.
+            {withProducts.length} boutique{withProducts.length > 1 ? "s" : ""}{" "}
+            {empty ? "créée(s) sans aucun produit" : "en brouillon avec des produits"} · {notContacted} pas encore relancée
+            {notContacted > 1 ? "s" : ""}.
           </p>
         </div>
         <nav className="inline-flex rounded-xl border border-border bg-muted p-1" aria-label="Filtre">
           {FILTERS.map((f) => (
             <Link
               key={f.key}
-              href={`${PATH}?filtre=${f.key}`}
+              href={`${PATH}?type=${segment.key}&filtre=${f.key}`}
               aria-current={f.key === filter.key ? "page" : undefined}
               className={cn(
                 "rounded-lg px-3.5 py-1.5 text-sm font-medium",
@@ -135,9 +158,29 @@ export default async function AdminRelancesPage({ searchParams }: { searchParams
         </nav>
       </div>
 
+      <nav className="mb-5 flex gap-2" aria-label="Type de relance">
+        {SEGMENTS.map((sg) => (
+          <Link
+            key={sg.key}
+            href={`${PATH}?type=${sg.key}&filtre=${filter.key}`}
+            aria-current={sg.key === segment.key ? "page" : undefined}
+            className={cn(
+              "rounded-full border px-4 py-1.5 text-sm font-medium",
+              sg.key === segment.key ? "border-primary bg-accent text-accent-foreground" : "border-border text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {sg.label}
+          </Link>
+        ))}
+      </nav>
+
       {shops.length === 0 && (
         <p className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-          {filter.key === "a-relancer" ? "Toutes les boutiques concernées ont déjà été relancées." : "Aucune boutique en brouillon avec des produits."}
+          {filter.key === "a-relancer"
+            ? "Toutes les boutiques concernées ont déjà été relancées."
+            : empty
+              ? "Aucune boutique sans produit."
+              : "Aucune boutique en brouillon avec des produits."}
         </p>
       )}
 
@@ -154,9 +197,10 @@ export default async function AdminRelancesPage({ searchParams }: { searchParams
                 <div className="min-w-0">
                   <p className="flex flex-wrap items-center gap-2 font-semibold">
                     {s.name}
-                    <Badge variant="accent">
-                      {s.products.length} produit{s.products.length > 1 ? "s" : ""}
+                    <Badge variant={s.products.length ? "accent" : "warning"}>
+                      {s.products.length ? `${s.products.length} produit${s.products.length > 1 ? "s" : ""}` : "Aucun produit"}
                     </Badge>
+                    {s.status === "published" && <Badge variant="neutral">En ligne</Badge>}
                     {contactedAt && <Badge variant="success">Relancée le {frDate(contactedAt)}</Badge>}
                   </p>
                   <p className="text-sm text-muted-foreground">
@@ -165,16 +209,18 @@ export default async function AdminRelancesPage({ searchParams }: { searchParams
                   <p className="mt-1 text-xs text-muted-foreground">
                     {[s.category_label, location].filter(Boolean).join(" · ")}
                     {(s.category_label || location) && " · "}
-                    Boutique créée le {frDate(s.created_at)} · dernier produit modifié le {frDate(s.products[0].updated_at)}
+                    Boutique créée le {frDate(s.created_at)}
+                    {s.products[0] ? ` · dernier produit modifié le ${frDate(s.products[0].updated_at)}` : ""}
                     {owner?.lastSignIn ? ` · dernière connexion ${frDateTime(owner.lastSignIn)}` : ""}
                   </p>
                 </div>
                 <div className="shrink-0">
-                  <ContactButton shopId={s.id} href={wa} />
+                  <ContactButton shopId={s.id} href={wa} reason={segment.reason} />
                 </div>
               </div>
 
               {/* Produits (non publics tant que la boutique est en brouillon) */}
+              {s.products.length > 0 && (
               <details className="group border-t border-border">
                 <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-2.5 text-sm font-medium text-primary [&::-webkit-details-marker]:hidden">
                   <Package className="h-4 w-4" />
@@ -214,6 +260,7 @@ export default async function AdminRelancesPage({ searchParams }: { searchParams
                   })}
                 </ul>
               </details>
+              )}
             </li>
           );
         })}

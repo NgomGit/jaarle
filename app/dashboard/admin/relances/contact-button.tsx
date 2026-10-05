@@ -7,7 +7,15 @@ import { WhatsAppIcon } from "@/components/storefront/whatsapp-icon";
 import { markShopContacted } from "./actions";
 
 /** Ouvre WhatsApp avec le message de relance et note la relance dans le journal admin. */
-export function ContactButton({ shopId, href }: { shopId: string; href: string }) {
+export function ContactButton({
+  shopId,
+  href,
+  reason,
+}: {
+  shopId: string;
+  href: string;
+  reason: "draft_with_products" | "no_products";
+}) {
   const [done, setDone] = React.useState(false);
   return (
     <Button size="sm" variant="accent" asChild>
@@ -18,7 +26,7 @@ export function ContactButton({ shopId, href }: { shopId: string; href: string }
         onClick={() => {
           if (done) return;
           setDone(true);
-          void markShopContacted(shopId);
+          void markShopContacted(shopId, reason);
         }}
       >
         {done ? <Check className="h-4 w-4" /> : <WhatsAppIcon className="h-4 w-4" />}

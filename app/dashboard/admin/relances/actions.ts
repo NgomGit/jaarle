@@ -4,10 +4,12 @@ import { revalidatePath } from "next/cache";
 import { logAdminAction, requireAdmin } from "@/lib/admin/guard";
 
 /** Trace « boutique relancée sur WhatsApp » (journal admin_actions) : évite les doubles relances. */
-export async function markShopContacted(shopId: string): Promise<{ ok: boolean }> {
+export async function markShopContacted(shopId: string, reason: "draft_with_products" | "no_products"): Promise<{ ok: boolean }> {
   const { userId } = await requireAdmin();
   if (!/^[0-9a-f-]{36}$/.test(shopId)) return { ok: false };
-  await logAdminAction(userId, "shop.contacted", "shop", shopId, { reason: "draft_with_products" });
+  await logAdminAction(userId, "shop.contacted", "shop", shopId, {
+    reason: reason === "no_products" ? "no_products" : "draft_with_products",
+  });
   revalidatePath("/dashboard/admin/relances");
   return { ok: true };
 }
