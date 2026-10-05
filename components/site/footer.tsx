@@ -22,6 +22,16 @@ export function Footer() {
         </nav>
         <div className="text-xs text-muted-foreground">© 2026 Jaarle — Dakar, Sénégal</div>
       </div>
+      {/* Pages d'atterrissage SEO (lib/landings.ts) : liens en dur, en français comme ces pages. */}
+      <div className="container mt-6">
+        <nav aria-label="Guides" className="flex flex-wrap gap-x-5 gap-y-2 text-[12px] text-muted-foreground">
+          <Link href="/creer-boutique-en-ligne-senegal" className="hover:text-foreground">Boutique en ligne au Sénégal</Link>
+          <Link href="/vendre-sur-whatsapp" className="hover:text-foreground">Vendre sur WhatsApp</Link>
+          <Link href="/marketplace-senegal" className="hover:text-foreground">Marketplace et annonces</Link>
+          <Link href="/vendre-ses-services" className="hover:text-foreground">Services et prestataires</Link>
+          <Link href="/affiche-publicitaire" className="hover:text-foreground">Affiche publicitaire</Link>
+        </nav>
+      </div>
     </footer>
   );
 }

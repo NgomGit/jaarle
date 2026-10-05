@@ -3,6 +3,7 @@ import { createPublicClient } from "@/lib/supabase/public";
 import { absoluteUrl, isShopIndexable } from "@/lib/seo";
 import { allMarketCategories } from "@/lib/market/categories";
 import { MARKET_CITIES } from "@/lib/market/cities";
+import { LANDINGS } from "@/lib/landings";
 import { getMarketCounts, isLandingIndexable, totalsFor } from "@/lib/market/queries";
 
 // Plan du site : pages publiques + boutiques indexables (au moins 3 produits, comme la règle
@@ -35,6 +36,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: absoluteUrl("/boutiques"), lastModified: now, changeFrequency: "daily", priority: 0.8 },
     { url: absoluteUrl("/market"), lastModified: now, changeFrequency: "daily", priority: 0.9 },
     { url: absoluteUrl("/register"), lastModified: now, changeFrequency: "yearly", priority: 0.4 },
+    ...LANDINGS.map((l) => ({ url: absoluteUrl(`/${l.slug}`), lastModified: now, changeFrequency: "monthly" as const, priority: 0.8 })),
   ];
 
   try {

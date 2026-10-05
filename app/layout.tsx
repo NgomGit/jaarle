@@ -11,9 +11,9 @@ import { PwaProvider } from "@/components/pwa/pwa-provider";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
-const title = "Jaarle — Crée ta boutique gratuitement et gagne en visibilité sur Jaarle Market";
+const title = "Jaarle — Boutique en ligne gratuite et marketplace au Sénégal";
 const description =
-  "Crée ta boutique en ligne gratuitement et mets tes produits sur Jaarle Market. Jaarle fait tes affiches, prépare tes publications WhatsApp, Instagram, Facebook et TikTok, et tes clients te contactent sur WhatsApp.";
+  "Crée ta boutique en ligne gratuite au Sénégal et vends sur WhatsApp. Tes produits et services sur Jaarle Market, la marketplace des boutiques sénégalaises, et des affiches créées par l'IA.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
@@ -24,8 +24,14 @@ export const metadata: Metadata = {
   appleWebApp: { capable: true, title: "Jaarle", statusBarStyle: "default" },
   keywords: [
     "Jaarle",
+    "boutique en ligne",
     "boutique en ligne Sénégal",
     "créer une boutique en ligne gratuite",
+    "vendre en ligne au Sénégal",
+    "annonces Sénégal",
+    "petites annonces Dakar",
+    "services Dakar",
+    "affiche publicitaire",
     "vendre sur WhatsApp",
     "Jaarle Market",
     "marketplace Sénégal",
