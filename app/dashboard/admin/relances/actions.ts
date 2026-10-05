@@ -2,14 +2,20 @@
 
 import { revalidatePath } from "next/cache";
 import { logAdminAction, requireAdmin } from "@/lib/admin/guard";
+import type { RelanceReason } from "./segments";
 
-/** Trace « boutique relancée sur WhatsApp » (journal admin_actions) : évite les doubles relances. */
-export async function markShopContacted(shopId: string, reason: "draft_with_products" | "no_products"): Promise<{ ok: boolean }> {
+/**
+ * Trace d'une relance WhatsApp (journal admin_actions) : évite les doubles relances.
+ * Boutique (shop.contacted) ou, pour un compte sans boutique, utilisateur (user.contacted).
+ */
+export async function markContacted(targetId: string, reason: RelanceReason): Promise<{ ok: boolean }> {
   const { userId } = await requireAdmin();
-  if (!/^[0-9a-f-]{36}$/.test(shopId)) return { ok: false };
-  await logAdminAction(userId, "shop.contacted", "shop", shopId, {
-    reason: reason === "no_products" ? "no_products" : "draft_with_products",
-  });
+  if (!/^[0-9a-f-]{36}$/.test(targetId)) return { ok: false };
+  if (reason === "no_shop") {
+    await logAdminAction(userId, "user.contacted", "user", targetId, { reason });
+  } else {
+    await logAdminAction(userId, "shop.contacted", "shop", targetId, { reason: reason === "no_products" ? "no_products" : "draft_with_products" });
+  }
   revalidatePath("/dashboard/admin/relances");
   return { ok: true };
 }

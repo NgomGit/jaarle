@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { ChevronDown, ImageOff, Package } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -6,8 +5,9 @@ import { requireAdmin } from "@/lib/admin/guard";
 import { frDate, frDateTime } from "@/lib/admin/market";
 import { formatPrice, formatSenegalPhone } from "@/lib/shops/format";
 import { shopMediaThumbUrl } from "@/lib/shops/media";
-import { cn } from "@/lib/utils";
 import { ContactButton } from "./contact-button";
+import { AccountsWithoutShop } from "./accounts-without-shop";
+import { FILTERS, FilterTabs, SEGMENTS, SegmentPills } from "./segments";
 
 // Boutiques à relancer, en deux listes :
 //  • « Produits, pas en ligne » : boutiques en BROUILLON qui ont déjà au moins un produit
@@ -17,16 +17,6 @@ import { ContactButton } from "./contact-button";
 
 export const dynamic = "force-dynamic";
 
-const PATH = "/dashboard/admin/relances";
-const SEGMENTS = [
-  { key: "produits", label: "Produits, pas en ligne", reason: "draft_with_products" },
-  { key: "sans-produit", label: "Sans produit", reason: "no_products" },
-] as const;
-
-const FILTERS = [
-  { key: "a-relancer", label: "Pas encore relancées" },
-  { key: "toutes", label: "Toutes" },
-] as const;
 
 const STATUS_LABEL: Record<string, string> = { active: "Disponible", sold_out: "Épuisé", hidden: "Masqué", draft: "Brouillon" };
 
@@ -79,6 +69,9 @@ export default async function AdminRelancesPage({ searchParams }: { searchParams
   const empty = segment.key === "sans-produit";
   const filter = FILTERS.find((f) => f.key === searchParams.filtre) ?? FILTERS[0];
   const admin = createAdminClient();
+
+  // Comptes créés sans boutique : liste à part (lecture des comptes Supabase Auth).
+  if (segment.key === "sans-boutique") return <AccountsWithoutShop filter={filter.key} />;
 
   const base = admin
     .from("shops")
@@ -141,38 +134,10 @@ export default async function AdminRelancesPage({ searchParams }: { searchParams
             {notContacted > 1 ? "s" : ""}.
           </p>
         </div>
-        <nav className="inline-flex rounded-xl border border-border bg-muted p-1" aria-label="Filtre">
-          {FILTERS.map((f) => (
-            <Link
-              key={f.key}
-              href={`${PATH}?type=${segment.key}&filtre=${f.key}`}
-              aria-current={f.key === filter.key ? "page" : undefined}
-              className={cn(
-                "rounded-lg px-3.5 py-1.5 text-sm font-medium",
-                f.key === filter.key ? "bg-card shadow-sm" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {f.label}
-            </Link>
-          ))}
-        </nav>
+        <FilterTabs segment={segment.key} filter={filter.key} />
       </div>
 
-      <nav className="mb-5 flex gap-2" aria-label="Type de relance">
-        {SEGMENTS.map((sg) => (
-          <Link
-            key={sg.key}
-            href={`${PATH}?type=${sg.key}&filtre=${filter.key}`}
-            aria-current={sg.key === segment.key ? "page" : undefined}
-            className={cn(
-              "rounded-full border px-4 py-1.5 text-sm font-medium",
-              sg.key === segment.key ? "border-primary bg-accent text-accent-foreground" : "border-border text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {sg.label}
-          </Link>
-        ))}
-      </nav>
+      <SegmentPills segment={segment.key} filter={filter.key} />
 
       {shops.length === 0 && (
         <p className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
