@@ -1,6 +1,7 @@
 import { compositeOverlay, finalizeJpeg, buildPlainBackground } from "@/lib/image-compose";
 import { removeBackground } from "@/lib/background-removal";
-import { analyzeProduct, analyzeLogoColors, planThumbnailPlacement, type ProductAnalysis } from "@/lib/product-analyzer";
+import { analyzeProduct, analyzeLogoColors, type ProductAnalysis } from "@/lib/product-analyzer";
+import { galleryLayoutPrompt, galleryScenePrompt, galleryZone, pickGalleryZone, placeGallery, type GalleryZone } from "@/lib/poster-gallery";
 import { checkMultiReferenceFidelity, checkPosterQuality, checkTextAccuracy } from "@/lib/quality-checker";
 import type { MultiReferenceContext } from "@/lib/multi-reference";
 import { getIndustry, type Industry } from "@/lib/knowledge/industries";
@@ -25,7 +26,6 @@ import {
 import { ALLOWED_MEDIA_TYPES, type AllowedMediaType } from "@/lib/media-types";
 import { pickArtDirection, artDirectionFromAnalysis } from "@/lib/art-directions";
 import { buildDesignedBackground, placeProduct } from "@/lib/designed-background";
-import sharp, { type OverlayOptions } from "sharp";
 
 export { ALLOWED_MEDIA_TYPES, type AllowedMediaType };
 
@@ -99,124 +99,12 @@ function getSeasonalVisualNote(referenceDate: Date): string | null {
  * ET le gabarit choisi. On le dit à l'IA pour qu'elle laisse ces zones visuellement calmes
  * plutôt que de les remplir.
  */
-function getNegativeSpaceInstruction(layout: LayoutVariant, thumbCount = 0): string {
+function getNegativeSpaceInstruction(layout: LayoutVariant, gallery: GalleryZone | null = null): string {
   const base =
     layout === "side-panel"
       ? "Composition constraint: keep the left third of the frame visually calm and uncluttered — a dark text panel with the name, price and contact will be added there programmatically. Compose and frame the product mainly within the right two-thirds of the image."
       : "Composition constraint: keep the top-right corner (two short benefit tags) and a generous strip along the bottom ~25% of the frame visually calm and uncluttered — marketing text, price and contact info will be added programmatically in those zones afterward.";
-  return thumbCount > 0 ? `${base} ${thumbnailZoneInstruction(thumbCount)}` : base;
-}
-
-// ——— Vignettes des photos secondaires (vraies photos, posées par le code, jamais redessinées) ———
-// La DISPOSITION est décidée par l'IA en regardant l'affiche finie (planThumbnailPlacement) ;
-// le code se charge seulement de poser les vraies photos au pixel près.
-
-/**
- * Consigne aux modèles d'image : prévoir de la place pour les vraies photos, que l'APPLICATION
- * pose ensuite. Formulée pour qu'ils ne dessinent jamais eux-mêmes de vignette ni de vue en plus.
- */
-function thumbnailZoneInstruction(count: number): string {
-  const photos = count > 1 ? `${count} small photographic insets` : "1 small photographic inset";
-  return `Secondary photo insets: ${photos} (real photos of the same product, each roughly 15-22% of the poster width) will be composited by the application AFTER generation. Keep a visually appropriate area for ${count > 1 ? "them" : "it"}, wherever it best suits THIS composition — do not always use the same corner. Do NOT draw, generate or simulate these insets yourself, and do NOT create additional copies or views of the product to stand in for them. Do not place critical text or the hero product where it would conflict with these future insets.`;
-}
-
-/** Repli si l'IA de placement échoue : coin opposé au bloc de texte principal. */
-function fallbackThumbnailSlots(layout: LayoutVariant, count: number): { xPct: number; yPct: number }[] {
-  const size = 20;
-  const gap = 2.2;
-  return Array.from({ length: count }, (_, i) =>
-    layout === "side-panel"
-      ? { xPct: 100 - 4 - size - (count - 1 - i) * (size + gap), yPct: 4 }
-      : { xPct: 4 + i * (size + gap), yPct: 4 }
-  );
-}
-
-/**
- * Pose les photos secondaires (max 2) en vignettes sur l'affiche FINALE : l'IA choisit
- * l'emplacement, la taille, la forme (arrondie / ronde) et l'inclinaison selon la composition ;
- * ce sont toujours les vraies photos du commerçant, au pixel près.
- */
-export async function insetSecondaryPhotos(
-  posterBuffer: Buffer,
-  secondaries: Buffer[],
-  layout: LayoutVariant,
-  accent: string,
-  productName = ""
-): Promise<Buffer> {
-  const photos = secondaries.slice(0, 2);
-  if (photos.length === 0) return posterBuffer;
-  const meta = await sharp(posterBuffer).metadata();
-  const W = meta.width ?? 1024;
-  const H = meta.height ?? W;
-
-  const preview = await sharp(posterBuffer).resize(768, 768, { fit: "inside" }).jpeg({ quality: 80 }).toBuffer();
-  let plan = await planThumbnailPlacement(preview.toString("base64"), photos.length, productName);
-  // Deux vignettes qui se chevauchent : plan rejeté.
-  if (plan && plan.slots.length === 2) {
-    const [a, b] = plan.slots;
-    if (Math.abs(a.xPct - b.xPct) < plan.sizePct && Math.abs(a.yPct - b.yPct) < plan.sizePct) plan = null;
-  }
-  const sizePct = plan?.sizePct ?? 20;
-  const shape = plan?.shape ?? "rounded";
-  const tilt = plan?.tiltDeg ?? 0;
-  const slots = plan?.slots ?? fallbackThumbnailSlots(layout, photos.length);
-
-  const k = W / 1024;
-  const size = Math.round((sizePct / 100) * W);
-  const border = Math.max(4, Math.round(7 * k));
-  const radius = shape === "circle" ? size / 2 : Math.round(size * 0.12);
-  const inner = size - border * 2;
-  const innerRadius = shape === "circle" ? inner / 2 : Math.max(2, radius - border / 2);
-  const pad = Math.round(26 * k);
-
-  const layers: OverlayOptions[] = [];
-  for (let i = 0; i < photos.length; i++) {
-    const slot = slots[i];
-    if (!slot) continue;
-    const mask = Buffer.from(
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${inner}" height="${inner}"><rect width="${inner}" height="${inner}" rx="${innerRadius}" ry="${innerRadius}" fill="#fff"/></svg>`
-    );
-    let photo: Buffer;
-    try {
-      photo = await sharp(photos[i])
-        .rotate()
-        .resize(inner, inner, { fit: "cover", position: "attention" })
-        .composite([{ input: mask, blend: "dest-in" }])
-        .png()
-        .toBuffer();
-    } catch {
-      continue;
-    }
-    const tileSize = size + pad * 2;
-    const frame = Buffer.from(
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${tileSize}" height="${tileSize}">
-        <defs><filter id="s" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="${Math.round(8 * k)}" stdDeviation="${Math.round(9 * k)}" flood-color="#000" flood-opacity="0.4"/></filter></defs>
-        <rect x="${pad}" y="${pad}" width="${size}" height="${size}" rx="${radius}" ry="${radius}" fill="${accent}" filter="url(#s)"/>
-        <rect x="${pad + Math.round(3 * k)}" y="${pad + Math.round(3 * k)}" width="${size - Math.round(6 * k)}" height="${size - Math.round(6 * k)}" rx="${Math.max(1, radius - 3 * k)}" ry="${Math.max(1, radius - 3 * k)}" fill="#ffffff"/>
-      </svg>`
-    );
-    // Cadre + photo assemblés en une tuile, puis légèrement inclinée si l'IA l'a choisi.
-    let tile = await sharp(frame)
-      .png()
-      .composite([{ input: photo, left: pad + border, top: pad + border }])
-      .png()
-      .toBuffer();
-    const angle = i === 1 && photos.length === 2 ? -tilt : tilt; // deux vignettes : inclinaisons opposées
-    if (Math.abs(angle) >= 0.5) {
-      tile = await sharp(tile).rotate(angle, { background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
-    }
-    const tileMeta = await sharp(tile).metadata();
-    const tw = tileMeta.width ?? tileSize;
-    const th = tileMeta.height ?? tileSize;
-    const cx = Math.round((slot.xPct / 100) * W + size / 2);
-    const cy = Math.round((slot.yPct / 100) * H + size / 2);
-    const left = Math.min(Math.max(0, cx - Math.round(tw / 2)), W - tw);
-    const top = Math.min(Math.max(0, cy - Math.round(th / 2)), H - th);
-    if (left < 0 || top < 0) continue;
-    layers.push({ input: tile, left, top });
-  }
-  if (layers.length === 0) return posterBuffer;
-  return sharp(posterBuffer).composite(layers).jpeg({ quality: 92 }).toBuffer();
+  return gallery ? `${base}\n\n${galleryScenePrompt(gallery)}` : base;
 }
 
 /**
@@ -241,8 +129,8 @@ function buildComposedPosterPrompt(params: {
   isCutout: boolean;
   analysis: ProductAnalysis | null;
   customInstructions?: string | null;
-  /** Nombre de vraies photos secondaires que le code posera en vignettes (0 à 2). */
-  thumbCount: number;
+  /** Galerie des vraies photos secondaires, posée par le code après génération (null : aucune). */
+  gallery: GalleryZone | null;
   /** Chemin multi-image : la photo principale est la 1re référence, les secondaires suivent. */
   multi: MultiReferenceContext | null;
   /** Nouvel essai : défauts relevés par le contrôle qualité sur l'essai précédent. */
@@ -307,7 +195,7 @@ ${getCulturalHeritageInstruction(industry)}
 
 Distribution channels: Facebook, Instagram and WhatsApp — the visual must read clearly even as a small thumbnail.
 ${seasonalNote ? `\n${seasonalNote}` : ""}
-${getNegativeSpaceInstruction(params.layout, Math.min(2, params.thumbCount))}
+${getNegativeSpaceInstruction(params.layout, params.gallery)}
 ${params.customInstructions ? `\nThe merchant asked for these specific changes compared to the previous version — prioritize honoring this request while still respecting the fidelity rule above: "${params.customInstructions}"` : ""}
 ${params.retryIssues?.length ? `\n${retryFeedbackBlock(params.retryIssues)}` : ""}
 
@@ -358,7 +246,7 @@ The following characteristics define the exact identity of the subject and must 
 ${bullets([...identity, ...a.critical_features])}${
     a.features_to_preserve.length ? `\nPreserve:\n${bullets(a.features_to_preserve)}` : ""
   }${a.potential_conflicts.length ? `\nDo not invent:\n${bullets(a.potential_conflicts)}` : ""}
-The secondary references are evidence about the SAME subject, not additional subjects. They will be added later by the application as real photographic insets: do NOT create, draw, simulate or reproduce thumbnails yourself, and do NOT create additional copies of the product representing them. The generated scene must contain only the main hero representation of the subject.`;
+The secondary references are evidence about the SAME subject, not additional subjects. Use them to render materials, finish, hardware and small details of the hero with MORE precision and richness than a single photo would allow. The real secondary photos will be added later by the application in a gallery card: do NOT create, draw, simulate or reproduce thumbnails yourself, and do NOT create additional copies of the product representing them. The generated scene must contain only the main hero representation of the subject.`;
 }
 
 /** Nouvel essai : on dit précisément ce qui a échoué, sans abandonner le concept créatif. */
@@ -379,7 +267,7 @@ async function generateComposedPoster(
     analysis: ProductAnalysis | null;
     customInstructions: string | null | undefined;
     creativeBrief: CreativeBrief;
-    thumbCount: number;
+    gallery: GalleryZone | null;
     multi: MultiReferenceContext | null;
     retryIssues?: string[];
   }
@@ -449,11 +337,16 @@ export async function buildPosterBackground(
   accentGradient: { from: string; to: string } | null;
   creativeBrief: CreativeBrief;
   sellingPoints: string[];
+  /** Zone de la galerie des photos secondaires (à transmettre à renderFinalPoster). */
+  galleryZone: GalleryZone | null;
 }> {
-  const layout = forcedLayout ?? pickLayoutVariant();
   const extras = extraPhotos ?? [];
   const multi = opts?.multi && extras.length > 0 ? opts.multi : null;
   const thumbCount = showSecondaryPhotos ? Math.min(2, extras.length) : 0;
+  // Galerie décidée AVANT la génération : les deux passes composent autour d'elle. Avec galerie, le
+  // texte va en bas (bottom-bar) pour que la colonne galerie et le bloc texte ne se gênent jamais.
+  const gallery = thumbCount > 0 ? pickGalleryZone(thumbCount) : null;
+  const layout = gallery ? "bottom-bar" : forcedLayout ?? pickLayoutVariant();
   const creativeBrief = buildCreativeBrief();
 
   const [analysis, cutoutOutcome] = await Promise.all([
@@ -471,7 +364,7 @@ export async function buildPosterBackground(
   // elles restent de simples références, pas besoin de les détourer.
   const referencesFor = (h: { base64: string; mediaType: AllowedMediaType }) => (multi ? [h, ...extras] : [h]);
 
-  const baseOpts = { industryKey: industry, layout, analysis, customInstructions, creativeBrief, thumbCount, multi };
+  const baseOpts = { industryKey: industry, layout, analysis, customInstructions, creativeBrief, gallery, multi };
 
   let genResult = await generateComposedPoster(referencesFor(hero), { ...baseOpts, isCutout });
 
@@ -514,6 +407,7 @@ export async function buildPosterBackground(
     accentGradient: analysis?.accentGradient ?? getIndustryAccent(industry),
     creativeBrief,
     sellingPoints: analysis?.sellingPoints ?? [],
+    galleryZone: gallery,
   };
 }
 
@@ -630,6 +524,7 @@ export async function buildServiceBackground(
   layout: LayoutVariant;
   accentGradient: { from: string; to: string } | null;
   creativeBrief: CreativeBrief;
+  galleryZone: null;
 }> {
   const layout = forcedLayout ?? pickLayoutVariant();
   const creativeBrief = buildCreativeBrief();
@@ -648,7 +543,7 @@ export async function buildServiceBackground(
     ? Buffer.from(genResult.imageBase64, "base64")
     : await buildPlainBackground(accentGradient);
 
-  return { backgroundBuffer, imageError: genResult.imageError, layout, accentGradient, creativeBrief };
+  return { backgroundBuffer, imageError: genResult.imageError, layout, accentGradient, creativeBrief, galleryZone: null };
 }
 
 interface FinalPosterParams {
@@ -665,8 +560,10 @@ interface FinalPosterParams {
   creativeBrief?: CreativeBrief | null;
   /** Points forts propres au produit, issus de l'analyse IA (utilisés si le commerçant n'en a pas saisi). */
   benefits?: string[] | null;
-  /** Photos secondaires (max 2) posées en vignettes sur l'affiche finale, dans le coin réservé. */
+  /** Photos secondaires (max 2) posées dans la galerie de l'affiche finale. */
   secondaryPhotos?: Buffer[] | null;
+  /** Zone de la galerie prévue à la génération du décor (sinon : colonne gauche). */
+  galleryZone?: GalleryZone | null;
 }
 
 /**
@@ -749,7 +646,8 @@ async function generateTemplatedPoster(backgroundBuffer: Buffer, params: FinalPo
       : "";
 
     const thumbCount = Math.min(2, params.secondaryPhotos?.length ?? 0);
-    const reservedZoneBlock = thumbCount > 0 ? `\n\n${thumbnailZoneInstruction(thumbCount)}` : "";
+    const gallery = thumbCount > 0 ? params.galleryZone ?? galleryZone(thumbCount, "left", "column") : null;
+    const reservedZoneBlock = gallery ? `\n\n${galleryLayoutPrompt(gallery)}` : "";
 
     const customInstructionsBlock = params.customInstructions
       ? `\n\nThe merchant asked for these specific changes compared to the previous version — prioritize honoring this request while still respecting the accuracy rules below: "${params.customInstructions}"`
@@ -858,15 +756,18 @@ export async function renderFinalPoster(
   backgroundBuffer: Buffer,
   params: FinalPosterParams
 ): Promise<{ finalBuffer: Buffer; usedAiTemplate: boolean }> {
-  const result = await renderFinalPosterBase(origin, backgroundBuffer, params);
-  const secondaries = params.secondaryPhotos ?? [];
-  if (secondaries.length === 0) return result;
+  const secondaries = (params.secondaryPhotos ?? []).slice(0, 2);
+  const gallery = secondaries.length > 0 ? params.galleryZone ?? galleryZone(secondaries.length, "left", "column") : null;
+  const result = await renderFinalPosterBase(origin, backgroundBuffer, { ...params, galleryZone: gallery });
+  if (!gallery) return result;
   try {
-    const accent = params.accentGradient?.from ?? "#6D28D9";
-    const finalBuffer = await insetSecondaryPhotos(result.finalBuffer, secondaries, params.layout, accent, params.productName);
+    // Mise en page dessinée par l'IA : on vérifie que la zone est restée libre. Bandeau satori
+    // bottom-bar : c'est notre propre mise en page, la zone est garantie libre.
+    const verify = result.usedAiTemplate || params.layout !== "bottom-bar";
+    const finalBuffer = await placeGallery(result.finalBuffer, secondaries, gallery, { productName: params.productName, verify });
     return { ...result, finalBuffer };
   } catch {
-    return result; // en cas d'échec des vignettes, l'affiche reste livrée
+    return result; // en cas d'échec de la galerie, l'affiche reste livrée
   }
 }
 
@@ -924,7 +825,7 @@ export async function buildArtisanPoster(
     businessName?: string | null;
     logoBuffer?: Buffer | null;
     seed?: number;
-    /** Photos secondaires (max 2) : posées en vignettes à droite du produit principal. */
+    /** Photos secondaires (max 2) : galerie en colonne à gauche, produit décalé à droite. */
     secondaryPhotos?: Buffer[];
   }
 ): Promise<{ finalBuffer: Buffer; layout: LayoutVariant }> {
@@ -945,12 +846,12 @@ export async function buildArtisanPoster(
   // bande basse laissée calme pour le bandeau texte (layout bottom-bar).
   let bg = await buildDesignedBackground(dir, 1024, 1024);
   const secondaries = (params.secondaryPhotos ?? []).slice(0, 2);
-  // Avec photos secondaires, le produit est un peu plus petit pour laisser de l'air ; l'IA décide
-  // ensuite où poser les vignettes en regardant l'affiche finie.
-  bg =
-    secondaries.length > 0
-      ? await placeProduct(bg, cutout, { width: 660, top: 130, left: 182 })
-      : await placeProduct(bg, cutout, { width: 760, top: 120, left: 132 });
+  // Avec photos secondaires : galerie en colonne à gauche, produit décalé à droite — une mise en
+  // page « campagne » où héros et détails se répondent, sans rien superposer.
+  const gallery = secondaries.length > 0 ? galleryZone(secondaries.length, "left", "column") : null;
+  bg = gallery
+    ? await placeProduct(bg, cutout, { width: 620, top: 140, left: 344 })
+    : await placeProduct(bg, cutout, { width: 760, top: 120, left: 132 });
 
   let finalBuffer = await renderSatoriOverlay(origin, bg, {
     layout: "bottom-bar",
@@ -965,11 +866,11 @@ export async function buildArtisanPoster(
     benefits: analysis?.sellingPoints ?? [],
   });
 
-  if (secondaries.length > 0) {
+  if (gallery) {
     try {
-      finalBuffer = await insetSecondaryPhotos(finalBuffer, secondaries, "bottom-bar", dir.palette.accent, params.productName);
+      finalBuffer = await placeGallery(finalBuffer, secondaries, gallery, { productName: params.productName, verify: false });
     } catch {
-      // vignettes indisponibles : l'affiche reste livrée
+      // galerie indisponible : l'affiche reste livrée
     }
   }
   return { finalBuffer, layout: "bottom-bar" };

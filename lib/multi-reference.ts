@@ -77,7 +77,7 @@ async function analyzeReferences(
           ? "c'est obligatoirement l'image 0, choisie par le commerçant."
           : `choisis la meilleure (sujet net, entier, bien cadré, le plus vendeur ; une photo du produit seul est préférable à une photo portée ou en situation). Index de 0 à ${images.length - 1}.`
       }
-2. secondary_images : chaque AUTRE image, avec son rôle — detail (gros plan), alternate_angle (autre vue), texture (matière), usage (produit porté / en situation / en contexte), other — et same_subject : est-ce vraiment le MÊME sujet que l'image principale (même modèle, mêmes couleurs, même forme, même marquage) ? Si couleurs, forme, modèle ou marquage sont incompatibles : same_subject = false. Dans le doute, false. note : une courte phrase sur ce que cette image apprend du sujet.
+2. secondary_images : chaque AUTRE image, avec son rôle — detail (gros plan), alternate_angle (autre vue), texture (matière), usage (produit porté / en situation / en contexte), other — et same_subject : est-ce vraiment le MÊME article que l'image principale (même modèle, mêmes couleurs, même forme, même marquage) ? Être de la même catégorie ne suffit PAS : deux montures de lunettes de formes différentes, deux sacs de modèles différents, deux robes de tissus différents sont des sujets DIFFÉRENTS. Compare forme / silhouette, couleurs, matière et marquage : un seul écart net → same_subject = false. Dans le doute, false. note : une courte phrase sur ce que cette image apprend du sujet.
 3. same_subject_confidence (0 à 1) : confiance que toutes les images montrent le même sujet.
 4. product_identity : catégorie précise, forme / silhouette, 2 à 4 couleurs dominantes (en anglais, ex. "deep indigo"), matières, textures, détails distinctifs (y compris ceux visibles SEULEMENT sur les photos secondaires : poche arrière, fermoir, semelle…), marquage / logo / texte visible.
 5. critical_features : les caractéristiques qui définissent l'identité exacte du sujet et doivent rester IDENTIQUES dans toute représentation. En anglais, phrases courtes et concrètes.
@@ -146,7 +146,9 @@ export async function resolveReferences(
   const all = Array.from({ length: n }, (_, i) => i);
   if (n < 2) return { heroIndex: 0, secondaryIndexes: [], multi: null, productAnalysis: null };
 
-  const analysis = await analyzeReferences(images, productName, opts.heroFixed);
+  // Un échec ponctuel (réseau, format) ne doit pas faire passer des photos non vérifiées : 1 nouvel essai.
+  const analysis =
+    (await analyzeReferences(images, productName, opts.heroFixed)) ?? (await analyzeReferences(images, productName, opts.heroFixed));
   if (!analysis) {
     return { heroIndex: 0, secondaryIndexes: all.slice(1), multi: null, productAnalysis: null };
   }

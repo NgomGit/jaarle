@@ -313,6 +313,7 @@ export async function POST(request: Request) {
       benefits: sellingPoints,
       // Vraies photos secondaires posées en vignettes sur l'affiche finale (jamais redessinées).
       secondaryPhotos: photoBuffer ? extraPhotos.map((p) => Buffer.from(p.base64, "base64")) : [],
+      galleryZone: backgroundResult.galleryZone,
       businessName,
       logoBuffer,
       serviceItems: normalizedItems,

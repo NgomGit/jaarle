@@ -156,6 +156,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       creativeBrief,
       benefits: sellingPoints,
       secondaryPhotos: secondaryBuffers,
+      galleryZone: backgroundResult.galleryZone,
       businessName: creation.business_name,
       logoBuffer,
       customInstructions: trimmedInstructions,
