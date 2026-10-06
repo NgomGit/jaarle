@@ -5,14 +5,16 @@ import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/lib/locale-context";
 
+// Exemples par défaut, tant que l'admin n'a choisi aucune affiche (Admin → Affiches, migration 0037).
 const examples = [
-  { file: "example-1-600.webp", alt: "Affiche créée par Jaarle pour des chaussures en wax" },
-  { file: "example-2-600.webp", alt: "Affiche créée par Jaarle pour une tenue africaine à 25 000 FCFA" },
-  { file: "example-3-600.webp", alt: "Affiche créée par Jaarle pour des accessoires auto" },
+  { src: "/images/premium-examples/example-1-600.webp", alt: "Affiche créée par Jaarle pour des chaussures en wax" },
+  { src: "/images/premium-examples/example-2-600.webp", alt: "Affiche créée par Jaarle pour une tenue africaine à 25 000 FCFA" },
+  { src: "/images/premium-examples/example-3-600.webp", alt: "Affiche créée par Jaarle pour des accessoires auto" },
 ];
 
-export function PremiumShowcase() {
+export function PremiumShowcase({ items }: { items?: { src: string; alt: string }[] }) {
   const { t } = useLocale();
+  const list = items && items.length > 0 ? items : examples;
 
   return (
     <section className="pb-20 sm:pb-24">
@@ -26,9 +28,10 @@ export function PremiumShowcase() {
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {examples.map(({ file, alt }) => (
-            <div key={file} className="overflow-hidden rounded-2xl border border-border shadow-glow-md">
-              <img src={`/images/premium-examples/${file}`} alt={alt} width={600} height={600} loading="lazy" className="aspect-square w-full object-cover" />
+          {list.map(({ src, alt }) => (
+            <div key={src} className="overflow-hidden rounded-2xl border border-border shadow-glow-md">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={src} alt={alt} width={600} height={600} loading="lazy" className="aspect-square w-full object-cover" />
             </div>
           ))}
         </div>

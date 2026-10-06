@@ -10,6 +10,7 @@ import { FinalCta } from "@/components/site/final-cta";
 import { Footer } from "@/components/site/footer";
 import { createPublicClient } from "@/lib/supabase/public";
 import { getMarketProducts, getMarketPublicSettings } from "@/lib/market/queries";
+import { getShowcaseCreations } from "@/lib/showcase";
 import type { PlanRow, PublicPromotion } from "@/lib/billing/types";
 import type { Metadata } from "next";
 import { absoluteUrl, jsonLdString, organizationLd, softwareApplicationLd, websiteLd } from "@/lib/seo";
@@ -56,7 +57,7 @@ async function loadMarket(): Promise<{ items: ShowcaseItem[]; offer: LaunchOffer
 }
 
 export default async function Home() {
-  const [{ plans, promos }, market] = await Promise.all([loadOffers(), loadMarket()]);
+  const [{ plans, promos }, market, showcase] = await Promise.all([loadOffers(), loadMarket(), getShowcaseCreations(6)]);
   return (
     <main>
       <script
@@ -74,7 +75,7 @@ export default async function Home() {
       <HowItWorks />
       <MarketShowcase items={market.items} offer={market.offer} />
       <Features />
-      <PremiumShowcase />
+      <PremiumShowcase items={showcase} />
       <Pricing plans={plans} promos={promos} />
       <MadeForSenegal />
       <FinalCta />

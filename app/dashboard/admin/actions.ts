@@ -239,3 +239,27 @@ export async function toggleMarketPickAction(fd: FormData) {
   revalidatePublic(Array.isArray(shop) ? shop[0]?.slug : shop?.slug);
   back(MARKET, { ok: pick ? "Annonce ajoutée au Market." : "Annonce retirée du Market." });
 }
+
+// ── Vitrine des affiches (0037) ──────────────────────────────────────────────
+
+const AFFICHES = "/dashboard/admin/affiches";
+
+export async function toggleShowcaseAction(fd: FormData) {
+  const { userId } = await requireAdmin();
+  const creationId = str(fd, "creationId", 64);
+  const show = str(fd, "show", 5) === "true";
+  const fromRaw = str(fd, "from", 300);
+  const from = fromRaw && fromRaw.startsWith(AFFICHES) ? fromRaw : AFFICHES;
+  if (!creationId) back(from, { erreur: "Affiche manquante." });
+
+  const admin = createAdminClient();
+  const { error } = show
+    ? await admin.from("showcase_creations").upsert({ creation_id: creationId, featured_by: userId }, { onConflict: "creation_id" })
+    : await admin.from("showcase_creations").delete().eq("creation_id", creationId);
+  if (error) back(from, { erreur: error.message });
+  await logAdminAction(userId, show ? "showcase.add" : "showcase.remove", "creation", creationId);
+  revalidatePath("/");
+  revalidatePath("/affiche-publicitaire");
+  revalidatePath(AFFICHES);
+  back(from, { ok: show ? "Affiche ajoutée à la vitrine." : "Affiche retirée de la vitrine." });
+}
