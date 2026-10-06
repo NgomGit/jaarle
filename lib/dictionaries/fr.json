@@ -346,7 +346,7 @@
     "descriptionPlaceholder": "En une phrase : que vends-tu, et qu'est-ce qui te rend unique ?",
     "ov_createdTitle": "Ta boutique est créée !",
     "ov_createdDesc": "Prochaine étape : ajouter tes produits.",
-    "ov_status_draft": "Brouillon",
+    "ov_status_draft": "Hors ligne",
     "ov_status_published": "En ligne",
     "ov_status_suspended": "Suspendue",
     "ov_linkLabel": "Lien de ta boutique",
@@ -375,7 +375,7 @@
     "bn_desc": "Un lien à partager sur WhatsApp, avec tes produits et tes prix. 5 minutes suffisent.",
     "bn_cta": "Créer ma boutique",
     "bn_view": "Voir ma boutique",
-    "ov_publish": "Publier ma boutique",
+    "ov_publish": "Remettre ma boutique en ligne",
     "ov_publishing": "Publication…",
     "ov_unpublish": "Mettre hors ligne",
     "ov_view": "Voir ma boutique",
@@ -420,7 +420,12 @@
     "mk_orPro": "Ou passe Pro : {min} annonces suffisent, badge PRO et place en tête",
     "mk_viaLaunch": "Tu es sur le Market grâce au lancement, jusqu'au {date}. Passe Pro pour y rester ensuite, passer devant les autres boutiques, afficher le badge PRO et pouvoir être mis à la une.",
     "mk_viaLaunchCta": "Voir l'offre Pro",
-    "mk_proPerks": "Boutique Pro : tes annonces passent en tête du Market et portent le badge PRO."
+    "mk_proPerks": "Boutique Pro : tes annonces passent en tête du Market et portent le badge PRO.",
+    "ov_createdLiveTitle": "🎉 Ta boutique est en ligne !",
+    "ov_createdLiveDesc": "Ajoute ton premier produit, puis partage ton lien sur WhatsApp.",
+    "ov_emptyLiveHint": "Ta boutique est visible, mais tes clients ne voient encore aucun produit.",
+    "ov_offlineHint": "Ta boutique est hors ligne : personne ne peut la voir pour le moment.",
+    "ov_task_share": "Partager ton lien sur WhatsApp"
   },
   "products": {
     "title": "Mes produits",

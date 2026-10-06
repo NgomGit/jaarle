@@ -82,7 +82,7 @@ export function ShopOverview({
   const tasks = [
     { label: t("shop.ov_task_created"), done: true, href: null as string | null },
     { label: t("shop.ov_task_products"), done: productCounts.visible > 0, href: "/dashboard/produits/nouveau" },
-    { label: t("shop.ov_task_publish"), done: isPublished, href: null },
+    { label: t("shop.ov_task_share"), done: isPublished && productCounts.visible > 0, href: null },
   ];
 
   return (
@@ -90,7 +90,13 @@ export function ShopOverview({
       {justPublished && isPublished ? (
         <Banner icon={Rocket} title={t("shop.ov_publishedTitle")} desc={t("shop.ov_publishedDesc")} />
       ) : (
-        justCreated && <Banner icon={PartyPopper} title={t("shop.ov_createdTitle")} desc={t("shop.ov_createdDesc")} />
+        justCreated && (
+          <Banner
+            icon={PartyPopper}
+            title={t(isPublished ? "shop.ov_createdLiveTitle" : "shop.ov_createdTitle")}
+            desc={t(isPublished ? "shop.ov_createdLiveDesc" : "shop.ov_createdDesc")}
+          />
+        )
       )}
 
       {shop.status === "suspended" && <ErrorNote message={t("shop.ov_suspended")} />}
@@ -145,6 +151,18 @@ export function ShopOverview({
           </Button>
         </div>
 
+        {isPublished && productCounts.visible === 0 && (
+          <Button variant="accent" size="lg" className="mt-3 w-full" asChild>
+            <Link href={productCounts.total === 0 ? "/dashboard/produits/nouveau" : "/dashboard/produits"}>
+              {productCounts.total === 0 ? <Plus className="h-4 w-4" /> : <Package className="h-4 w-4" />}
+              {t(productCounts.total === 0 ? "shop.ov_addFirstProduct" : "shop.ov_makeProductAvailable")}
+            </Link>
+          </Button>
+        )}
+        {isPublished && productCounts.visible === 0 && (
+          <p className="mt-2 text-xs text-muted-foreground">{t("shop.ov_emptyLiveHint")}</p>
+        )}
+
         {isPublished ? (
           <div className="mt-3 flex flex-col gap-2 sm:flex-row">
             <a
@@ -166,26 +184,11 @@ export function ShopOverview({
         ) : (
           shop.status === "draft" && (
             <div className="mt-3">
-              {productCounts.visible === 0 ? (
-                // Pas encore publiable : on mène directement à l'étape qui manque (jamais un bouton grisé sans issue).
-                <>
-                  <Button variant="accent" size="lg" className="w-full" asChild>
-                    <Link href={productCounts.total === 0 ? "/dashboard/produits/nouveau" : "/dashboard/produits"}>
-                      {productCounts.total === 0 ? <Plus className="h-4 w-4" /> : <Package className="h-4 w-4" />}
-                      {t(productCounts.total === 0 ? "shop.ov_addFirstProduct" : "shop.ov_makeProductAvailable")}
-                    </Link>
-                  </Button>
-                  <p className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
-                    <Rocket className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
-                    {t(productCounts.total === 0 ? "shop.ov_publishAfterProduct" : "shop.ov_publishAfterAvailable")}
-                  </p>
-                </>
-              ) : (
-                <Button variant="accent" size="lg" className="w-full" disabled={publishing} onClick={() => togglePublished(true)}>
-                  {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
-                  {publishing ? t("shop.ov_publishing") : t("shop.ov_publish")}
-                </Button>
-              )}
+              <Button variant="accent" size="lg" className="w-full" disabled={publishing} onClick={() => togglePublished(true)}>
+                {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
+                {publishing ? t("shop.ov_publishing") : t("shop.ov_publish")}
+              </Button>
+              <p className="mt-2 text-xs text-muted-foreground">{t("shop.ov_offlineHint")}</p>
             </div>
           )
         )}

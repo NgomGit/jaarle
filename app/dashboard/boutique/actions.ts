@@ -88,7 +88,7 @@ export async function createShop(input: ShopInput): Promise<ActionResult> {
     district: data.district,
     description: data.description,
     logo_path: data.logoPath ?? null,
-    status: "draft" as const, // publication avec la page publique (phase 4)
+    status: "published" as const, // en ligne dès la création : la vitrine vide affiche « bientôt » et reste en noindex
   };
 
   // Le slug a pu être pris entre la vérification et l'envoi : on bascule sur une variante suffixée.
@@ -97,6 +97,7 @@ export async function createShop(input: ShopInput): Promise<ActionResult> {
     const { error } = await supabase.from("shops").insert({ ...row, slug });
     if (!error) {
       revalidatePath("/dashboard", "layout");
+      revalidatePath("/boutiques", "layout");
       return { ok: true, slug };
     }
     if (error.code === UNIQUE_VIOLATION && error.message.includes("shops_one_per_owner")) {
@@ -172,7 +173,7 @@ export async function updateShop(input: ShopInput): Promise<ActionResult> {
   return { ok: true, slug };
 }
 
-/** Met la boutique en ligne (au moins un produit visible requis) ou la repasse en brouillon. */
+/** Met la boutique en ligne ou la repasse hors ligne (brouillon). */
 export async function setShopPublished(published: boolean): Promise<ActionResult> {
   const supabase = createClient();
   const {
@@ -184,14 +185,8 @@ export async function setShopPublished(published: boolean): Promise<ActionResult
   if (!shop) return { ok: false, error: "Boutique introuvable." };
   if (shop.status === "suspended") return { ok: false, error: "Ta boutique est suspendue. Contacte le support Jaarle." };
 
-  if (published) {
-    const { count } = await supabase
-      .from("products")
-      .select("id", { count: "exact", head: true })
-      .eq("shop_id", shop.id)
-      .in("status", ["active", "sold_out"]);
-    if (!count) return { ok: false, error: "Ajoute au moins un produit disponible avant de publier." };
-  }
+  // Plus de produit minimum : une boutique vide affiche un état « bientôt » et n'est ni indexée
+  // (isShopIndexable) ni listée sur le Market (règle des annonces minimum).
 
   const { error } = await supabase
     .from("shops")

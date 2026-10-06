@@ -346,7 +346,7 @@
     "descriptionPlaceholder": "In one sentence: what do you sell, and what makes you unique?",
     "ov_createdTitle": "Your shop is ready!",
     "ov_createdDesc": "Next step: add your products.",
-    "ov_status_draft": "Draft",
+    "ov_status_draft": "Offline",
     "ov_status_published": "Live",
     "ov_status_suspended": "Suspended",
     "ov_linkLabel": "Your shop link",
@@ -375,7 +375,7 @@
     "bn_desc": "A link to share on WhatsApp, with your products and prices. Takes 5 minutes.",
     "bn_cta": "Create my shop",
     "bn_view": "View my shop",
-    "ov_publish": "Publish my shop",
+    "ov_publish": "Put my shop back online",
     "ov_publishing": "Publishing…",
     "ov_unpublish": "Take offline",
     "ov_view": "View my shop",
@@ -420,7 +420,12 @@
     "mk_orPro": "Or go Pro: {min} listings are enough, plus the PRO badge and top placement",
     "mk_viaLaunch": "You're on the Market thanks to the launch, until {date}. Go Pro to stay afterwards, rank ahead of other shops, show the PRO badge and get featured.",
     "mk_viaLaunchCta": "See the Pro plan",
-    "mk_proPerks": "Pro shop: your listings rank first on the Market and carry the PRO badge."
+    "mk_proPerks": "Pro shop: your listings rank first on the Market and carry the PRO badge.",
+    "ov_createdLiveTitle": "🎉 Your shop is live!",
+    "ov_createdLiveDesc": "Add your first product, then share your link on WhatsApp.",
+    "ov_emptyLiveHint": "Your shop is visible, but customers can't see any product yet.",
+    "ov_offlineHint": "Your shop is offline: nobody can see it right now.",
+    "ov_task_share": "Share your link on WhatsApp"
   },
   "products": {
     "title": "My products",
