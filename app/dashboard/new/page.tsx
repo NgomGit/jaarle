@@ -73,7 +73,7 @@ export default async function NewCreationPage({ searchParams }: { searchParams: 
         shopDefaults={shopDefaults}
         productDefaults={productDefaults}
         // Testeurs de la V2 multi-photos : 1 à 3 photos, quelle que soit l'offre.
-        multiPhotoAllowed={canUseMultiPhoto(entitlements) || isPosterV2User(user)}
+        multiPhotoAllowed={canUseMultiPhoto(entitlements) || isPosterV2User(user, entitlements)}
         generationBudget={
           entitlements.billingEnabled
             ? {

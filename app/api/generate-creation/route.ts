@@ -215,7 +215,7 @@ export async function POST(request: Request) {
   // servent de références au décor (chemin multi-image) et sont posées en vraies vignettes.
   // Offre Gratuite : une seule photo, les éventuelles secondaires sont ignorées.
   // Testeurs de la V2 multi-photos (lib/poster-v2/flags.ts) : 1 à 3 photos quelle que soit l'offre.
-  const v2User = isPosterV2User(user);
+  const v2User = isPosterV2User(user, entitlements);
   const multiPhotoAllowed = canUseMultiPhoto(entitlements) || v2User;
   const extraPhotos: { base64: string; mediaType: AllowedMediaType }[] = [];
   const extraDownloadedPaths: string[] = [];
