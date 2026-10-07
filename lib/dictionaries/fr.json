@@ -50,7 +50,7 @@
     "fieldPrice": "Prix",
     "aiTitle": "Génération en cours",
     "aiSub": "Environ 40 secondes",
-    "tierNote": "Pas de style à choisir : l'IA analyse ton produit et compose elle-même le décor, la mise en page et les couleurs les plus adaptés. Chaque affiche est premium, avec jusqu'à 3 photos : la principale mise en avant, les autres en vignettes.",
+    "tierNote": "Pas de style à choisir : l'IA analyse ton produit et compose elle-même le décor, la mise en page et les couleurs les plus adaptés. Chaque affiche est premium.",
     "resultVerified": "Prix et contact vérifiés",
     "step1": "Analyse du produit",
     "step2": "Compréhension du public cible",
@@ -71,7 +71,7 @@
     "packTitle": "Standard",
     "packUnit": "l'effet waouh, sans compromis",
     "goldTitle": "Advanced",
-    "goldUnit": "2 déclinaisons, jusqu'à 3 photos",
+    "goldUnit": "2 déclinaisons",
     "choose": "Choisir",
     "start": "Commencer"
   },
@@ -246,7 +246,7 @@
       },
       "gold": {
         "name": "Advanced",
-        "desc": "Jusqu'à 3 photos et 2 déclinaisons de design au choix."
+        "desc": "2 déclinaisons de design au choix."
       }
     },
     "regenerate": "Nouvelle version ({count} restantes)",

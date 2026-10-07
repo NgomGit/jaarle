@@ -33,16 +33,16 @@ const PAD = 1.5; // marge intérieure de la carte
 const GAP = 1.4; // espace entre deux photos
 
 /** Géométrie d'une galerie de `count` photos (1 ou 2). */
-export function galleryZone(count: number, side: "left" | "right", orientation: "column" | "row"): GalleryZone {
+export function galleryZone(count: number, side: "left" | "right", orientation: "column" | "row", photoPct?: number): GalleryZone {
   const n = Math.max(1, Math.min(2, count));
   if (orientation === "column") {
-    const photo = 20; // côté d'une photo, % de la largeur
+    const photo = photoPct ?? 20; // côté d'une photo, % de la largeur
     const w = photo + PAD * 2;
     const h = photo * n + GAP * (n - 1) + PAD * 2;
     // À droite, la colonne commence sous les points forts (coin haut-droit du bandeau de secours).
     return { side, orientation, xPct: side === "left" ? MARGIN : 100 - MARGIN - w, yPct: side === "left" ? 6 : 19, wPct: w, hPct: h, count: n };
   }
-  const photo = 16.5;
+  const photo = photoPct ?? 16.5;
   const w = photo * n + GAP * (n - 1) + PAD * 2;
   const h = photo + PAD * 2;
   return { side, orientation, xPct: side === "left" ? MARGIN : 100 - MARGIN - w, yPct: 5, wPct: w, hPct: h, count: n };
@@ -52,17 +52,6 @@ export function galleryZone(count: number, side: "left" | "right", orientation: 
 export function pickGalleryZone(count: number, preferredSide?: "left" | "right"): GalleryZone {
   const side = preferredSide ?? (Math.random() < 0.5 ? "left" : "right");
   return galleryZone(count, side, "column");
-}
-
-/** Zones essayées dans l'ordre si la zone prévue n'est pas restée libre. */
-function candidateZones(primary: GalleryZone): GalleryZone[] {
-  const other = primary.side === "left" ? "right" : "left";
-  return [
-    primary,
-    galleryZone(primary.count, other, "column"),
-    galleryZone(primary.count, primary.side, "row"),
-    galleryZone(primary.count, other, "row"),
-  ];
 }
 
 function describeZone(z: GalleryZone): string {
@@ -92,43 +81,36 @@ export function galleryLayoutPrompt(zone: GalleryZone): string {
 - do NOT draw the card, frames or thumbnails yourself, and do not alter the hero product.`;
 }
 
-// ——— Vérification visuelle avant de poser la galerie ———
+// ——— Emplacement libre : jamais sur le texte ———
+// La mise en page (passe 2) place le texte librement et ne respecte pas toujours la zone prévue.
+// On repère donc sur l'affiche FINIE tout ce qu'il ne faut pas couvrir (texte, boutons, prix,
+// contact, logo, produit principal), puis on cherche par le calcul un emplacement libre : la zone
+// prévue d'abord, sinon la position libre la plus proche, en réduisant la carte si besoin.
 
-const ZONE_COLORS = [
-  { key: "red", hex: "#ff2d2d" },
-  { key: "blue", hex: "#2d6bff" },
-  { key: "green", hex: "#18c44a" },
-  { key: "yellow", hex: "#ffd400" },
-] as const;
-
-const ZoneCheckSchema = z.object({
-  reasoning: z.string(),
-  free_zones: z.array(z.enum(["red", "blue", "green", "yellow"])),
+const OccupiedSchema = z.object({
+  elements: z
+    .array(
+      z.object({
+        kind: z.enum(["text", "button", "tag", "price", "contact", "logo", "product"]),
+        x0: z.number(),
+        y0: z.number(),
+        x1: z.number(),
+        y1: z.number(),
+      })
+    )
+    .max(30),
 });
 
-/**
- * Montre à l'IA l'affiche finie avec les zones candidates en couleur et garde la 1re zone libre
- * (sans texte, bouton, logo ni partie importante du produit). Repli : la zone prévue.
- */
-async function chooseFreeZone(poster: Buffer, candidates: GalleryZone[], productName: string): Promise<GalleryZone> {
-  try {
-    const S = 768;
-    const outlines = candidates
-      .map((z, i) => {
-        const c = ZONE_COLORS[i];
-        return `<rect x="${(z.xPct / 100) * S}" y="${(z.yPct / 100) * S}" width="${(z.wPct / 100) * S}" height="${(z.hPct / 100) * S}" fill="none" stroke="${c.hex}" stroke-width="4" stroke-dasharray="${i === 0 ? "0" : "12 6"}"/>`;
-      })
-      .join("");
-    const preview = await sharp(poster)
-      .resize(S, S, { fit: "fill" })
-      .composite([{ input: Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}">${outlines}</svg>`) }])
-      .jpeg({ quality: 80 })
-      .toBuffer();
+type Box = { x0: number; y0: number; x1: number; y1: number };
 
+/** Rectangles (en % de l'affiche) à ne jamais couvrir. null si la détection échoue. */
+async function detectOccupied(poster: Buffer, productName: string): Promise<Box[] | null> {
+  try {
+    const preview = await sharp(poster).resize(768, 768, { fit: "fill" }).jpeg({ quality: 82 }).toBuffer();
     const anthropic = new Anthropic();
     const message = await anthropic.messages.parse({
       model: "claude-sonnet-5",
-      max_tokens: 300,
+      max_tokens: 1200,
       thinking: { type: "disabled" },
       messages: [
         {
@@ -137,26 +119,60 @@ async function chooseFreeZone(poster: Buffer, candidates: GalleryZone[], product
             { type: "image", source: { type: "base64", media_type: "image/jpeg", data: preview.toString("base64") } },
             {
               type: "text",
-              text: `Affiche publicitaire terminée pour « ${productName} ». Les rectangles de couleur (${candidates
-                .map((_, i) => ZONE_COLORS[i].key)
-                .join(", ")}) sont des emplacements possibles pour une carte de photos qu'on va poser par-dessus. Ils ne font pas partie de l'affiche.
-
-Liste dans free_zones les couleurs dont le rectangle ENTIER ne recouvre ni texte (titre, prix, points forts, contact, bouton), ni logo, ni la partie importante du produit principal — seulement du décor. Ordre : du plus élégant au moins élégant pour cette composition. Si aucun n'est libre, liste vide.`,
+              text: `Affiche publicitaire terminée pour « ${productName} ». Repère TOUS les éléments qu'il ne faut pas recouvrir : chaque bloc de texte (titre — y compris chaque ligne d'un titre sur plusieurs lignes —, sous-titre, nom de boutique, points forts), boutons, étiquettes, prix, contact / numéro, logo, et le produit principal. Pour chacun, donne son rectangle englobant en pourcentage de l'image : x0, y0 (coin haut-gauche), x1, y1 (coin bas-droit), de 0 à 100. Sois généreux : mieux vaut un rectangle un peu trop grand que trop petit.`,
             },
           ],
         },
       ],
-      output_config: { format: zodOutputFormat(ZoneCheckSchema) },
+      output_config: { format: zodOutputFormat(OccupiedSchema) },
     });
-    const free = message.parsed_output?.free_zones ?? [];
-    // On garde la zone prévue si elle est libre (les deux passes ont été composées pour elle).
-    const idxs = free.map((k) => ZONE_COLORS.findIndex((c) => c.key === k)).filter((i) => i >= 0 && i < candidates.length);
-    if (idxs.includes(0)) return candidates[0];
-    if (idxs.length > 0) return candidates[idxs[0]];
-    return candidates[0];
+    const els = message.parsed_output?.elements;
+    if (!els) return null;
+    const clamp = (v: number) => Math.min(100, Math.max(0, v));
+    return els
+      .map((e) => ({ x0: clamp(Math.min(e.x0, e.x1)), y0: clamp(Math.min(e.y0, e.y1)), x1: clamp(Math.max(e.x0, e.x1)), y1: clamp(Math.max(e.y0, e.y1)) }))
+      .filter((b) => b.x1 > b.x0 && b.y1 > b.y0);
   } catch {
-    return candidates[0];
+    return null;
   }
+}
+
+const SAFETY = 2.5; // marge (en %) autour de chaque élément détecté
+const EDGE = 3; // marge minimale avec les bords de l'affiche
+
+function overlaps(z: GalleryZone, boxes: Box[]): boolean {
+  return boxes.some(
+    (b) => z.xPct < b.x1 + SAFETY && z.xPct + z.wPct > b.x0 - SAFETY && z.yPct < b.y1 + SAFETY && z.yPct + z.hPct > b.y0 - SAFETY
+  );
+}
+
+/**
+ * Zone prévue si elle est libre ; sinon, pour des tailles décroissantes (colonne puis rangée),
+ * la position libre la plus proche de la zone prévue. null : aucune place sans couvrir le texte.
+ */
+function findFreeZone(primary: GalleryZone, boxes: Box[]): GalleryZone | null {
+  if (!overlaps(primary, boxes)) return primary;
+  const sizes = { column: [20, 17, 14, 12], row: [16.5, 14, 12] } as const;
+  for (const orientation of ["column", "row"] as const) {
+    for (const photo of sizes[orientation]) {
+      const base = galleryZone(primary.count, primary.side, orientation, photo);
+      let best: GalleryZone | null = null;
+      let bestDist = Infinity;
+      for (let y = EDGE; y + base.hPct <= 100 - EDGE; y += 1) {
+        for (let x = EDGE; x + base.wPct <= 100 - EDGE; x += 1) {
+          const cand: GalleryZone = { ...base, xPct: x, yPct: y, side: x + base.wPct / 2 < 50 ? "left" : "right" };
+          if (overlaps(cand, boxes)) continue;
+          const dist = Math.hypot(x - primary.xPct, y - primary.yPct);
+          if (dist < bestDist) {
+            bestDist = dist;
+            best = cand;
+          }
+        }
+      }
+      if (best) return best;
+    }
+  }
+  return null;
 }
 
 // ——— Rendu de la carte ———
@@ -252,8 +268,8 @@ export async function composeGallery(posterBuffer: Buffer, photos: Buffer[], zon
 }
 
 /**
- * Point d'entrée : vérifie que la zone prévue est restée libre (sinon meilleure zone de repli),
- * puis pose la galerie. `verify: false` quand c'est le code qui a fait toute la mise en page
+ * Point d'entrée : repère le texte de l'affiche finie, pose la galerie dans la zone prévue si elle
+ * est libre, sinon à la place libre la plus proche (carte réduite si besoin), jamais sur le texte. `verify: false` quand c'est le code qui a fait toute la mise en page
  * (chemin artisan) et que la zone est donc garantie libre.
  */
 export async function placeGallery(
@@ -264,6 +280,14 @@ export async function placeGallery(
 ): Promise<Buffer> {
   if (photos.length === 0) return posterBuffer;
   const z = zone.count === Math.min(2, photos.length) ? zone : galleryZone(photos.length, zone.side, zone.orientation);
-  const chosen = opts.verify === false ? z : await chooseFreeZone(posterBuffer, candidateZones(z), opts.productName);
+  if (opts.verify === false) return composeGallery(posterBuffer, photos, z);
+  const boxes = await detectOccupied(posterBuffer, opts.productName);
+  if (!boxes) return composeGallery(posterBuffer, photos, z); // détection en échec : zone prévue
+  const chosen = findFreeZone(z, boxes);
+  if (!chosen) {
+    // Aucune place sans couvrir le texte : on n'ajoute pas la galerie plutôt que de masquer une info.
+    console.info(`[poster] galerie non posée : aucune place libre (${boxes.length} éléments détectés)`);
+    return posterBuffer;
+  }
   return composeGallery(posterBuffer, photos, chosen);
 }

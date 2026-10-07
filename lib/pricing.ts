@@ -26,3 +26,10 @@ export const DEFAULT_TIER: Tier = "gold";
 
 /** Nombre max de photos par affiche : 1 principale + 2 secondaires en vignettes (design le plus net). */
 export const MAX_POSTER_PHOTOS = 3;
+
+/**
+ * Affiches multi-photos (2-3 photos du produit) : MASQUÉES le 2026-10-07, le rendu n'est pas au
+ * niveau attendu (voir claude/jaarle-multi-photos-process.md dans le projet). Remettre à `true`
+ * pour les réactiver : formulaire, génération, « Nouvelle version » et upsell Pro suivent ce drapeau.
+ */
+export const MULTI_PHOTO_POSTERS_ENABLED = false;

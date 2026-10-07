@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AnalyticsLevel, Entitlements, PlanKey } from "@/lib/billing/types";
+import { MULTI_PHOTO_POSTERS_ENABLED } from "@/lib/pricing";
 
 // Point d'entrée UNIQUE des droits d'un utilisateur. Tout le reste du code (limites, filigrane,
 // statistiques, Studio…) lit l'objet renvoyé ici, jamais le nom du plan directement.
@@ -122,10 +123,11 @@ export async function getEntitlementsFor(userId: string): Promise<Entitlements> 
 }
 
 /**
- * Affiche multi-photos (2-3 photos du produit : références pour le décor + vraies vignettes) :
- * réservée aux offres payantes. Sans facturation active (migration absente), rien n'est bloqué.
+ * Affiche multi-photos : réservée aux offres payantes. Sans facturation active (migration absente),
+ * rien n'est bloqué — sauf si la fonction est masquée (drapeau ci-dessus).
  */
 export function canUseMultiPhoto(e: Entitlements): boolean {
+  if (!MULTI_PHOTO_POSTERS_ENABLED) return false;
   return !e.billingEnabled || e.plan !== "free";
 }
 

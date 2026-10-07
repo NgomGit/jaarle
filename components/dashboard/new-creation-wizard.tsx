@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/supabase/client";
 import { listCreations } from "@/lib/supabase/creations";
 import { useLocale } from "@/lib/locale-context";
-import { TIERS, DEFAULT_TIER, MAX_POSTER_PHOTOS, type Tier } from "@/lib/pricing";
+import { TIERS, DEFAULT_TIER, MAX_POSTER_PHOTOS, MULTI_PHOTO_POSTERS_ENABLED, type Tier } from "@/lib/pricing";
 import { CreationStepIndicator } from "@/components/dashboard/creation-step-indicator";
 import { CreationResult } from "@/components/dashboard/creation-result";
 import { CategoryPicker } from "@/components/dashboard/category-picker";
@@ -657,7 +657,7 @@ export function NewCreationWizard({
                   </label>
                 )}
                 {/* Offre Gratuite : 1 photo. Les photos 2 et 3 (plus de fidélité + vignettes) sont réservées à Pro. */}
-                {!multiPhotoAllowed && photos.length === 1 && (
+                {!multiPhotoAllowed && MULTI_PHOTO_POSTERS_ENABLED && photos.length === 1 && (
                   <Link
                     href="/dashboard/abonnement"
                     className="col-span-2 flex flex-col justify-center gap-1 rounded-xl border border-dashed border-primary/40 bg-accent/40 p-3 transition-colors hover:border-primary"

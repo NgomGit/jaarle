@@ -50,7 +50,7 @@
     "fieldPrice": "Price",
     "aiTitle": "Generating",
     "aiSub": "About 40 seconds",
-    "tierNote": "No style to pick: the AI analyses your product and composes the scene, layout and colors that suit it best. Every poster is premium, with up to 3 photos: the main one featured, the others as thumbnails.",
+    "tierNote": "No style to pick: the AI analyses your product and composes the scene, layout and colors that suit it best. Every poster is premium.",
     "resultVerified": "Price and contact verified",
     "step1": "Analyzing the product",
     "step2": "Understanding the target audience",
@@ -71,7 +71,7 @@
     "packTitle": "Standard",
     "packUnit": "the wow effect, no compromise",
     "goldTitle": "Advanced",
-    "goldUnit": "2 variations, up to 3 photos",
+    "goldUnit": "2 variations",
     "choose": "Choose",
     "start": "Get started"
   },
@@ -246,7 +246,7 @@
       },
       "gold": {
         "name": "Advanced",
-        "desc": "Up to 3 photos and 2 design variations to choose from."
+        "desc": "2 design variations to choose from."
       }
     },
     "regenerate": "New version ({count} left)",
