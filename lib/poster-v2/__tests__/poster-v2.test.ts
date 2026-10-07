@@ -130,3 +130,19 @@ describe("color", () => {
     expect(contrast(accentOn("#B5683F", "#2A2A2A"), "#2A2A2A")).toBeGreaterThanOrEqual(3);
   });
 });
+
+describe("mesure du texte (toutes les polices)", () => {
+  it("chaque paire mesure sans erreur et de façon cohérente", async () => {
+    const { loadMetrics } = await import("@/lib/poster-v2/fonts");
+    const { textWidth } = await import("@/lib/poster-v2/text-fit");
+    for (const pair of Object.values(TYPE_PAIR_DEFS)) {
+      for (const face of [pair.display, ...(pair.accent ? [pair.accent] : [])]) {
+        const font = await loadMetrics(face);
+        const short = textWidth(font, "M40i", 60);
+        const long = textWidth(font, "BMW X4 M40i fi", 60);
+        expect(short).toBeGreaterThan(0);
+        expect(long).toBeGreaterThan(short);
+      }
+    }
+  });
+});

@@ -134,7 +134,10 @@ export async function preparePoster(input: RenderInput): Promise<PrepareResult> 
   }
 
   // 5. Contenu commercial exact.
-  const benefits = await fitBenefits(input.content.benefits ?? [], def.benefits);
+  // Un point fort déjà dit par la légende d'une photo n'est pas répété.
+  const norm = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const captionKeys = new Set(secondaries.map((s) => norm(cleanCaption(s.caption))).filter(Boolean));
+  const benefits = await fitBenefits((input.content.benefits ?? []).filter((b) => !captionKeys.has(norm(b))), def.benefits);
   if ((input.content.benefits?.length ?? 0) > benefits.length && def.benefits.max > 0) {
     warnings.push(`${(input.content.benefits?.length ?? 0) - benefits.length} point(s) fort(s) non affiché(s)`);
   }

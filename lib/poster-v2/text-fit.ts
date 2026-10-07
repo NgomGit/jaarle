@@ -18,10 +18,27 @@ export interface FittedTitle {
   height: number;
 }
 
-/** Largeur d'un texte en px pour une police et une taille données. */
+/**
+ * Largeur d'un texte en px pour une police et une taille données : somme des chasses des glyphes
+ * + crénage par paire. On n'utilise pas `getAdvanceWidth` : en opentype.js 2.x il applique les
+ * substitutions OpenType et lève une erreur sur certaines polices (Archivo : GSUB 6.2 non géré).
+ * Les ligatures ne changent la largeur que de quelques px, couverts par les marges des zones.
+ */
 export function textWidth(font: opentype.Font, text: string, size: number, letterSpacingEm = 0): number {
-  const base = font.getAdvanceWidth(text, size, { kerning: true });
-  return base + Math.max(0, [...text].length - 1) * letterSpacingEm * size;
+  const scale = size / font.unitsPerEm;
+  const glyphs = [...text].map((ch) => font.charToGlyph(ch));
+  let units = 0;
+  for (let i = 0; i < glyphs.length; i++) {
+    units += glyphs[i].advanceWidth ?? 0;
+    if (i < glyphs.length - 1) {
+      try {
+        units += font.getKerningValue(glyphs[i], glyphs[i + 1]) || 0;
+      } catch {
+        // Table de crénage illisible : on ignore le crénage pour cette paire.
+      }
+    }
+  }
+  return units * scale + Math.max(0, glyphs.length - 1) * letterSpacingEm * size;
 }
 
 /** Découpe le titre en mots ; marque ceux qui appartiennent au groupe mis en valeur. */

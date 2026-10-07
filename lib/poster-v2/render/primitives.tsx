@@ -185,7 +185,9 @@ export function Logo({
           fontSize: 22,
           letterSpacing: "0.16em",
           textTransform: "uppercase",
-          color: onDark ? "rgba(255,255,255,0.92)" : "rgba(20,20,20,0.88)",
+          color: onDark ? "rgba(255,255,255,0.95)" : "rgba(20,20,20,0.88)",
+          // Le nom est souvent posé sur la scène : une ombre douce le garde lisible sur fond clair.
+          textShadow: onDark ? "0 1px 3px rgba(0,0,0,0.55), 0 0 18px rgba(0,0,0,0.35)" : "none",
         }}
       >
         {businessName}
