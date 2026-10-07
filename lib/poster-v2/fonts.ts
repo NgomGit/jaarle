@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import opentype from "opentype.js";
+import * as opentypeNs from "opentype.js";
 import type { TypePairKey } from "@/lib/poster-v2/types";
 
 // Polices du renderer V2 (toutes sous licence OFL, fichiers WOFF dans public/fonts/poster — satori
@@ -104,9 +104,12 @@ function loadBuffer(file: string): Promise<Buffer> {
   return p;
 }
 
-const parsedCache = new Map<string, Promise<opentype.Font>>();
+// Interop ESM / CommonJS : selon le chargeur (Next, vitest, vite-node), `default` existe ou non.
+const opentype = (opentypeNs as unknown as { default?: typeof opentypeNs }).default ?? opentypeNs;
+
+const parsedCache = new Map<string, Promise<opentypeNs.Font>>();
 /** Police analysée (pour la mesure du texte). */
-export function loadMetrics(face: FontFace): Promise<opentype.Font> {
+export function loadMetrics(face: FontFace): Promise<opentypeNs.Font> {
   let p = parsedCache.get(face.file);
   if (!p) {
     p = loadBuffer(face.file).then((b) => opentype.parse(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength)));

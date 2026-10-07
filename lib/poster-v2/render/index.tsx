@@ -3,9 +3,10 @@ import sharp from "sharp";
 import { BODY_FACES_FOR_FIT, TYPE_PAIR_DEFS, fontsForRender, loadMetrics } from "@/lib/poster-v2/fonts";
 import { fitSingleLine, fitTitle, textWidth } from "@/lib/poster-v2/text-fit";
 import { accentOn, contrast, luminance, mix, readableOn, rgba, rgbToHex, veilAlphaFor, type Rgb } from "@/lib/poster-v2/color";
-import { coverScene, dataUri, logoDataUri, meanColor, smartCrop, isUpscaleAcceptable } from "@/lib/poster-v2/photos";
+import { brightTone, coverScene, dataUri, logoDataUri, smartCrop, isUpscaleAcceptable } from "@/lib/poster-v2/photos";
 import { formatPhone, formatPrice, DEFAULT_CTA } from "@/lib/poster-v2/format";
 import { LAYOUTS } from "@/lib/poster-v2/layouts";
+import { sceneFocus } from "@/lib/poster-v2/overlays";
 import { VARIANT_DEFS, type Prepared, type VariantDef } from "@/lib/poster-v2/render/variants";
 import type { Pal } from "@/lib/poster-v2/render/primitives";
 import { LayoutUnfitError, type Palette, type PctRect, type RenderInput, type RenderResult } from "@/lib/poster-v2/types";
@@ -19,6 +20,10 @@ import { LayoutUnfitError, type Palette, type PctRect, type RenderInput, type Re
 const BASE = 1080;
 /** Au-delà de cet agrandissement, la photo secondaire serait visiblement floue : variante refusée. */
 const MAX_UPSCALE_HARD = 2.2;
+/** Voile minimal sous un texte posé sur la scène (lisibilité + rendu « premium »). */
+const MIN_TEXT_VEIL = 0.5;
+/** Contraste visé pour l'accent (mot mis en valeur, surtitre, devise) sur la scène voilée. */
+const ACCENT_TARGET = 4.5;
 
 /** Palette complète (couleurs de texte calculées pour garantir le contraste). */
 export function buildPal(p: Palette): Pal {
@@ -105,8 +110,7 @@ export async function preparePoster(input: RenderInput): Promise<PrepareResult> 
 
   // 2. Scène recadrée dans son cadre (centrée sur la zone du produit principal).
   const frame = spec.scene.frame;
-  const hz = spec.scene.heroZone;
-  const scene = await coverScene(input.scene, frame.w, frame.h, { x: hz.x + hz.w / 2, y: hz.y + hz.h / 2 });
+  const scene = await coverScene(input.scene, frame.w, frame.h, sceneFocus(spec));
 
   // 3. Vraies photos secondaires, recadrées sur leur zone utile au format exact de leur case.
   const photos: string[] = [];
@@ -125,12 +129,18 @@ export async function preparePoster(input: RenderInput): Promise<PrepareResult> 
   let veil = 0.6;
   if (def.textOverScene) {
     const t = def.textOverScene;
-    const under = await worstTile(scene, { left: t.x - frame.x, top: t.y - frame.y, width: t.w, height: t.h }, pal.dark);
-    // Voile suffisant pour le texte principal (4,5:1) ET pour l'accent (3:1 : titre, prix, surtitre).
-    veil = Math.max(veilAlphaFor(under, pal.dark, pal.textOnDark, 4.5), veilAlphaFor(under, pal.dark, pal.accentOnDark, 3));
-    const effective = rgbToHex(mix(under, pal.dark, veil));
-    // Si l'accent reste trop faible même au voile maximal, on l'éclaircit (même teinte).
-    pal.accentOnDark = accentOn(pal.accentOnDark, effective, 3);
+    const under = await tileColors(scene, { left: t.x - frame.x, top: t.y - frame.y, width: t.w, height: t.h });
+    // Voile : le texte principal doit atteindre 4,5:1 sur CHAQUE zone sous le texte. L'accent n'entre
+    // en compte que s'il est clair (un accent sombre ne gagne rien à un voile plus sombre).
+    veil = Math.max(...under.map((u) => veilAlphaFor(u, pal.dark, pal.textOnDark, 4.5, MIN_TEXT_VEIL)));
+    if (contrast(pal.accentOnDark, pal.dark) >= 4) veil = Math.max(veil, ...under.map((u) => veilAlphaFor(u, pal.dark, pal.accentOnDark, 3)));
+    // Puis l'accent est éclairci (même teinte) jusqu'à 3:1 sur chaque zone voilée.
+    const effective = under.map((u) => rgbToHex(mix(u, pal.dark, veil)));
+    let accent = pal.accentOnDark;
+    for (let k = 0; k < 4 && effective.some((e) => contrast(accent, e) < ACCENT_TARGET); k++) {
+      for (const e of effective) accent = accentOn(accent, e, ACCENT_TARGET);
+    }
+    pal.accentOnDark = accent;
   }
 
   // 5. Contenu commercial exact.
@@ -165,27 +175,17 @@ export async function preparePoster(input: RenderInput): Promise<PrepareResult> 
   return { prepared, def, crops, warnings };
 }
 
-/**
- * Couleur « pire cas » d'une zone : on la découpe en 4 × 2 tuiles et on garde celle qui contraste
- * le moins avec le voile (une moyenne globale masque une zone claire sous une partie du texte).
- */
-async function worstTile(img: Buffer, r: { left: number; top: number; width: number; height: number }, veil: string): Promise<Rgb> {
-  const cols = 4;
-  const rows = 2;
-  let worst: Rgb = { r: 128, g: 128, b: 128 };
-  let maxDiff = -1;
+/** Tons clairs de chaque tuile (8 × 4) d'une zone : une moyenne large masque les zones claires. */
+async function tileColors(img: Buffer, r: { left: number; top: number; width: number; height: number }): Promise<Rgb[]> {
+  const cols = 8;
+  const rows = 4;
+  const out: Rgb[] = [];
   for (let i = 0; i < cols; i++) {
     for (let j = 0; j < rows; j++) {
-      const c = await meanColor(img, { left: r.left + (r.width / cols) * i, top: r.top + (r.height / rows) * j, width: r.width / cols, height: r.height / rows });
-      // La tuile la plus éloignée du voile (la plus claire sous un voile sombre) est la plus difficile.
-      const d = contrast(c, veil);
-      if (d > maxDiff) {
-        maxDiff = d;
-        worst = c;
-      }
+      out.push(await brightTone(img, { left: r.left + (r.width / cols) * i, top: r.top + (r.height / rows) * j, width: r.width / cols, height: r.height / rows }));
     }
   }
-  return worst;
+  return out;
 }
 
 function round(r: PctRect): PctRect {

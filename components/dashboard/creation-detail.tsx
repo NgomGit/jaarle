@@ -98,7 +98,14 @@ export function CreationDetail({
   const currentUrl = images[safeIndex] ?? images[images.length - 1] ?? "";
   const currentVersionId = items[safeIndex]?.versionId ?? null;
   // Une seule action de retouche (« Nouvelle version ») : l'ancienne déclinaison séparée a été retirée.
-  const canRetouch = regenRemaining > 0;
+  // V2 multi-photos : « Autre mise en page » (même scène, gratuit) tant qu'il en reste une possible.
+  const isV2 = creation.pipeline_version === "v2" && !!creation.scene_path;
+  const [otherLayouts, setOtherLayouts] = React.useState(() =>
+    isV2 ? (creation.design?.scene?.layouts ?? []).filter((l) => l !== creation.design?.render?.layout).length : 0
+  );
+  const [relayouting, setRelayouting] = React.useState(false);
+  const [relayoutError, setRelayoutError] = React.useState<string | null>(null);
+  const canRetouch = regenRemaining > 0 || otherLayouts > 0;
   const locked = !creation.unlocked;
 
   function appendVersion(url: string, kind: string) {
@@ -133,12 +140,39 @@ export function CreationDetail({
         appendVersion(data.imageUrl, "regeneration");
         setRegenInstructions("");
         if (typeof data.regenerationsRemaining === "number") setRegenRemaining(data.regenerationsRemaining);
+        const more = (data as { otherLayouts?: number }).otherLayouts;
+        if (typeof more === "number") setOtherLayouts(more);
       }
     } catch {
       // silencieux : l'utilisateur peut réessayer
     } finally {
       setRegenerating(false);
       router.refresh(); // recharge la vérité serveur (versions) même si la réponse s'est perdue
+    }
+  }
+
+  async function otherLayout() {
+    if (relayouting || regenerating) return;
+    setRelayouting(true);
+    setRelayoutError(null);
+    try {
+      const res = await fetch("/api/regenerate-creation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ creationId: creation.id, mode: "layout" }),
+      });
+      const data = (await res.json()) as { imageUrl?: string; otherLayouts?: number; error?: string };
+      if (res.ok && data.imageUrl) {
+        appendVersion(data.imageUrl, "regeneration");
+        if (typeof data.otherLayouts === "number") setOtherLayouts(data.otherLayouts);
+      } else {
+        setRelayoutError(data.error ?? t("creation.v2NoOtherLayout"));
+      }
+    } catch {
+      setRelayoutError(t("creation.errorGeneric"));
+    } finally {
+      setRelayouting(false);
+      router.refresh();
     }
   }
 
@@ -449,6 +483,16 @@ export function CreationDetail({
                 </div>
               )}
 
+              {otherLayouts > 0 && (
+                <div className={regenRemaining > 0 ? "mt-4 flex flex-col gap-2 border-t border-border pt-4" : "flex flex-col gap-2"}>
+                  <span className="text-[11px] text-muted-foreground">{t("creation.v2OtherLayoutHint")}</span>
+                  <Button variant="secondary" className="gap-1.5 sm:self-start" onClick={otherLayout} disabled={relayouting || regenerating}>
+                    <RefreshCw className={relayouting ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
+                    {relayouting ? t("creation.v2OtherLayoutWorking") : t("creation.v2OtherLayout")}
+                  </Button>
+                </div>
+              )}
+              {relayoutError && <p className="mt-2 text-xs text-destructive">{relayoutError}</p>}
             </Collapsible>
           )}
 

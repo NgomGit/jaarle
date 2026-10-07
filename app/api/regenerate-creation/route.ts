@@ -6,6 +6,7 @@ import { resolveReferences } from "@/lib/multi-reference";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getTierConfig } from "@/lib/pricing";
+import { otherLayoutsCount, regenerateScene, rerenderOtherLayout, type DesignV2, type V2Content } from "@/lib/poster-v2";
 import {
   ALLOWED_MEDIA_TYPES,
   type AllowedMediaType,
@@ -28,9 +29,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
   }
 
-  const { creationId, customInstructions } = (await request.json()) as {
+  const { creationId, customInstructions, mode } = (await request.json()) as {
     creationId: string;
     customInstructions?: string | null;
+    /** V2 seulement : "layout" = autre mise en page (même scène, 0 appel IA, gratuit) ; sinon nouvelle scène. */
+    mode?: "layout" | "scene" | null;
   };
   if (!creationId) {
     return NextResponse.json({ error: "Création manquante." }, { status: 400 });
@@ -39,9 +42,8 @@ export async function POST(request: Request) {
 
   const { data: creation, error: creationError } = await supabase
     .from("creations")
-    .select(
-      "id, product_name, price, photo_path, extra_photo_paths, industry, tier, regenerations_used, logo_path, business_name, contact_phone, service_description, service_items"
-    )
+    // « * » : les colonnes V2 (migration 0040) sont lues si elles existent, sans casser la V1 sinon.
+    .select("*")
     .eq("id", creationId)
     .eq("user_id", user.id)
     .single();
@@ -51,6 +53,23 @@ export async function POST(request: Request) {
   }
 
   const tierConfig = getTierConfig(creation.tier);
+
+  // ——— V2 multi-photos ———
+  if (creation.pipeline_version === "v2" && creation.design) {
+    return regenerateV2(request, {
+      supabase,
+      user: { id: user.id, phone: user.phone ?? null, whatsapp: (user.user_metadata?.whatsapp_number as string | undefined) ?? null },
+      creation,
+      design: creation.design as DesignV2,
+      mode: mode === "layout" ? "layout" : "scene",
+      instructions: trimmedInstructions,
+      maxRegenerations: tierConfig.maxRegenerations,
+    });
+  }
+  if (mode === "layout") {
+    return NextResponse.json({ error: "Option réservée aux affiches multi-photos." }, { status: 400 });
+  }
+
   if (creation.regenerations_used >= tierConfig.maxRegenerations) {
     return NextResponse.json({ error: "Limite de régénérations atteinte." }, { status: 400 });
   }
@@ -208,5 +227,144 @@ export async function POST(request: Request) {
     imageUrl: `/api/creations/${creation.id}/preview?v=${Date.now()}`,
     imageError,
     regenerationsRemaining: tierConfig.maxRegenerations - regenerationsUsed,
+  });
+}
+
+// ——— V2 : « autre mise en page » (gratuit, 0 appel IA) ou « nouvelle scène » (compte comme une
+// régénération, réservée avant l'appel IA et rendue en cas d'échec, comme la V1). ———
+type V2Creation = {
+  id: string;
+  product_name: string;
+  price: number | null;
+  photo_path: string | null;
+  extra_photo_paths: string[] | null;
+  industry: string | null;
+  regenerations_used: number;
+  logo_path: string | null;
+  business_name: string | null;
+  contact_phone: string | null;
+  scene_path: string | null;
+};
+
+async function regenerateV2(
+  request: Request,
+  ctx: {
+    supabase: ReturnType<typeof createClient>;
+    user: { id: string; phone: string | null; whatsapp: string | null };
+    creation: V2Creation;
+    design: DesignV2;
+    mode: "layout" | "scene";
+    instructions: string | null;
+    maxRegenerations: number;
+  }
+) {
+  void request;
+  const { supabase, user, creation, design } = ctx;
+  const admin = createAdminClient();
+
+  const download = async (path: string | null, asAdmin = false): Promise<Buffer | null> => {
+    if (!path) return null;
+    const { data } = await (asAdmin ? admin : supabase).storage.from("creations").download(path);
+    return data ? Buffer.from(await data.arrayBuffer()) : null;
+  };
+  const hero = await download(creation.photo_path);
+  const secondaryBuffers = (await Promise.all((creation.extra_photo_paths ?? []).map((p) => download(p)))).filter((b): b is Buffer => !!b);
+  if (!hero || secondaryBuffers.length < design.secondaries.length) {
+    return NextResponse.json({ error: "Photo introuvable." }, { status: 500 });
+  }
+  const content: V2Content = {
+    productName: creation.product_name,
+    price: creation.price,
+    industry: creation.industry,
+    phone: creation.contact_phone || user.whatsapp || user.phone || "",
+    businessName: creation.business_name,
+    logo: await download(creation.logo_path),
+  };
+
+  // Autre mise en page : même scène, aucun appel IA, hors compteur de régénérations.
+  if (ctx.mode === "layout") {
+    const scene = await download(creation.scene_path, true);
+    if (!scene) return NextResponse.json({ error: "Scène introuvable." }, { status: 500 });
+    const r = await rerenderOtherLayout({ design, scene, secondaryBuffers, content });
+    if (!r) return NextResponse.json({ error: "Aucune autre mise en page possible pour cette affiche." }, { status: 400 });
+    const posterPath = `${user.id}/${Date.now()}-poster.jpg`;
+    const { error: uploadError } = await admin.storage.from("creations").upload(posterPath, r.image, { contentType: "image/jpeg" });
+    if (uploadError) return NextResponse.json({ error: "Échec de l'enregistrement." }, { status: 500 });
+    await admin.from("creations").update({ poster_path: posterPath, design: r.design }).eq("id", creation.id).eq("user_id", user.id);
+    await admin.from("creation_versions").insert({
+      creation_id: creation.id,
+      user_id: user.id,
+      poster_path: posterPath,
+      kind: "regeneration",
+      design: r.design,
+      scene_path: creation.scene_path,
+    });
+    return NextResponse.json({
+      imageUrl: `/api/creations/${creation.id}/preview?v=${Date.now()}`,
+      imageError: null,
+      regenerationsRemaining: Math.max(0, ctx.maxRegenerations - creation.regenerations_used),
+      otherLayouts: otherLayoutsCount(r.design),
+    });
+  }
+
+  // Nouvelle scène : réservation du compteur avant l'appel IA (même garde-fou que la V1).
+  if (creation.regenerations_used >= ctx.maxRegenerations) {
+    return NextResponse.json({ error: "Limite de régénérations atteinte." }, { status: 400 });
+  }
+  const regenerationsUsed = creation.regenerations_used + 1;
+  const { data: reserved } = await admin
+    .from("creations")
+    .update({ regenerations_used: regenerationsUsed })
+    .eq("id", creation.id)
+    .eq("user_id", user.id)
+    .eq("regenerations_used", creation.regenerations_used)
+    .select("id");
+  if (!reserved?.length) return NextResponse.json({ error: "Limite de régénérations atteinte." }, { status: 400 });
+  const release = () =>
+    admin.from("creations").update({ regenerations_used: creation.regenerations_used }).eq("id", creation.id).eq("regenerations_used", regenerationsUsed);
+
+  let r: Awaited<ReturnType<typeof regenerateScene>> = null;
+  try {
+    r = await regenerateScene({ design, hero, secondaryBuffers, content, sellerNote: ctx.instructions });
+  } catch (e) {
+    console.error("[regenerate-creation] V2 :", e instanceof Error ? e.message : e);
+  }
+  if (!r) {
+    await release();
+    return NextResponse.json({ error: "La nouvelle version n'a pas passé le contrôle qualité. Réessaie : ta régénération n'a pas été décomptée." }, { status: 500 });
+  }
+  const ts = Date.now();
+  const posterPath = `${user.id}/${ts}-poster.jpg`;
+  const scenePath = `${user.id}/${ts}-poster-scene.jpg`;
+  const [up1, up2] = await Promise.all([
+    admin.storage.from("creations").upload(posterPath, r.image, { contentType: "image/jpeg" }),
+    admin.storage.from("creations").upload(scenePath, r.scene, { contentType: "image/jpeg" }),
+  ]);
+  if (up1.error) {
+    await release();
+    return NextResponse.json({ error: "Échec de l'enregistrement." }, { status: 500 });
+  }
+  const savedScene = up2.error ? null : scenePath;
+  await admin.from("creations").update({ poster_path: posterPath, design: r.design, scene_path: savedScene }).eq("id", creation.id).eq("user_id", user.id);
+  await admin.from("creation_versions").insert({
+    creation_id: creation.id,
+    user_id: user.id,
+    poster_path: posterPath,
+    kind: "regeneration",
+    design: r.design,
+    scene_path: savedScene,
+  });
+  void logAiCall({
+    userId: user.id,
+    feature: "poster_regenerate",
+    estCostUsd: Math.max(0, r.design.est_cost_usd - design.est_cost_usd),
+    images: r.design.calls.image - design.calls.image,
+    creationId: creation.id,
+  });
+  return NextResponse.json({
+    imageUrl: `/api/creations/${creation.id}/preview?v=${ts}`,
+    imageError: null,
+    regenerationsRemaining: ctx.maxRegenerations - regenerationsUsed,
+    otherLayouts: savedScene ? otherLayoutsCount(r.design) : 0,
   });
 }

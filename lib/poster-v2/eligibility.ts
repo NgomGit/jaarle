@@ -13,12 +13,14 @@ import type { LayoutId, SecondaryRole } from "@/lib/poster-v2/types";
 
 export const COLLAGE_MIN_QUALITY = 0.7;
 export const LONG_TITLE_CHARS = 40;
+/** Case « petite » (px² à la base 1080) : Rail vertical, Pellicule, Tirages (~ 250-300 px). */
+export const SMALL_SLOT_AREA = 75_000;
 
 export interface EligibilityInput {
   /** Qualité 0-1 de la photo principale. */
   heroQuality: number;
   /** Photos secondaires GARDÉES (déjà vérifiées), dans l'ordre d'utilité. */
-  secondaries: { role: SecondaryRole; quality: number; hasPerson?: boolean }[];
+  secondaries: { role: SecondaryRole; quality: number; hasPerson?: boolean; wholeProduct?: boolean }[];
   industry?: string | null;
   category?: string | null;
   title: string;
@@ -70,6 +72,13 @@ export function eligibleLayouts(input: EligibilityInput): ScoredLayout[] {
     if (spec.id === "HERO_DETAIL.A" && roles[0] === "detail") score += 8;
     if (spec.id === "HERO_DETAIL.C" && (roles[0] === "texture" || roles[0] === "detail")) score += 5;
     if (spec.archetype === "COLLAGE" && roles.includes("usage")) score += 8;
+    // Vue d'ensemble du produit (ex. voiture entière vue de l'arrière) : illisible en petite case.
+    const smallestSlot = Math.min(...spec.slots.map((sl) => sl.w * sl.h));
+    // La Loupe (cercle) est faite pour un détail, jamais pour une vue d'ensemble.
+    if (input.secondaries.some((s) => s.wholeProduct) && (smallestSlot < SMALL_SLOT_AREA || spec.id === "HERO_DETAIL.A")) {
+      score -= 20;
+      reasons.push("vue d'ensemble dans une petite case");
+    }
     // Rotation.
     const idx = recent.indexOf(id);
     if (idx === 0) (score -= 30), reasons.push("utilisée pour la dernière affiche");

@@ -27,6 +27,7 @@ export function CreationResult({
   regenerating = false,
   onRegenerate,
   moreImages,
+  notice = null,
 }: {
   imageUrl: string;
   imageUrl2?: string | null;
@@ -47,6 +48,8 @@ export function CreationResult({
   onRegenerate?: (instructions: string) => void;
   /** Nouvelles versions générées depuis cet écran (ajoutées au carrousel, la plus récente en focus). */
   moreImages?: string[];
+  /** Information sur les photos (V2 multi-photos : photos écartées, repli sur la photo principale). */
+  notice?: string | null;
 }) {
   const { t } = useLocale();
   const [instructions, setInstructions] = React.useState("");
@@ -90,6 +93,7 @@ export function CreationResult({
       />
 
       {imageFallback && <p className="text-xs text-muted-foreground">{t("creation.imageFallbackNote")}</p>}
+      {notice && <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">{notice}</p>}
 
       {locked && onRegenerate && (
         <div className="flex flex-col gap-2">

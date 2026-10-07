@@ -299,7 +299,24 @@
     "readyTitle": "Your poster is ready",
     "retouchTitle": "Retouch the poster",
     "retouchSubtitle": "Say what to change, or let the AI suggest something else",
-    "salesCopySubtitle": "To paste with your poster"
+    "salesCopySubtitle": "To paste with your poster",
+    "v2OtherLayout": "Other layout",
+    "v2OtherLayoutHint": "Same visual, different arrangement of photos and text. Free: doesn't count as a new version.",
+    "v2OtherLayoutWorking": "Laying out…",
+    "v2NoOtherLayout": "No other layout is possible for this poster.",
+    "v2Excluded": "{count} photo(s) not used: {reasons}.",
+    "v2Fallback": "Your extra photos couldn't be integrated cleanly: the poster was made with your main photo.",
+    "v2Reasons": {
+      "autre_produit": "different product",
+      "confiance_basse": "product not recognised with certainty",
+      "qualite_insuffisante": "insufficient quality",
+      "floue": "blurry photo",
+      "trop_petite": "photo too small",
+      "doublon": "too close to another photo",
+      "non_analysee": "not analysed",
+      "inutile": "adds nothing new",
+      "en_trop": "3 photos maximum"
+    }
   },
   "shop": {
     "navLabel": "My shop",

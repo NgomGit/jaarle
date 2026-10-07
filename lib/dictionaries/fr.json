@@ -299,7 +299,24 @@
     "readyTitle": "Ton affiche est prête",
     "retouchTitle": "Retoucher l'affiche",
     "retouchSubtitle": "Dis ce que tu veux changer, ou laisse l'IA proposer autre chose",
-    "salesCopySubtitle": "À coller avec ton affiche"
+    "salesCopySubtitle": "À coller avec ton affiche",
+    "v2OtherLayout": "Autre mise en page",
+    "v2OtherLayoutHint": "Même visuel, autre disposition des photos et du texte. Gratuit : ne compte pas comme une nouvelle version.",
+    "v2OtherLayoutWorking": "Mise en page…",
+    "v2NoOtherLayout": "Aucune autre mise en page possible pour cette affiche.",
+    "v2Excluded": "{count} photo(s) non utilisée(s) : {reasons}.",
+    "v2Fallback": "Tes photos supplémentaires n'ont pas pu être intégrées proprement : l'affiche a été faite avec ta photo principale.",
+    "v2Reasons": {
+      "autre_produit": "autre produit",
+      "confiance_basse": "produit pas reconnu avec certitude",
+      "qualite_insuffisante": "qualité insuffisante",
+      "floue": "photo floue",
+      "trop_petite": "photo trop petite",
+      "doublon": "trop proche d'une autre photo",
+      "non_analysee": "non analysée",
+      "inutile": "n'apporte rien de plus",
+      "en_trop": "3 photos maximum"
+    }
   },
   "shop": {
     "navLabel": "Ma boutique",

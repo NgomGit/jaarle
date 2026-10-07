@@ -170,6 +170,8 @@ export function NewCreationWizard({
     regenerationsRemaining: number;
     unlocked?: boolean;
     moreImages?: string[];
+    /** V2 multi-photos : photos écartées ou repli sur la photo principale. */
+    notice?: string | null;
   } | null>(null);
 
   // Prix vide (ou 0) = « prix sur contact », comme si la case était cochée : le prix n'est plus
@@ -387,6 +389,7 @@ export function NewCreationWizard({
         regenerationsRemaining: TIERS[(data.tier as Tier) || "premium"].maxRegenerations,
         unlocked: !!data.unlocked,
         moreImages: [] as string[],
+        notice: v2Notice(data.v2 as { used: boolean; excluded: string[] } | null | undefined),
       };
     })();
 
@@ -437,6 +440,15 @@ export function NewCreationWizard({
     } finally {
       setSubmitting(false);
     }
+  }
+
+  /** Message V2 : repli sur la photo principale, ou photos écartées (et pourquoi). */
+  function v2Notice(v2: { used: boolean; excluded: string[] } | null | undefined): string | null {
+    if (!v2) return null;
+    if (!v2.used) return t("creation.v2Fallback");
+    if (!v2.excluded?.length) return null;
+    const reasons = Array.from(new Set(v2.excluded.map((r) => t(`creation.v2Reasons.${r}`)))).join(", ");
+    return t("creation.v2Excluded").replace("{count}", String(v2.excluded.length)).replace("{reasons}", reasons);
   }
 
   async function tryRecoverRecentCreation() {
@@ -1025,6 +1037,7 @@ export function NewCreationWizard({
             regenerating={regenerating}
             onRegenerate={TIERS[result.tier].maxRegenerations > 0 ? handleRegenerate : undefined}
             moreImages={result.moreImages}
+            notice={result.notice ?? null}
           />
         )}
       </div>

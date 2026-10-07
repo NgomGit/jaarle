@@ -161,7 +161,7 @@ const L: LayoutSpec[] = [
     scene: {
       aspect: "3:2",
       frame: { x: 0, y: 0, w: 1080, h: 672 },
-      heroZone: { x: 5, y: 6, w: 90, h: 62 },
+      heroZone: { x: 5, y: 18, w: 90, h: 50 },
       calmZones: [{ x: 0, y: 72, w: 100, h: 28 }],
     },
     slots: [
@@ -182,7 +182,7 @@ const L: LayoutSpec[] = [
     scene: {
       aspect: "1:1",
       frame: { x: 0, y: 0, w: 1080, h: 1080 },
-      heroZone: { x: 4, y: 10, w: 64, h: 58 },
+      heroZone: { x: 4, y: 12, w: 64, h: 56 },
       calmZones: [
         { x: 70, y: 0, w: 30, h: 100 },
         { x: 0, y: 70, w: 70, h: 30 },
@@ -228,7 +228,7 @@ const L: LayoutSpec[] = [
     scene: {
       aspect: "2:3",
       frame: { x: 0, y: 0, w: 688, h: 1080 },
-      heroZone: { x: 6, y: 4, w: 88, h: 62 },
+      heroZone: { x: 6, y: 12, w: 88, h: 54 },
       calmZones: [{ x: 0, y: 66, w: 100, h: 34 }],
     },
     slots: [
@@ -249,7 +249,7 @@ const L: LayoutSpec[] = [
     scene: {
       aspect: "1:1",
       frame: { x: 32, y: 32, w: 672, h: 672 },
-      heroZone: { x: 8, y: 10, w: 84, h: 80 },
+      heroZone: { x: 8, y: 16, w: 84, h: 76 },
       calmZones: [],
     },
     slots: [
@@ -270,10 +270,10 @@ const L: LayoutSpec[] = [
     scene: {
       aspect: "1:1",
       frame: { x: 0, y: 0, w: 1080, h: 1080 },
-      heroZone: { x: 5, y: 36, w: 90, h: 44 },
+      heroZone: { x: 5, y: 40, w: 90, h: 38 },
       calmZones: [
-        { x: 0, y: 0, w: 64, h: 34 },
-        { x: 0, y: 80, w: 100, h: 20 },
+        { x: 0, y: 0, w: 64, h: 40 },
+        { x: 0, y: 78, w: 100, h: 22 },
       ],
     },
     slots: [

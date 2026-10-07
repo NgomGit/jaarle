@@ -102,22 +102,38 @@ export async function sharpness(buffer: Buffer): Promise<number> {
 /** Seuil de netteté en dessous duquel une photo secondaire est écartée (à calibrer au benchmark). */
 export const MIN_SHARPNESS = 18;
 
+/**
+ * Zone de la scène gardée par un recadrage « cover » vers outW × outH, centré sur `focus` (en %
+ * de la scène) et borné à l'image. Calcul pur, partagé par le rendu et par le contrôle de
+ * recouvrement du produit (lib/poster-v2/overlays.ts) : les deux voient exactement le même cadre.
+ */
+export function coverRect(
+  srcW: number,
+  srcH: number,
+  outW: number,
+  outH: number,
+  focus?: { x: number; y: number } | null
+): { left: number; top: number; width: number; height: number } {
+  const aspect = outW / outH;
+  let w = srcW;
+  let h = srcW / aspect;
+  if (h > srcH) {
+    h = srcH;
+    w = srcH * aspect;
+  }
+  const cx = ((focus?.x ?? 50) / 100) * srcW;
+  const cy = ((focus?.y ?? 50) / 100) * srcH;
+  const left = Math.round(Math.min(Math.max(0, cx - w / 2), srcW - w));
+  const top = Math.round(Math.min(Math.max(0, cy - h / 2), srcH - h));
+  return { left, top, width: Math.round(w), height: Math.round(h) };
+}
+
 /** Recadre la scène pour remplir exactement son cadre (cover, centré sur `focus` en %). */
 export async function coverScene(scene: Buffer, outW: number, outH: number, focus?: { x: number; y: number }): Promise<Buffer> {
   const { img, width, height } = await oriented(scene);
-  const aspect = outW / outH;
-  let w = width;
-  let h = width / aspect;
-  if (h > height) {
-    h = height;
-    w = height * aspect;
-  }
-  const cx = ((focus?.x ?? 50) / 100) * width;
-  const cy = ((focus?.y ?? 50) / 100) * height;
-  const left = Math.round(Math.min(Math.max(0, cx - w / 2), width - w));
-  const top = Math.round(Math.min(Math.max(0, cy - h / 2), height - h));
+  const r = coverRect(width, height, outW, outH, focus);
   return sharp(img)
-    .extract({ left, top, width: Math.round(w), height: Math.round(h) })
+    .extract(r)
     .resize(outW, outH, { fit: "fill", kernel: "lanczos3" })
     .jpeg({ quality: 92 })
     .toBuffer();
@@ -134,6 +150,23 @@ export async function meanColor(img: Buffer, rect: { left: number; top: number; 
   const height = Math.max(1, Math.min(H - top, Math.round(rect.height)));
   const { channels } = await sharp(img).extract({ left, top, width, height }).stats();
   return { r: channels[0].mean, g: channels[1].mean, b: channels[2].mean };
+}
+
+/**
+ * Tons clairs d'une zone : moyenne + 0,8 écart-type par canal (borné). Sert au calcul des voiles :
+ * le texte doit rester lisible sur les parties claires de la zone, pas seulement « en moyenne ».
+ */
+export async function brightTone(img: Buffer, rect: { left: number; top: number; width: number; height: number }): Promise<Rgb> {
+  const meta = await sharp(img).metadata();
+  const W = meta.width ?? 1;
+  const H = meta.height ?? 1;
+  const left = Math.max(0, Math.min(W - 1, Math.round(rect.left)));
+  const top = Math.max(0, Math.min(H - 1, Math.round(rect.top)));
+  const width = Math.max(1, Math.min(W - left, Math.round(rect.width)));
+  const height = Math.max(1, Math.min(H - top, Math.round(rect.height)));
+  const { channels } = await sharp(img).extract({ left, top, width, height }).stats();
+  const c = (i: number) => Math.min(255, channels[i].mean + 0.8 * channels[i].stdev);
+  return { r: c(0), g: c(1), b: c(2) };
 }
 
 /** Image → data URI pour le rendu. */

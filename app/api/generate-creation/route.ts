@@ -23,6 +23,9 @@ import { canUseMultiPhoto, getEntitlements } from "@/lib/billing/entitlements";
 import { attachUsage, consumeUsage, limitPayload, refundUsage } from "@/lib/billing/consume";
 import { logAiCall } from "@/lib/billing/ai-cost";
 import { AI_COST_ESTIMATES_USD, usageUnits } from "@/lib/billing/usage";
+import { isPosterV2User } from "@/lib/poster-v2/flags";
+import { generatePosterV2, otherLayoutsCount, type DesignV2, type Excluded, type V2Photo } from "@/lib/poster-v2";
+import type { LayoutId } from "@/lib/poster-v2/types";
 
 // La génération enchaîne plusieurs appels IA séquentiels (fond + mise en page + vérifications)
 // — sans ceci, la fonction serverless expire avant la fin sur la plupart des plans Vercel (15s
@@ -211,7 +214,9 @@ export async function POST(request: Request) {
   // Jusqu'à 2 photos secondaires du même produit / service (offres payantes uniquement) : elles
   // servent de références au décor (chemin multi-image) et sont posées en vraies vignettes.
   // Offre Gratuite : une seule photo, les éventuelles secondaires sont ignorées.
-  const multiPhotoAllowed = canUseMultiPhoto(entitlements);
+  // Testeurs de la V2 multi-photos (lib/poster-v2/flags.ts) : 1 à 3 photos quelle que soit l'offre.
+  const v2User = isPosterV2User(user);
+  const multiPhotoAllowed = canUseMultiPhoto(entitlements) || v2User;
   const extraPhotos: { base64: string; mediaType: AllowedMediaType }[] = [];
   const extraDownloadedPaths: string[] = [];
   if (multiPhotoAllowed && photoPath && extraPhotoPaths?.length) {
@@ -236,7 +241,17 @@ export async function POST(request: Request) {
   let effectiveExtraPaths = extraDownloadedPaths.slice();
   let multiContext: MultiReferenceContext | null = null;
   let groupedAnalysis: ProductAnalysis | null = null;
-  if (photoBuffer && photoBase64 && extraPhotos.length > 0) {
+  // V2 multi-photos (testeurs) : produit avec au moins 2 photos. L'analyse V2 remplace l'analyse
+  // groupée V1 ci-dessous ; en cas de repli, la V1 tourne avec la photo principale seule.
+  const useV2 = v2User && normalizedSubjectType === "product" && !!photoBuffer && extraPhotos.length > 0;
+  const v2Photos: V2Photo[] =
+    useV2 && photoBuffer && photoPath
+      ? [
+          { buffer: photoBuffer, mediaType, path: photoPath },
+          ...extraPhotos.map((p, i) => ({ buffer: Buffer.from(p.base64, "base64"), mediaType: p.mediaType, path: extraDownloadedPaths[i] })),
+        ]
+      : [];
+  if (!useV2 && photoBuffer && photoBase64 && extraPhotos.length > 0) {
     const allImages = [{ base64: photoBase64, mediaType }, ...extraPhotos];
     const allPaths: (string | null)[] = [photoPath, ...extraDownloadedPaths];
     const resolved = await resolveReferences(allImages, productName, { heroFixed: !!mainPhotoChosen });
@@ -254,7 +269,7 @@ export async function POST(request: Request) {
   }
 
   // Les photos secondaires sont toujours montrées sur l'affiche quand il y en a.
-  const normalizedShowSecondaryPhotos = extraPhotos.length > 0;
+  let normalizedShowSecondaryPhotos = extraPhotos.length > 0;
 
   const phone = contactPhone?.trim() || (user.user_metadata?.whatsapp_number as string | undefined) || user.phone || "";
 
@@ -322,11 +337,63 @@ export async function POST(request: Request) {
     return { finalBuffer, imageError, layout };
   }
 
+  // V2 : génération multi-photos, puis repli V1 (photo principale seule) si une étape échoue.
+  type V2Outcome =
+    | { used: true; design: DesignV2; scene: Buffer; heroPath: string; secondaryPaths: string[]; excluded: Excluded[] }
+    | { used: false; reason: string; excluded: Excluded[]; costUsd: number };
+  let v2Outcome: V2Outcome | null = null;
+
+  async function recentV2Layouts(): Promise<LayoutId[]> {
+    try {
+      const { data } = await supabase
+        .from("creations")
+        .select("design")
+        .eq("user_id", user!.id)
+        .eq("pipeline_version", "v2")
+        .order("created_at", { ascending: false })
+        .limit(2);
+      return (data ?? []).map((r) => (r.design as DesignV2 | null)?.render?.layout).filter((l): l is LayoutId => !!l);
+    } catch {
+      return [];
+    }
+  }
+
+  async function renderPoster() {
+    if (!useV2) return renderVariation();
+    const v2 = await generatePosterV2({
+      photos: v2Photos,
+      heroFixed: !!mainPhotoChosen,
+      content: { productName, price, industry, phone, businessName, logo: logoBuffer },
+      recentLayouts: await recentV2Layouts(),
+    });
+    if (v2.status === "ok") {
+      v2Outcome = { used: true, design: v2.design, scene: v2.scene, heroPath: v2.heroPath, secondaryPaths: v2.secondaryPaths, excluded: v2.excluded };
+      effectivePhotoPath = v2.heroPath;
+      effectiveExtraPaths = v2.secondaryPaths;
+      normalizedShowSecondaryPhotos = true;
+      return { finalBuffer: v2.image, imageError: null as string | null, layout: null as LayoutVariant | null };
+    }
+    // Repli V1 : photo principale (choisie par le vendeur ou par l'analyse V2) seule.
+    v2Outcome = { used: false, reason: `${v2.stage} : ${v2.reason}`, excluded: v2.excluded, costUsd: v2.est_cost_usd };
+    const hero = v2Photos[v2.heroIndex] ?? v2Photos[0];
+    photoBuffer = hero.buffer;
+    photoBase64 = hero.buffer.toString("base64");
+    mediaType = hero.mediaType;
+    effectivePhotoPath = hero.path;
+    effectiveExtraPaths = [];
+    extraPhotos.length = 0;
+    multiContext = null;
+    groupedAnalysis = v2.productAnalysis;
+    normalizedShowSecondaryPhotos = false;
+    return renderVariation();
+  }
+
   // Palier Gold : seule la 1ère déclinaison est générée ici. La 2e est optionnelle, générée à
   // la demande via /api/creations/[id]/declination — ça évite de payer 2x la génération pour
   // les clients qui se contentent de la première (économie substantielle en moyenne).
   let posterPath: string | null = null;
   let usedLayout: LayoutVariant | null = null;
+  let scenePath: string | null = null;
   let imageError: string | null = null;
   let salesCopy: string | null = null;
   let hashtags: string[] = [];
@@ -342,7 +409,7 @@ export async function POST(request: Request) {
         serviceDescription,
         serviceItems: normalizedItems,
       }),
-      renderVariation(),
+      renderPoster(),
     ]);
     salesCopy = copyResult.salesCopy;
     hashtags = copyResult.hashtags;
@@ -356,9 +423,21 @@ export async function POST(request: Request) {
       .from("creations")
       .upload(posterPath, variation.finalBuffer, { contentType: "image/jpeg" });
     if (posterUploadError) posterPath = null;
-  } catch {
+    // V2 : scène sans texte (privée, migration 0040) pour « autre mise en page » sans appel IA.
+    const v2Done = v2Outcome as V2Outcome | null;
+    if (posterPath && v2Done?.used) {
+      scenePath = posterPath.replace(/-poster\.jpg$/, "-poster-scene.jpg");
+      const { error: sceneUploadError } = await createAdminClient()
+        .storage.from("creations")
+        .upload(scenePath, v2Done.scene, { contentType: "image/jpeg" });
+      if (sceneUploadError) scenePath = null;
+    }
+  } catch (err) {
+    console.error("[generate-creation] affiche non produite :", err instanceof Error ? err.message : err);
     posterPath = null;
   }
+  const v2Final = v2Outcome as V2Outcome | null;
+  const v2Design = v2Final?.used ? v2Final.design : null;
 
   // Jaarle 2.0 : lien optionnel vers le produit (et sa boutique), vérifié côté propriétaire.
   // Sans productId, l'enregistrement est strictement identique à avant.
@@ -401,6 +480,8 @@ export async function POST(request: Request) {
       service_description: normalizedSubjectType === "service" ? serviceDescription : null,
       service_items: normalizedItems.length > 0 ? normalizedItems : null,
       ...(productLink ?? {}),
+      // V2 (migration 0040) : colonnes écrites seulement pour une affiche V2 — la V1 reste identique.
+      ...(v2Design && posterPath ? { pipeline_version: "v2", design: v2Design, scene_path: scenePath } : {}),
     })
     .select()
     .single();
@@ -416,12 +497,18 @@ export async function POST(request: Request) {
   void logAiCall({
     userId: user.id,
     feature: "poster_generate",
-    estCostUsd: AI_COST_ESTIMATES_USD.poster_generate[normalizedTier === "gold" ? "gold" : "premium"],
-    images: 1,
+    estCostUsd: v2Design
+      ? v2Design.est_cost_usd
+      : AI_COST_ESTIMATES_USD.poster_generate[normalizedTier === "gold" ? "gold" : "premium"] + (v2Final && !v2Final.used ? v2Final.costUsd : 0),
+    images: v2Design ? v2Design.calls.image : 1,
     usageEventId,
     shopId: productLink?.shop_id ?? null,
     creationId: creation.id as string,
-    meta: { tier: normalizedTier, posterReady: !!posterPath },
+    meta: {
+      tier: normalizedTier,
+      posterReady: !!posterPath,
+      ...(v2Final ? { pipeline: v2Final.used ? "v2" : "v2_fallback_v1", ...(v2Final.used ? {} : { fallback: v2Final.reason }) } : {}),
+    },
   });
 
   // Historique : on enregistre l'affiche comme 1ʳᵉ version (variante principale).
@@ -431,6 +518,7 @@ export async function POST(request: Request) {
       user_id: user.id,
       poster_path: posterPath,
       kind: "principale",
+      ...(v2Design ? { design: v2Design, scene_path: scenePath } : {}),
     });
   }
 
@@ -446,5 +534,13 @@ export async function POST(request: Request) {
     price,
     tier: creation.tier,
     unlocked: unlockedByPlan, // Jaarle 2.0 : affiche livrée débloquée (Pro / crédits)
+    // V2 multi-photos (testeurs) : photos écartées et repli éventuel, pour l'écran de résultat.
+    v2: v2Final
+      ? {
+          used: v2Final.used,
+          excluded: v2Final.excluded.map((e) => e.reason),
+          otherLayouts: v2Design && scenePath ? otherLayoutsCount(v2Design) : 0,
+        }
+      : null,
   });
 }

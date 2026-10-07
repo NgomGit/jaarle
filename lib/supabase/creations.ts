@@ -19,6 +19,11 @@ export interface Creation {
   created_at: string;
   photoUrl: string | null;
   photoUrl2: string | null;
+  /** Migration 0040 : 'v2' = affiche multi-photos V2 (absent avant la migration). */
+  pipeline_version?: "v1" | "v2" | null;
+  /** Design V2 (lib/poster-v2 DesignV2) ; seuls scene.layouts et render.layout sont lus côté client. */
+  design?: { scene?: { layouts?: string[] }; render?: { layout?: string } } | null;
+  scene_path?: string | null;
 }
 
 export async function listCreations(supabase: SupabaseClient, limit?: number): Promise<Creation[]> {

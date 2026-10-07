@@ -336,12 +336,12 @@ const DETAIL_STRIP_C: VariantDef = {
 const COLLAGE_A: VariantDef = {
   titleBox: { maxWidth: 600, maxLines: 2, maxSize: 64, minSize: 44 },
   benefits: { max: 0, width: 0, size: 0, mode: "line" },
-  textOverScene: { x: 0, y: 760, w: 688, h: 320 },
+  textOverScene: { x: 0, y: 640, w: 688, h: 440 },
   textTone: "dark",
   render: (p) => (
     <Root bg={p.pal.light}>
       <SceneImg uri={p.sceneUri} frame={{ x: 0, y: 0, w: 688, h: 1080 }} />
-      <div style={abs({ x: 0, y: 600, w: 688, h: 480 }, { background: veilGradient(p, 0.62) })} />
+      <div style={abs({ x: 0, y: 520, w: 688, h: 560 }, { background: veilGradient(p, 0.8) })} />
       <div style={{ position: "absolute", left: 44, top: 40, display: "flex" }}>
         <Logo logo={p.logo} businessName={p.businessName} onDark />
       </div>

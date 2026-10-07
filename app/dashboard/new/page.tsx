@@ -6,6 +6,7 @@ import { getProductById } from "@/lib/shops/products";
 import { getMyShop } from "@/lib/shops/queries";
 import { shopMediaUrl } from "@/lib/shops/media";
 import { canUseMultiPhoto, getEntitlements } from "@/lib/billing/entitlements";
+import { isPosterV2User } from "@/lib/poster-v2/flags";
 import { canSpend, formatDateFr } from "@/lib/billing/format";
 import { LimitPage } from "@/components/billing/limit-page";
 import { usageUnits } from "@/lib/billing/usage";
@@ -71,7 +72,8 @@ export default async function NewCreationPage({ searchParams }: { searchParams: 
         defaultPhone={defaultPhone}
         shopDefaults={shopDefaults}
         productDefaults={productDefaults}
-        multiPhotoAllowed={canUseMultiPhoto(entitlements)}
+        // Testeurs de la V2 multi-photos : 1 à 3 photos, quelle que soit l'offre.
+        multiPhotoAllowed={canUseMultiPhoto(entitlements) || isPosterV2User(user)}
         generationBudget={
           entitlements.billingEnabled
             ? {

@@ -15,6 +15,9 @@ const nextConfig = {
       "/api/studio/visual/[id]": ["./public/fonts/**/*", "./public/images/logo-icon.png"],
       "/api/creations/[id]/preview": ["./public/fonts/**/*", "./public/images/logo-icon.png"],
       "/api/shop-qr": ["./public/fonts/**/*", "./public/images/logo-icon.png"],
+      // Affiches multi-photos V2 : le renderer lit les polices public/fonts/poster sur disque.
+      "/api/generate-creation": ["./public/fonts/poster/**/*"],
+      "/api/regenerate-creation": ["./public/fonts/poster/**/*"],
       "/opengraph-image": ["./public/fonts/**/*", "./public/images/logo-icon-96.png", "./public/images/premium-examples/*-600.webp"],
       "/market/**/opengraph-image": ["./public/fonts/**/*", "./public/images/logo-icon-96.png"],
       "/market/opengraph-image": ["./public/fonts/**/*", "./public/images/logo-icon-96.png"],

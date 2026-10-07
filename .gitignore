@@ -23,3 +23,5 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+# sorties des scripts de test (poster-v2)
+/tmp/

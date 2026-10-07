@@ -146,3 +146,14 @@ describe("mesure du texte (toutes les polices)", () => {
     }
   });
 });
+
+describe("eligibility : vue d'ensemble", () => {
+  it("pénalise les petites cases et la loupe", () => {
+    const base = { heroQuality: 0.9, industry: "automotive", title: "BMW X4 M40i", benefitsCount: 2 };
+    const two = eligibleLayouts({ ...base, secondaries: [{ role: "detail", quality: 0.8 }, { role: "alternate_angle", quality: 0.8, wholeProduct: true }] });
+    const score = (id: string) => two.find((s) => s.id === id)!.score;
+    expect(score("DETAIL_STRIP.B")).toBeLessThan(score("DETAIL_STRIP.A"));
+    const one = eligibleLayouts({ ...base, secondaries: [{ role: "alternate_angle", quality: 0.8, wholeProduct: true }] });
+    expect(one[one.length - 1].id).toBe("HERO_DETAIL.A");
+  });
+});

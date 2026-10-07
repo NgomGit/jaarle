@@ -38,15 +38,20 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   const { data: creation, error: creationError } = await supabase
     .from("creations")
-    .select(
-      "id, product_name, price, photo_path, extra_photo_paths, show_secondary_photos, industry, tier, layout, logo_path, business_name, contact_phone, service_description, service_items, poster_path_2"
-    )
+    // « * » : lit pipeline_version (migration 0040) si la colonne existe, sans casser sinon.
+    .select("*")
     .eq("id", params.id)
     .eq("user_id", user.id)
     .single();
 
   if (creationError || !creation) {
     return NextResponse.json({ error: "Création introuvable." }, { status: 404 });
+  }
+
+  // Affiche V2 multi-photos : la déclinaison (héritage V1) ne s'applique pas — « Nouvelle version »
+  // et « Autre mise en page » la remplacent.
+  if (creation.pipeline_version === "v2") {
+    return NextResponse.json({ error: "La déclinaison n'est pas disponible pour cette affiche : utilise « Autre mise en page »." }, { status: 400 });
   }
 
   if (creation.tier !== "gold") {
