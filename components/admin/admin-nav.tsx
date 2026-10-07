@@ -10,7 +10,7 @@ const TABS = [
   { href: "/dashboard/admin/market", label: "Market & mises en avant" },
   { href: "/dashboard/admin/relances", label: "Boutiques à relancer" },
   { href: "/dashboard/admin/affiches", label: "Affiches" },
-  { href: "/dashboard/admin/comptes", label: "Comptes" },
+  { href: "/dashboard/admin/comptes", label: "Comptes & abonnements" },
 ];
 
 export function AdminNav({ openReports }: { openReports: number }) {

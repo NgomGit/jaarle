@@ -55,9 +55,27 @@ export default async function AdminAccountsPage({ searchParams }: { searchParams
   const users = q.trim() ? await searchUsers(q) : [];
 
   const shops = new Map<string, { name: string; slug: string }>();
+  // Formule en cours (la plus haute si plusieurs abonnements actifs, comme billing_entitlements).
+  const plansByUser = new Map<string, { name: string; endsAt: string; sort: number }>();
   if (users.length) {
-    const { data } = await createAdminClient().from("shops").select("owner_id, name, slug").in("owner_id", users.map((u) => u.id));
-    for (const s of (data ?? []) as { owner_id: string; name: string; slug: string }[]) shops.set(s.owner_id, s);
+    const admin = createAdminClient();
+    const ids = users.map((u) => u.id);
+    const nowIso = new Date().toISOString();
+    const [shopsRes, subsRes, plansRes] = await Promise.all([
+      admin.from("shops").select("owner_id, name, slug").in("owner_id", ids),
+      admin.from("subscriptions").select("user_id, plan_key, ends_at").in("user_id", ids).eq("status", "active").lte("starts_at", nowIso).gt("ends_at", nowIso),
+      admin.from("plans").select("key, name, sort"),
+    ]);
+    for (const s of (shopsRes.data ?? []) as { owner_id: string; name: string; slug: string }[]) shops.set(s.owner_id, s);
+    const plans = new Map(((plansRes.data ?? []) as { key: string; name: string; sort: number }[]).map((p) => [p.key, p]));
+    for (const sub of (subsRes.data ?? []) as { user_id: string; plan_key: string; ends_at: string }[]) {
+      const plan = plans.get(sub.plan_key);
+      if (!plan) continue;
+      const cur = plansByUser.get(sub.user_id);
+      if (!cur || plan.sort > cur.sort || (plan.sort === cur.sort && sub.ends_at > cur.endsAt)) {
+        plansByUser.set(sub.user_id, { name: plan.name, endsAt: sub.ends_at, sort: plan.sort });
+      }
+    }
   }
 
   return (
@@ -65,7 +83,7 @@ export default async function AdminAccountsPage({ searchParams }: { searchParams
       <div className="mb-5">
         <h1 className="text-xl font-bold tracking-tight">Comptes</h1>
         <p className="text-sm text-muted-foreground">
-          Retrouve un vendeur pour réinitialiser son mot de passe. Il reçoit un mot de passe provisoire et doit en choisir un nouveau à sa connexion.
+          Retrouve un vendeur pour gérer son abonnement et ses crédits, ou réinitialiser son mot de passe (il reçoit un mot de passe provisoire et doit en choisir un nouveau à sa connexion).
         </p>
       </div>
 
@@ -91,11 +109,13 @@ export default async function AdminAccountsPage({ searchParams }: { searchParams
         {users.map((u) => {
           const name = typeof u.user_metadata?.full_name === "string" ? u.user_metadata.full_name : null;
           const shop = shops.get(u.id);
+          const plan = plansByUser.get(u.id);
           return (
             <li key={u.id} className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="flex flex-wrap items-center gap-2 font-semibold">
                   {name ?? "Sans nom"}
+                  {plan ? <Badge variant="success">{plan.name} → {frDate(plan.endsAt)}</Badge> : <Badge variant="neutral">Gratuit</Badge>}
                   {mustChangePassword(u) && <Badge variant="warning">Mot de passe provisoire</Badge>}
                 </p>
                 <p className="text-sm tabular-nums text-muted-foreground">{formatPhone(u.phone)}</p>
@@ -112,7 +132,15 @@ export default async function AdminAccountsPage({ searchParams }: { searchParams
                   )}
                 </p>
               </div>
-              <ResetPasswordButton userId={u.id} name={name} />
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <Link
+                  href={`/dashboard/admin/comptes/${u.id}`}
+                  className="inline-flex h-8 items-center rounded-lg border border-input bg-card px-3 text-xs font-medium hover:bg-muted"
+                >
+                  Abonnement &amp; crédits
+                </Link>
+                <ResetPasswordButton userId={u.id} name={name} />
+              </div>
             </li>
           );
         })}
