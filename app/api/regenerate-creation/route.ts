@@ -159,7 +159,11 @@ export async function POST(request: Request) {
   // Points forts issus de l'analyse du produit (aucun pour un service sans photo : l'IA les choisit).
   const sellingPoints: string[] =
     "sellingPoints" in backgroundResult && Array.isArray(backgroundResult.sellingPoints) ? (backgroundResult.sellingPoints as string[]) : [];
-  const phone = creation.contact_phone || (user.user_metadata?.whatsapp_number as string | undefined) || user.phone || "";
+  // Affiche d'annonce (migration 0041) : pas de bouton de commande, numéro seulement s'il a été saisi.
+  const orderCta = creation.show_order_cta !== false;
+  const phone = orderCta
+    ? creation.contact_phone || (user.user_metadata?.whatsapp_number as string | undefined) || user.phone || ""
+    : creation.contact_phone || "";
 
   let logoBuffer: Buffer | null = null;
   if (creation.logo_path) {
@@ -185,6 +189,7 @@ export async function POST(request: Request) {
       logoBuffer,
       customInstructions: trimmedInstructions,
       serviceItems: creation.service_items,
+      orderCta,
     });
 
     posterPath = `${user.id}/${Date.now()}-poster.jpg`;

@@ -11,6 +11,7 @@ const TABS = [
   { href: "/dashboard/admin/relances", label: "Boutiques à relancer" },
   { href: "/dashboard/admin/affiches", label: "Affiches" },
   { href: "/dashboard/admin/comptes", label: "Comptes & abonnements" },
+  { href: "/dashboard/admin/credits", label: "Crédits" },
 ];
 
 export function AdminNav({ openReports }: { openReports: number }) {

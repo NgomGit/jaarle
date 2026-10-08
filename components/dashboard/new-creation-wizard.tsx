@@ -97,6 +97,10 @@ export function NewCreationWizard({
   // Toutes les affiches sont premium : plus de choix de palier.
   const tier: Tier = DEFAULT_TIER;
   const [contactPhone, setContactPhone] = React.useState(defaultPhone);
+  // false = affiche d'annonce (événement, baptême, mariage…) : ni bouton « Commander sur WhatsApp »
+  // ni « prix sur devis », numéro facultatif (vidé à la désactivation, rétabli à la réactivation).
+  const [showOrderCta, setShowOrderCta] = React.useState(true);
+  const savedPhoneRef = React.useRef<string>(defaultPhone);
   const [extraPhones, setExtraPhones] = React.useState<string[]>([]);
   const [polishingItems, setPolishingItems] = React.useState(false);
   const [businessName, setBusinessName] = React.useState(shopDefaults?.businessName ?? "");
@@ -179,6 +183,17 @@ export function NewCreationWizard({
   const priceIsOnRequest = priceOnRequest || !(Number(price) > 0);
   const canProceedStep0 = (subjectType === "product" ? photos.length > 0 : true) && productName.trim() !== "";
   const formattedPrice = priceIsOnRequest ? null : Number(price).toLocaleString("fr-FR");
+
+  function toggleOrderCta(next: boolean) {
+    setShowOrderCta(next);
+    if (!next) {
+      savedPhoneRef.current = contactPhone;
+      setContactPhone("");
+      setExtraPhones([]);
+    } else if (!contactPhone.trim()) {
+      setContactPhone(savedPhoneRef.current);
+    }
+  }
 
   function handlePhotosChange(e: React.ChangeEvent<HTMLInputElement>) {
     const picked = Array.from(e.target.files ?? []);
@@ -372,6 +387,7 @@ export function NewCreationWizard({
           serviceDescription: subjectType === "service" && serviceDescription.trim() ? serviceDescription.trim() : null,
           serviceItems,
           productId,
+          showOrderCta,
         }),
       });
       const data = await res.json();
@@ -797,6 +813,24 @@ export function NewCreationWizard({
               )}
             </div>
 
+            <label className="flex cursor-pointer items-start justify-between gap-3 rounded-xl border border-border bg-card px-3.5 py-3">
+              <span className="flex flex-col gap-0.5">
+                <span className="text-sm font-medium">{t("creation.orderCtaTitle")}</span>
+                <span className="text-[11px] text-muted-foreground">{showOrderCta ? t("creation.orderCtaOn") : t("creation.orderCtaOff")}</span>
+              </span>
+              <span className="relative mt-0.5 inline-flex shrink-0">
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={showOrderCta}
+                  onChange={(e) => toggleOrderCta(e.target.checked)}
+                  className="peer sr-only"
+                />
+                <span className="h-6 w-11 rounded-full bg-muted transition-colors peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-primary/40" />
+                <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
+              </span>
+            </label>
+
             <div className="flex flex-col gap-1.5">
               <label htmlFor="price" className="text-sm font-medium">
                 {t("preview.fieldPrice")}
@@ -821,7 +855,7 @@ export function NewCreationWizard({
                   }}
                   className="h-3.5 w-3.5 rounded border-input"
                 />
-                {t("creation.priceOnRequest")}
+                {showOrderCta ? t("creation.priceOnRequest") : t("creation.noPrice")}
               </label>
             </div>
             <div className="flex flex-col gap-1.5">
@@ -856,7 +890,7 @@ export function NewCreationWizard({
 
             <div className="flex flex-col gap-1.5">
               <label htmlFor="contactPhone" className="text-sm font-medium">
-                {t("creation.contactPhone")}
+                {showOrderCta ? t("creation.contactPhone") : t("creation.contactPhoneOptional")}
               </label>
               <Input
                 id="contactPhone"
@@ -886,7 +920,9 @@ export function NewCreationWizard({
                   Ajouter un numéro
                 </button>
               )}
-              <span className="text-[11px] text-muted-foreground">{t("creation.contactPhoneHint")}</span>
+              <span className="text-[11px] text-muted-foreground">
+                {showOrderCta ? t("creation.contactPhoneHint") : t("creation.contactPhoneOptionalHint")}
+              </span>
             </div>
 
             {(

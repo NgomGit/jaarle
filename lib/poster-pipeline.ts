@@ -564,6 +564,11 @@ interface FinalPosterParams {
   secondaryPhotos?: Buffer[] | null;
   /** Zone de la galerie prévue à la génération du décor (sinon : colonne gauche). */
   galleryZone?: GalleryZone | null;
+  /**
+   * false = affiche d'annonce (événement, baptême, mariage…) : ni bouton « Commander sur WhatsApp »,
+   * ni « Prix sur devis » ; le numéro (facultatif) est affiché comme simple contact. Défaut : true.
+   */
+  orderCta?: boolean;
 }
 
 /**
@@ -574,8 +579,10 @@ async function renderSatoriOverlay(origin: string, backgroundBuffer: Buffer, par
   const overlayUrl = new URL("/api/render-overlay", origin);
   overlayUrl.searchParams.set("layout", params.layout);
   overlayUrl.searchParams.set("productName", params.productName);
-  overlayUrl.searchParams.set("price", params.price != null ? `${params.price.toLocaleString("fr-FR")} FCFA` : "Sur devis");
+  const orderCta = params.orderCta !== false;
+  overlayUrl.searchParams.set("price", params.price != null ? `${params.price.toLocaleString("fr-FR")} FCFA` : orderCta ? "Sur devis" : "");
   overlayUrl.searchParams.set("phone", params.phone);
+  if (!orderCta) overlayUrl.searchParams.set("cta", "0");
   // Points forts : ceux du commerçant en priorité, sinon ceux de l'analyse du produit. Jamais de
   // liste figée (l'ancienne valeur par défaut affichait toujours « Livraison rapide à Dakar »).
   const benefits =
@@ -611,10 +618,11 @@ async function generateTemplatedPoster(backgroundBuffer: Buffer, params: FinalPo
     const showContact = !!params.phone;
     const industry = getIndustry(params.industry ?? undefined);
 
-    const requirements = [`Product name: "${params.productName}"`];
+    const orderCta = params.orderCta !== false;
+    const requirements = [orderCta ? `Product name: "${params.productName}"` : `Title: "${params.productName}"`];
     if (priceLabel) {
       requirements.push(`Price: "${priceLabel}"`);
-    } else {
+    } else if (orderCta) {
       requirements.push(`No fixed price — instead include a short "Prix sur devis" / "Contactez-nous pour le prix" call-to-action in place of a price`);
     }
     const phonesLabel = params.phone
@@ -622,9 +630,13 @@ async function generateTemplatedPoster(backgroundBuffer: Buffer, params: FinalPo
       .map((p) => p.trim())
       .filter(Boolean)
       .join(" / ");
-    if (showContact) requirements.push(`WhatsApp contact (afficher chaque numéro): "${phonesLabel}"`);
+    if (showContact) requirements.push(orderCta ? `WhatsApp contact (afficher chaque numéro): "${phonesLabel}"` : `Contact phone (afficher chaque numéro, sans le mot WhatsApp): "${phonesLabel}"`);
     if (params.businessName) requirements.push(`Business name: "${params.businessName}"`);
-    requirements.push(`A short call-to-action, e.g. "Commander sur WhatsApp"`);
+    if (orderCta) requirements.push(`A short call-to-action, e.g. "Commander sur WhatsApp"`);
+    // Affiche d'annonce : on retire toute logique de vente (bouton, commande, prix inventé).
+    const announcementBlock = orderCta
+      ? ""
+      : `\n\nIMPORTANT — this is an ANNOUNCEMENT poster (event, ceremony, celebration, notice), NOT a sales ad: do NOT add any call-to-action button, NO "Commander", "Acheter", "Order", "Buy" or "WhatsApp" wording, ${priceLabel ? "" : "NO price, NO \"Prix sur devis\", "}no price tag. Design it as an elegant invitation / announcement where the title is the hero.`;
 
     const hasServiceItems = !!params.serviceItems && params.serviceItems.length > 0;
 
@@ -702,7 +714,7 @@ ${COLOR_HIERARCHY_INSTRUCTION}
 ${toneInstruction}
 
 Text that MUST appear, spelled and written EXACTLY as given below (this is real business information — accuracy is critical, never invent, alter or truncate any digit or character):
-${requirements.map((r) => `- ${r}`).join("\n")}
+${requirements.map((r) => `- ${r}`).join("\n")}${announcementBlock}
 ${creativeBenefitsInstruction}
 ${merchantLogoInstruction}${reservedZoneBlock}
 ${customInstructionsBlock}
@@ -827,6 +839,8 @@ export async function buildArtisanPoster(
     seed?: number;
     /** Photos secondaires (max 2) : galerie en colonne à gauche, produit décalé à droite. */
     secondaryPhotos?: Buffer[];
+    /** false = affiche d'annonce, sans bouton de commande (voir FinalPosterParams.orderCta). */
+    orderCta?: boolean;
   }
 ): Promise<{ finalBuffer: Buffer; layout: LayoutVariant }> {
   // Analyse vision (couleurs du sujet) en parallèle du détourage : la palette du décor
@@ -864,6 +878,7 @@ export async function buildArtisanPoster(
     logoBuffer: params.logoBuffer ?? null,
     creativeBrief: null,
     benefits: analysis?.sellingPoints ?? [],
+    orderCta: params.orderCta,
   });
 
   if (gallery) {

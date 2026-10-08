@@ -27,6 +27,19 @@ function WhatsAppIcon({ size = 20 }: { size?: number }) {
   );
 }
 
+/** Combiné de téléphone (affiche d'annonce : contact sans connotation « commande WhatsApp »). */
+function PhoneIcon({ size = 20, color }: { size?: number; color: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" style={{ display: "flex" }}>
+      <circle cx="12" cy="12" r="12" fill={color} />
+      <path
+        d="M9.2 6.5c.3 0 .6.2.7.5l.8 1.9c.1.3 0 .6-.2.8l-.9.9c.6 1.2 1.6 2.2 2.8 2.8l.9-.9c.2-.2.5-.3.8-.2l1.9.8c.3.1.5.4.5.7v1.7c0 .5-.4.9-.9.9C10.4 16.4 7.6 13.6 7.4 7.4c0-.5.4-.9.9-.9h.9z"
+        fill={COLORS.white}
+      />
+    </svg>
+  );
+}
+
 function CheckIcon({ size = 15, color }: { size?: number; color: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" style={{ display: "flex" }}>
@@ -100,6 +113,9 @@ export async function GET(request: NextRequest) {
   const accentGradient = `linear-gradient(135deg, ${accent.from}, ${accent.to})`;
 
   const showContact = phones.length > 0;
+  // cta=0 : affiche d'annonce (événement, baptême, mariage…) — pas de bouton « Commander ».
+  const showCta = params.get("cta") !== "0";
+  const showPrice = price.length > 0;
 
   const contactPill = (
     <div
@@ -117,7 +133,7 @@ export async function GET(request: NextRequest) {
         alignSelf: "flex-start",
       }}
     >
-      <WhatsAppIcon size={22} />
+      {showCta ? <WhatsAppIcon size={22} /> : <PhoneIcon size={22} color={accent.from} />}
       <div style={{ display: "flex", flexDirection: "column" }}>
         {phones.map((p) => (
           <span key={p} style={{ display: "flex" }}>
@@ -178,6 +194,7 @@ export async function GET(request: NextRequest) {
                 <div style={{ display: "flex", color: "rgba(255,255,255,0.6)", fontSize: 14, fontWeight: 600 }}>{businessName}</div>
               )}
               <div style={{ display: "flex", width: 48, height: 3, background: accent.from }} />
+              {showPrice && (
               <div
                 style={{
                   display: "flex",
@@ -194,6 +211,7 @@ export async function GET(request: NextRequest) {
                 </div>
                 <span style={{ display: "flex", color: COLORS.white, fontSize: 26, fontWeight: 800 }}>{price}</span>
               </div>
+              )}
               {benefits.map((b) => (
                 <div key={b} style={{ display: "flex", alignItems: "center", gap: 8, color: COLORS.white, fontSize: 14, fontWeight: 600 }}>
                   <CheckIcon size={14} color={accent.from} />
@@ -205,7 +223,7 @@ export async function GET(request: NextRequest) {
             {showContact && (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {contactPill}
-                {ctaButton}
+                {showCta && ctaButton}
               </div>
             )}
           </div>
@@ -257,18 +275,20 @@ export async function GET(request: NextRequest) {
                     <div style={{ display: "flex", color: "rgba(255,255,255,0.65)", fontSize: 14, fontWeight: 600 }}>{businessName}</div>
                   )}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <TagIcon size={20} color={COLORS.white} />
-                  <div style={{ display: "flex", color: COLORS.white, fontSize: 32, fontWeight: 700 }}>
-                    {price}
+                {showPrice && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <TagIcon size={20} color={COLORS.white} />
+                    <div style={{ display: "flex", color: COLORS.white, fontSize: 32, fontWeight: 700 }}>
+                      {price}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {showContact && (
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 18 }}>
                   {contactPill}
-                  {ctaButton}
+                  {showCta && ctaButton}
                 </div>
               )}
             </div>

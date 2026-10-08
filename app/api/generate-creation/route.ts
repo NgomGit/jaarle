@@ -59,6 +59,8 @@ async function generateSalesCopy(
     language: string;
     serviceDescription?: string | null;
     serviceItems?: string[];
+    /** false = affiche d'annonce (événement, cérémonie) : texte d'annonce, pas de vente. */
+    orderCta?: boolean;
   }
 ) {
   const culturalContext = buildCulturalContext({ industryKey: params.industry ?? undefined });
@@ -66,9 +68,12 @@ async function generateSalesCopy(
     params.language === "wo"
       ? "wolof (mélangé naturellement avec du français si besoin, comme parlent vraiment les commerçants à Dakar — pas une traduction littérale)"
       : "français";
+  const announcement = params.orderCta === false;
   const priceLine =
     params.price != null
       ? `prix : ${params.price} FCFA.`
+      : announcement
+      ? "aucun prix (n'en mentionne pas)."
       : "prix sur devis (aucun prix fixe — n'invente surtout pas de montant, invite plutôt naturellement le client à contacter le commerçant pour connaître le prix).";
   const serviceContextLine =
     params.serviceDescription || (params.serviceItems && params.serviceItems.length > 0)
@@ -85,7 +90,9 @@ async function generateSalesCopy(
     }
     content.push({
       type: "text",
-      text: `Produit ou service : "${params.productName}", ${priceLine}${serviceContextLine} Écris en ${languageLabel}. Rédige un texte de vente court (2-3 phrases, prêt à publier sur Facebook/Instagram/WhatsApp) et une liste de 4 à 6 hashtags pertinents pour le Sénégal.`,
+      text: announcement
+        ? `Annonce ou événement : "${params.productName}", ${priceLine}${serviceContextLine} Écris en ${languageLabel}. Rédige un court texte d'annonce (2-3 phrases, prêt à publier sur Facebook/Instagram/WhatsApp) — ce n'est PAS une publicité : aucune invitation à commander ou acheter, aucun prix inventé, ton chaleureux adapté à l'occasion (événement, baptême, mariage, information…) — et une liste de 4 à 6 hashtags pertinents pour le Sénégal.`
+        : `Produit ou service : "${params.productName}", ${priceLine}${serviceContextLine} Écris en ${languageLabel}. Rédige un texte de vente court (2-3 phrases, prêt à publier sur Facebook/Instagram/WhatsApp) et une liste de 4 à 6 hashtags pertinents pour le Sénégal.`,
     });
 
     const message = await anthropic.messages.parse({
@@ -143,6 +150,7 @@ export async function POST(request: Request) {
     serviceDescription,
     serviceItems,
     productId,
+    showOrderCta,
   } = (await request.json()) as {
     photoPath: string | null;
     extraPhotoPaths: string[] | null;
@@ -160,7 +168,9 @@ export async function POST(request: Request) {
     serviceDescription: string | null;
     serviceItems: string[] | null;
     productId?: string | null; // Jaarle 2.0 : affiche créée depuis un produit de la boutique (facultatif)
+    showOrderCta?: boolean | null; // false = affiche d'annonce (événement, baptême, mariage…) sans bouton « Commander »
   };
+  const orderCta = showOrderCta !== false;
 
   const normalizedSubjectType: "product" | "service" = subjectType === "service" ? "service" : "product";
   const normalizedItems = (serviceItems ?? []).map((i) => i.trim()).filter(Boolean).slice(0, 10);
@@ -243,7 +253,8 @@ export async function POST(request: Request) {
   let groupedAnalysis: ProductAnalysis | null = null;
   // V2 multi-photos (testeurs) : produit avec au moins 2 photos. L'analyse V2 remplace l'analyse
   // groupée V1 ci-dessous ; en cas de repli, la V1 tourne avec la photo principale seule.
-  const useV2 = v2User && normalizedSubjectType === "product" && !!photoBuffer && extraPhotos.length > 0;
+  // La V2 compose toujours un bouton de commande : une affiche d'annonce passe par la V1.
+  const useV2 = v2User && orderCta && normalizedSubjectType === "product" && !!photoBuffer && extraPhotos.length > 0;
   const v2Photos: V2Photo[] =
     useV2 && photoBuffer && photoPath
       ? [
@@ -271,7 +282,10 @@ export async function POST(request: Request) {
   // Les photos secondaires sont toujours montrées sur l'affiche quand il y en a.
   let normalizedShowSecondaryPhotos = extraPhotos.length > 0;
 
-  const phone = contactPhone?.trim() || (user.user_metadata?.whatsapp_number as string | undefined) || user.phone || "";
+  // Affiche d'annonce : le numéro est facultatif, jamais complété par celui du compte.
+  const phone = orderCta
+    ? contactPhone?.trim() || (user.user_metadata?.whatsapp_number as string | undefined) || user.phone || ""
+    : contactPhone?.trim() || "";
 
   async function renderVariation() {
     // Chemin "artisan" : décor à motifs africains rendu par sharp (aucun appel IA
@@ -289,6 +303,7 @@ export async function POST(request: Request) {
           logoBuffer,
           seed: Date.now(),
           secondaryPhotos: extraPhotos.map((p) => Buffer.from(p.base64, "base64")),
+          orderCta,
         });
         return { finalBuffer: artisan.finalBuffer, imageError: null as string | null, layout: artisan.layout };
       } catch {
@@ -332,6 +347,7 @@ export async function POST(request: Request) {
       businessName,
       logoBuffer,
       serviceItems: normalizedItems,
+      orderCta,
     });
 
     return { finalBuffer, imageError, layout };
@@ -408,6 +424,7 @@ export async function POST(request: Request) {
         language,
         serviceDescription,
         serviceItems: normalizedItems,
+        orderCta,
       }),
       renderPoster(),
     ]);
@@ -454,9 +471,7 @@ export async function POST(request: Request) {
 
   // Écriture par le serveur (migration 0034) : le navigateur ne peut plus créer de ligne lui-même.
   // Les chemins de photos ont été vérifiés plus haut (téléchargés avec la session du vendeur).
-  const { data: creation, error: insertError } = await createAdminClient()
-    .from("creations")
-    .insert({
+  const creationRow = {
       user_id: user.id,
       product_name: productName,
       price,
@@ -482,9 +497,17 @@ export async function POST(request: Request) {
       ...(productLink ?? {}),
       // V2 (migration 0040) : colonnes écrites seulement pour une affiche V2 — la V1 reste identique.
       ...(v2Design && posterPath ? { pipeline_version: "v2", design: v2Design, scene_path: scenePath } : {}),
-    })
-    .select()
-    .single();
+      // Migration 0041 : écrit seulement pour une affiche d'annonce (les affiches de vente restent identiques).
+      ...(orderCta ? {} : { show_order_cta: false }),
+  };
+  let { data: creation, error: insertError } = await createAdminClient().from("creations").insert(creationRow).select().single();
+  if (insertError && !orderCta && /show_order_cta/.test(insertError.message)) {
+    // Migration 0041 pas encore exécutée : l'affiche est enregistrée quand même (la retouche
+    // reprendra alors le bouton de commande par défaut).
+    const { show_order_cta: _omit, ...withoutFlag } = creationRow as typeof creationRow & { show_order_cta?: boolean };
+    void _omit;
+    ({ data: creation, error: insertError } = await createAdminClient().from("creations").insert(withoutFlag).select().single());
+  }
 
   if (insertError || !creation) {
     await refundUsage(usageEventId);

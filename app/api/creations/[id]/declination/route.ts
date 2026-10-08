@@ -63,7 +63,11 @@ export async function POST(request: Request, { params }: { params: { id: string 
   }
 
   const opposingLayout: LayoutVariant = creation.layout === "side-panel" ? "bottom-bar" : "side-panel";
-  const phone = creation.contact_phone || (user.user_metadata?.whatsapp_number as string | undefined) || user.phone || "";
+  // Affiche d'annonce (migration 0041) : pas de bouton de commande, numéro seulement s'il a été saisi.
+  const orderCta = creation.show_order_cta !== false;
+  const phone = orderCta
+    ? creation.contact_phone || (user.user_metadata?.whatsapp_number as string | undefined) || user.phone || ""
+    : creation.contact_phone || "";
 
   let logoBuffer: Buffer | null = null;
   if (creation.logo_path) {
@@ -166,6 +170,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       logoBuffer,
       customInstructions: trimmedInstructions,
       serviceItems: creation.service_items,
+      orderCta,
     });
 
     posterPath2 = `${user.id}/${Date.now()}-poster-2.jpg`;
