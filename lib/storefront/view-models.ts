@@ -1,3 +1,4 @@
+import { activePromo } from "@/lib/shops/promo";
 import { formatSenegalPhone, shopPublicUrl } from "@/lib/shops/format";
 import { shopMediaThumbUrl, shopMediaUrl } from "@/lib/shops/media";
 import { productVideoUrl } from "@/lib/shops/video";
@@ -76,6 +77,7 @@ export function toProductCard(shopSlug: string, p: ProductWithImages, posterKey?
     fullUrl: poster ?? shopMediaUrl(main),
     url: productPublicUrl(shopSlug, p.slug),
     hasVideo: !!p.product_video,
+    promo: activePromo(p.price, p.compare_at_price, p.promo_ends_at),
   };
 }
 

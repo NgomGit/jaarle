@@ -59,6 +59,8 @@ export interface Product {
   description: string | null;
   price: number | null; // null = « Prix sur demande »
   compare_at_price: number | null;
+  /** Fin de la promo (facultative, migration 0046). */
+  promo_ends_at?: string | null;
   category: string | null;
   /** Catégorie Jaarle Market (clé de feuille), migration 0020. */
   market_category?: string | null;

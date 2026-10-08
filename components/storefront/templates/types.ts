@@ -44,6 +44,8 @@ export interface StorefrontProductCard {
   url: string; // lien public du produit (partage)
   /** Le produit a une vidéo (petit badge ▶ sur la carte, migration 0035). */
   hasVideo?: boolean;
+  /** Promo en cours (0046) : ancien prix barré, remise, fin facultative. */
+  promo?: { oldPriceLabel: string; percent: number; endsAt: string | null } | null;
 }
 
 /** Vidéo d'une fiche produit (30 s max, MP4) — chargée seulement au clic sur lecture. */

@@ -86,7 +86,10 @@ function cartMessage(shop: { name: string; slug: string }, items: OrderItem[], c
   const lines = items.map((i, n) => {
     if (i.unit_price != null) total += i.unit_price * i.qty;
     else unknownPrice = true;
-    const price = i.unit_price != null ? formatPrice(i.unit_price * i.qty) : "prix à confirmer";
+    const price =
+      i.unit_price != null
+        ? `${formatPrice(i.unit_price * i.qty)}${i.old_unit_price ? ` (promo, au lieu de ${formatPrice(i.old_unit_price * i.qty)})` : ""}`
+        : "prix à confirmer";
     return `${n + 1}. ${i.name}${i.options ? ` (${i.options})` : ""} × ${i.qty} — ${price}`;
   });
   return [

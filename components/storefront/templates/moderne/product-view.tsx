@@ -11,6 +11,7 @@ import { ProductCard } from "@/components/storefront/templates/moderne/product-c
 import { ShopLogo, StoreFooter, StoreHeader, themeStyle } from "@/components/storefront/templates/moderne/parts";
 import type { ProductViewProps } from "@/components/storefront/templates/types";
 import { cn } from "@/lib/utils";
+import { promoEndLabel } from "@/lib/shops/promo";
 
 /** Template « Moderne » — fiche produit. */
 export function ModerneProductView({ shop, product, related, theme, marketCategory }: ProductViewProps) {
@@ -39,6 +40,14 @@ export function ModerneProductView({ shop, product, related, theme, marketCatego
 
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <p className={cn("text-2xl font-bold", !product.hasPrice && "text-xl text-gray-600")}>{product.priceLabel}</p>
+              {product.promo && (
+                <>
+                  <span className="text-lg font-medium text-gray-400 line-through">{product.promo.oldPriceLabel}</span>
+                  <span className="rounded-full bg-[#E5484D] px-2.5 py-1 text-xs font-bold text-white">
+                    -{product.promo.percent} %{promoEndLabel(product.promo.endsAt) ? ` · ${promoEndLabel(product.promo.endsAt)}` : ""}
+                  </span>
+                </>
+              )}
               <span
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",

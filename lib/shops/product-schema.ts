@@ -61,6 +61,13 @@ export const ProductInputSchema = z.object({
     .nullable()
     .optional()
     .transform((v) => (v && isMarketLeaf(v) ? v : null)),
+  // Promo (0046) : ancien prix barré + fin facultative (AAAA-MM-JJ). undefined = inchangée.
+  compareAtPrice: z.number().int().min(1).max(100_000_000).nullable().optional(),
+  promoEndsOn: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Date de fin invalide.")
+    .nullable()
+    .optional(),
   options: z.array(OptionSchema).max(3, "3 options maximum.").default([]),
   status: z.enum(PRODUCT_STATUSES).default("active"),
   images: z.array(ImageSchema).max(4, "4 photos maximum."),

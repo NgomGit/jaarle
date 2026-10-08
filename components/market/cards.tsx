@@ -55,6 +55,7 @@ export function MarketProductCard({ product }: { product: MarketProduct; priorit
     fullUrl: product.fullUrl,
     url: product.url,
     hasVideo: product.hasVideo,
+    promo: product.promo ?? null,
   };
   return (
     <ProductCard

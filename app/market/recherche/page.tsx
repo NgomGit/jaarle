@@ -51,6 +51,7 @@ export default async function MarketSearchPage({ searchParams }: Props) {
       max: lp.max,
       type: lp.type,
       available: lp.available,
+      promo: lp.promo,
       qCategories: text && !chosenCategory ? parsed.leafKeys : null,
       qGroups: text ? searchGroups(text) : null,
       page: lp.page,
@@ -68,6 +69,7 @@ export default async function MarketSearchPage({ searchParams }: Props) {
   if (lp.min != null) base.min = String(lp.min);
   if (lp.max != null) base.max = String(lp.max);
   if (lp.available) base.dispo = "1";
+  if (lp.promo) base.promo = "1";
   const href = (changes: Record<string, string | null>) => {
     const s = new URLSearchParams(base);
     for (const [k, v] of Object.entries(changes)) {
@@ -96,7 +98,7 @@ export default async function MarketSearchPage({ searchParams }: Props) {
   if (chosenCategory && !categoryOptions.some((o) => o.value === chosenCategory.slug)) categoryOptions.unshift({ value: chosenCategory.slug, label: chosenCategory.label });
 
   // « robe dakar » → titre « robe » à Dakar (la ville reconnue n'est pas répétée).
-  const heading = text ? `« ${text} »` : chosenCategory ? chosenCategory.label : "Tous les produits";
+  const heading = text ? `« ${text} »` : chosenCategory ? chosenCategory.label : lp.promo ? "Promos" : "Tous les produits";
   // Une seule catégorie proposée (la plus précise) : pas de liste de liens au-dessus des résultats.
   const recognized = !chosenCategory && text ? parsed.categories.slice(0, 1) : [];
   const pageHref = (p: number) => href({ page: p > 1 ? String(p) : null });
@@ -161,8 +163,8 @@ export default async function MarketSearchPage({ searchParams }: Props) {
             </nav>
             <MarketFilters
               action={PATH}
-              fields={["category", "city", "price", "available", "sort"]}
-              values={{ category: chosenCategory?.slug ?? null, city: chosenCity?.slug ?? null, min: lp.min, max: lp.max, available: lp.available, sort: lp.sort }}
+              fields={["category", "city", "price", "available", "promo", "sort"]}
+              values={{ category: chosenCategory?.slug ?? null, city: chosenCity?.slug ?? null, min: lp.min, max: lp.max, available: lp.available, promo: lp.promo, sort: lp.sort }}
               hidden={{ q: q || null, type: base.type }}
               categories={categoryOptions}
               cities={cityOptions}

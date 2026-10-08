@@ -138,3 +138,8 @@ export function canUseMultiPhoto(e: Entitlements): boolean {
 export function canUseProductVideo(e: Entitlements): boolean {
   return !e.billingEnabled || e.plan !== "free";
 }
+
+/** Promo produit (prix barré) : réservée aux offres payantes, aussi appliqué en base (0046). */
+export function canUsePromo(e: Entitlements): boolean {
+  return !e.billingEnabled || e.plan !== "free";
+}

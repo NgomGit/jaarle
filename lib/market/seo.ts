@@ -14,11 +14,13 @@ export interface ListingParams {
   type: MarketItemType | null;
   /** Seulement les annonces disponibles (?dispo=1). */
   available: boolean;
+  /** Seulement les produits en promo (?promo=1, migration 0046). */
+  promo: boolean;
   /** Tri, filtre de prix ou de type actif : la page n'est pas indexée (canonique vers la version sans filtre). */
   filtered: boolean;
 }
 
-const SORTS: MarketSort[] = ["relevance", "new", "price_asc", "price_desc"];
+const SORTS: MarketSort[] = ["relevance", "new", "price_asc", "price_desc", "promo"];
 
 function int(v: string | string[] | undefined): number | null {
   const n = Number(Array.isArray(v) ? v[0] : v);
@@ -34,7 +36,8 @@ export function parseListingParams(sp: Record<string, string | string[] | undefi
   const rawType = Array.isArray(sp.type) ? sp.type[0] : sp.type;
   const type: MarketItemType | null = rawType === "services" ? "service" : rawType === "produits" ? "product" : null;
   const available = (Array.isArray(sp.dispo) ? sp.dispo[0] : sp.dispo) === "1";
-  return { page, sort, min, max, type, available, filtered: sort !== "relevance" || min != null || max != null || type != null || available };
+  const promo = (Array.isArray(sp.promo) ? sp.promo[0] : sp.promo) === "1";
+  return { page, sort, min, max, type, available, promo, filtered: sort !== "relevance" || min != null || max != null || type != null || available || promo };
 }
 
 const fcfa = (n: number) => `${n.toLocaleString("fr-FR").replace(/ | /g, " ")} FCFA`;
@@ -91,5 +94,5 @@ export function listingFaq(category: MarketCategory | null, city: MarketCity | n
 }
 
 export function sortLabel(s: MarketSort): string {
-  return { relevance: "Pertinence", new: "Nouveautés", price_asc: "Prix croissant", price_desc: "Prix décroissant" }[s];
+  return { relevance: "Pertinence", new: "Nouveautés", price_asc: "Prix croissant", price_desc: "Prix décroissant", promo: "Meilleures remises" }[s];
 }

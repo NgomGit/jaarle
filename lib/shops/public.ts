@@ -3,6 +3,7 @@ import { createPublicClient } from "@/lib/supabase/public";
 import { getProductBySlug, listShopProducts, type ProductWithImages } from "@/lib/shops/products";
 import { formatPrice, shopPublicUrl } from "@/lib/shops/format";
 import type { Shop } from "@/lib/shops/types";
+import { activePromo } from "@/lib/shops/promo";
 
 // Lectures des pages publiques, dédupliquées par requête (metadata + page + image OG).
 
@@ -49,11 +50,20 @@ export function productPublicUrl(shopSlug: string, productSlug: string): string 
 /** Message WhatsApp pré-rempli (construit côté serveur, jamais depuis un texte libre du visiteur). */
 export function whatsappMessage(
   shop: Pick<Shop, "name" | "slug">,
-  product?: (Pick<ProductWithImages, "name" | "price" | "slug" | "status"> & { subject_type?: string | null }) | null,
+  product?:
+    | (Pick<ProductWithImages, "name" | "price" | "slug" | "status"> & {
+        subject_type?: string | null;
+        compare_at_price?: number | null;
+        promo_ends_at?: string | null;
+      })
+    | null,
   optionsLabel?: string | null,
   /** Visiteur venu de Jaarle Market : le message le dit (le vendeur sait d'où vient le client). */
   fromMarket = false
 ): string {
+  // Promo en cours (0046) : le prix promo et l'ancien prix sont rappelés au vendeur.
+  const promo = product ? activePromo(product.price, product.compare_at_price, product.promo_ends_at) : null;
+  const promoText = promo && product?.price != null ? ` en promo à ${formatPrice(product.price)} (au lieu de ${promo.oldPriceLabel})` : "";
   if (product && fromMarket) {
     const url = productPublicUrl(shop.slug, product.slug);
     const opts = optionsLabel ? ` (${optionsLabel})` : "";
@@ -63,12 +73,12 @@ export function whatsappMessage(
     if (product.status === "sold_out") {
       return `Bonjour, je suis intéressé(e) par « ${product.name} »${opts} vu sur Jaarle Market. Est-il de nouveau disponible ? ${url}`;
     }
-    return `Bonjour, je suis intéressé(e) par « ${product.name} »${opts} vu sur Jaarle Market. Est-il toujours disponible ? ${url}`;
+    return `Bonjour, je suis intéressé(e) par « ${product.name} »${opts}${promoText} vu sur Jaarle Market. Est-il toujours disponible ? ${url}`;
   }
   if (!product) {
     return `Bonjour ${shop.name}, je viens de voir votre boutique sur Jaarle (${shopPublicUrl(shop.slug)}) et j'aimerais avoir plus d'informations.`;
   }
-  const priceText = product.price != null ? ` à ${formatPrice(product.price)}` : "";
+  const priceText = promoText || (product.price != null ? ` à ${formatPrice(product.price)}` : "");
   const options = optionsLabel ? ` (${optionsLabel})` : "";
   if (product.subject_type === "service") {
     return `Bonjour, je suis intéressé(e) par votre prestation « ${product.name} »${options}. Pouvez-vous me donner vos disponibilités et le tarif ? Je viens de voir votre annonce sur Jaarle : ${productPublicUrl(shop.slug, product.slug)}`;

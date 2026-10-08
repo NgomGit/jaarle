@@ -36,6 +36,8 @@ export interface StudioProduct {
   priceLabel: string;
   thumbUrl: string | null;
   hasPhoto: boolean;
+  /** Promo en cours (0046) : pré-remplit l'offre de l'objectif « Promotion ». */
+  promoDetail?: string | null;
 }
 
 const GEN_STEPS = ["studio.step_facts", "studio.step_instagram", "studio.step_facebook", "studio.step_tiktok", "studio.step_status"];
@@ -94,6 +96,7 @@ export function StudioWorkspace({
         formOpen={formOpen}
         onFormOpenChange={setFormOpen}
         onPackChange={(p) => setHasPack(!!p)}
+        defaultPromoDetail={product.promoDetail ?? undefined}
       />
     </div>
   );
@@ -119,6 +122,7 @@ export function StudioEditor({
   unlockLabel,
   previewStamp = "",
   formTitle,
+  defaultPromoDetail,
 }: {
   source: StudioSourceRef;
   shop: MockShop;
@@ -133,11 +137,13 @@ export function StudioEditor({
   unlockLabel?: string;
   previewStamp?: string; // change quand la version d'affiche change → recharge les aperçus
   formTitle?: string;
+  /** Offre pré-remplie (promo du produit) si le pack n'en a pas encore. */
+  defaultPromoDetail?: string;
 }) {
   const { t } = useLocale();
   const [pack, setPackState] = React.useState<MarketingPack | null>(initialPack);
-  const [objective, setObjective] = React.useState<StudioObjective>(initialPack?.objective ?? "sell");
-  const [promoDetail, setPromoDetail] = React.useState(initialPack?.promo_detail ?? "");
+  const [objective, setObjective] = React.useState<StudioObjective>(initialPack?.objective ?? (defaultPromoDetail ? "promo" : "sell"));
+  const [promoDetail, setPromoDetail] = React.useState(initialPack?.promo_detail || defaultPromoDetail || "");
   const [extraFacts, setExtraFacts] = React.useState(initialPack?.extra_facts ?? "");
   const [generating, setGenerating] = React.useState(false);
   const [genStep, setGenStep] = React.useState(0);

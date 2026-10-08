@@ -47,7 +47,7 @@ const MIN_SECTION = 4;
 const HOME_CITY = "dakar";
 
 export default async function MarketHome() {
-  const [counts, newest, shops, relevant, local, allBanners, settings] = await Promise.all([
+  const [counts, newest, shops, relevant, local, allBanners, settings, promos] = await Promise.all([
     getMarketCounts(),
     getMarketProducts({ sort: "new", limit: 8 }),
     getMarketShops({ limit: 8 }),
@@ -55,6 +55,8 @@ export default async function MarketHome() {
     getMarketProducts({ city: HOME_CITY, sort: "relevance", limit: 16 }),
     getMarketBanners(),
     getMarketPublicSettings(),
+    // Promos des boutiques Pro (0046), plus fortes remises d'abord.
+    getMarketProducts({ promo: true, sort: "promo", limit: 12 }),
   ]);
 
   // À la une : bannières programmées dans l'admin (sans ciblage) ; à défaut, une boutique Pro
@@ -171,6 +173,12 @@ export default async function MarketHome() {
           <>
             <PromoBanners banners={banners} />
             <ProPicks products={picks} />
+
+            {promos.items.length > 0 && (
+              <Section title="Promos" subtitle="Les bonnes affaires du moment, chez les boutiques Pro." href="/market/recherche?promo=1&tri=promo" linkLabel="Toutes les promos">
+                <ProductRail products={promos.items} priorityCount={2} />
+              </Section>
+            )}
 
             {newSection.length > 0 && (
               <Section title="Nouveautés" subtitle="Les derniers produits publiés par les boutiques." href="/market/recherche?tri=new" linkLabel="Tout voir">

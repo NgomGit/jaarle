@@ -5,6 +5,7 @@ import { productPublicUrl } from "@/lib/shops/public";
 import { cityFromText } from "@/lib/market/cities";
 import { itemPriceLabel, posterUrl } from "@/lib/shops/posters";
 import type { MarketCategory } from "@/lib/market/categories";
+import { activePromo, type ActivePromo } from "@/lib/shops/promo";
 
 // Lectures publiques du Market : uniquement via les fonctions SQL de la migration 0020
 // (security definer) — les tables d'abonnement et de comptes ne sont jamais lues d'ici.
@@ -19,7 +20,7 @@ export const MIN_LANDING_PRODUCTS = 6;
 export const MIN_LANDING_SHOPS = 2;
 export const MIN_CATEGORY_PRODUCTS = 8;
 
-export type MarketSort = "relevance" | "new" | "price_asc" | "price_desc";
+export type MarketSort = "relevance" | "new" | "price_asc" | "price_desc" | "promo";
 export type MarketItemType = "product" | "service";
 
 export interface MarketProduct {
@@ -41,6 +42,8 @@ export interface MarketProduct {
   boosted: boolean;
   /** Le produit a une vidéo (badge ▶ discret sur la carte, migration 0035). */
   hasVideo?: boolean;
+  /** Promo visible (0046 : boutique Pro, non expirée). */
+  promo?: ActivePromo | null;
 }
 
 export interface MarketShop {
@@ -68,6 +71,8 @@ type ProductRow = {
   shop_whatsapp?: string | null; shop_phone?: string | null; total_count: number;
   // Migration 0026 (absents avant : tout le Market était Pro).
   is_pro?: boolean | null; boosted?: boolean | null;
+  // Migration 0046 : ancien prix renvoyé seulement si la promo est visible.
+  compare_at_price?: number | null; promo_ends_at?: string | null;
 };
 
 type ShopRow = {
@@ -106,6 +111,7 @@ function toProduct(r: ProductRow): MarketProduct {
       isPro: r.is_pro ?? true,
     },
     boosted: !!r.boosted,
+    promo: activePromo(r.price, r.compare_at_price, r.promo_ends_at),
     waHref: `/r/wa/${r.shop_slug}?${new URLSearchParams({ p: r.slug, src: "market" }).toString()}`,
   };
 }
@@ -158,6 +164,8 @@ export interface ProductQuery {
   qCategories?: string[] | null;
   /** Mots de la recherche avec variantes (searchGroups) — migration 0042 ; remplace q côté base. */
   qGroups?: string[] | null;
+  /** Seulement les produits en promo (migration 0046). */
+  promo?: boolean;
   page?: number;
   limit?: number;
 }
@@ -182,6 +190,13 @@ export async function getMarketProducts(query: ProductQuery): Promise<{ items: M
     const extra: Record<string, unknown> = {};
     if (query.available) extra.p_available = true;
     if (query.qCategories?.length) extra.p_q_categories = query.qCategories;
+    // 0046 : promos seulement (rangée « Promos », filtre « En promo »). Sans la migration : liste vide.
+    if (query.promo) {
+      const { data, error } = await createPublicClient().rpc("market_products", { ...args, ...extra, ...(query.qGroups?.length ? { p_q_groups: query.qGroups } : {}), p_promo: true });
+      if (error || !data) return { items: [], total: 0 };
+      const rows = data as ProductRow[];
+      return { items: await withVideoFlags(rows.map(toProduct)), total: rows.length ? Number(rows[0].total_count) : 0 };
+    }
     const client = createPublicClient();
     // 0042 : recherche tolérante (accents, ordre, synonymes, fautes). Sans la migration : repli
     // sur la recherche d'avant (0028), puis sur l'appel de base.

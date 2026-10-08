@@ -11,7 +11,8 @@ import { SHOP_MEDIA_BUCKET, type ProductStatus, type Shop } from "@/lib/shops/ty
 import { LIMIT_MESSAGES } from "@/lib/billing/format";
 import { stripBrands, stripBrandsFromName } from "@/lib/shops/brands";
 import { isOwnPosterPath, isOwnVideoPath, PRODUCT_VIDEO_BUCKET, type ProductVideoDraft } from "@/lib/shops/video";
-import { canUseProductVideo, getEntitlements } from "@/lib/billing/entitlements";
+import { canUseProductVideo, getEntitlements, canUsePromo } from "@/lib/billing/entitlements";
+import { PROMO_PRO_MESSAGE, promoEndFromDay, promoInputError } from "@/lib/shops/promo";
 
 const VIDEO_PRO_MESSAGE = "La vidéo produit est réservée aux comptes Pro.";
 
@@ -152,6 +153,22 @@ export async function saveProduct(input: ProductInput, productId?: string): Prom
     }
   }
 
+  // Promo (0046) : réservée au Pro pour en poser une ; la retirer reste toujours possible.
+  // undefined = inchangée (imports, appels sans formulaire).
+  let promoFields: { compare_at_price: number | null; promo_ends_at: string | null } | Record<string, never> = {};
+  if (data.compareAtPrice !== undefined) {
+    if (data.compareAtPrice == null) {
+      promoFields = { compare_at_price: null, promo_ends_at: null };
+    } else {
+      const promoError = promoInputError(data.price, data.compareAtPrice);
+      if (promoError) return { ok: false, error: promoError };
+      const endsAt = promoEndFromDay(data.promoEndsOn);
+      if (endsAt && new Date(endsAt).getTime() <= Date.now()) return { ok: false, error: "La date de fin de la promo doit être dans le futur." };
+      if (!canUsePromo(await getEntitlements())) return { ok: false, error: PROMO_PRO_MESSAGE, limit: "feature" };
+      promoFields = { compare_at_price: data.compareAtPrice, promo_ends_at: endsAt };
+    }
+  }
+
   // Règle de vente : aucun nom de marque dans les annonces (retiré automatiquement).
   const fields = {
     subject_type: data.subjectType,
@@ -163,6 +180,7 @@ export async function saveProduct(input: ProductInput, productId?: string): Prom
     market_category: data.marketCategory ?? null,
     options: data.options,
     status: data.status,
+    ...promoFields,
   };
 
   let id = productId;
@@ -182,6 +200,8 @@ export async function saveProduct(input: ProductInput, productId?: string): Prom
       })
       .select("id")
       .single();
+    if (error?.message?.includes("PRO_REQUIRED:promo")) return { ok: false, error: PROMO_PRO_MESSAGE, limit: "feature" };
+    if (error?.message?.includes("products_promo_valid")) return { ok: false, error: "Promo invalide : vérifie le prix promo et l'ancien prix." };
     if (error?.message?.includes("LIMIT_REACHED:products")) {
       // Limite du plan appliquée en base (trigger products_enforce_plan_limit).
       return { ok: false, error: LIMIT_MESSAGES.products, limit: "products" };
@@ -200,6 +220,8 @@ export async function saveProduct(input: ProductInput, productId?: string): Prom
       .eq("owner_id", userId)
       .select("slug")
       .single();
+    if (error?.message?.includes("PRO_REQUIRED:promo")) return { ok: false, error: PROMO_PRO_MESSAGE, limit: "feature" };
+    if (error?.message?.includes("products_promo_valid")) return { ok: false, error: "Promo invalide : vérifie le prix promo et l'ancien prix." };
     if (error || !row) return { ok: false, error: "Produit introuvable." };
     slug = row.slug as string;
   }

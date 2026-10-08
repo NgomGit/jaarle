@@ -76,6 +76,11 @@ export function ProductCard({
             </span>
           )
         )}
+        {product.promo && !product.soldOut && (
+          <span className="absolute right-2.5 top-2.5 rounded-full bg-[#E5484D] px-2 py-1 text-[11px] font-bold text-white shadow-sm">
+            -{product.promo.percent} %
+          </span>
+        )}
         {product.hasVideo && (
           // Simple indicateur : aucune vidéo n'est chargée dans les listes.
           <span
@@ -100,6 +105,11 @@ export function ProductCard({
           )}
         >
           {product.priceLabel}
+          {product.promo && (
+            <span className="ml-1.5 text-[12px] font-medium text-gray-400 line-through" aria-label={`Au lieu de ${product.promo.oldPriceLabel}`}>
+              {product.promo.oldPriceLabel}
+            </span>
+          )}
         </p>
 
         <div className="mt-auto flex items-center gap-1.5 pt-3">

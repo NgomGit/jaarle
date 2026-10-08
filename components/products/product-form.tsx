@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Camera, Images, Loader2, Megaphone, Plus, Sparkles, Star, Trash2, X } from "lucide-react";
+import { ArrowLeft, Camera, Images, Loader2, Megaphone, Plus, Sparkles, Star, Tag, Trash2, X } from "lucide-react";
 import { saveProduct } from "@/app/dashboard/produits/actions";
 import { LimitDialog, type LimitReason } from "@/components/billing/upgrade-card";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ import { PosterChooser } from "@/components/products/poster-chooser";
 import { ProductVideoField } from "@/components/products/product-video-field";
 import type { ProductVideoDraft } from "@/lib/shops/video";
 import { cn } from "@/lib/utils";
+import { activePromo, promoEndToDay, promoInputError } from "@/lib/shops/promo";
 import { optionValuesError, parseOptionValues } from "@/lib/shops/product-options";
 
 const MAX_PHOTOS = 4;
@@ -52,11 +53,14 @@ export function ProductForm({
   product,
   importedNote = false,
   videoAllowed = true,
+  promoAllowed = true,
 }: {
   product?: ProductWithImages | null;
   importedNote?: boolean;
   /** Vidéo produit : offres payantes uniquement (Gratuit → bloc verrouillé « Pro »). */
   videoAllowed?: boolean;
+  /** Promo (prix barré) : Pro uniquement (0046). */
+  promoAllowed?: boolean;
 }) {
   const { t } = useLocale();
   const router = useRouter();
@@ -77,6 +81,10 @@ export function ProductForm({
   const [name, setName] = React.useState(product?.name ?? "");
   const [price, setPrice] = React.useState(product?.price != null ? String(product.price) : "");
   const [priceOnRequest, setPriceOnRequest] = React.useState(isEdit && product?.price == null);
+  // Promo : `price` devient le prix promo, `oldPrice` l'ancien prix barré.
+  const [promoOn, setPromoOn] = React.useState(product?.compare_at_price != null);
+  const [oldPrice, setOldPrice] = React.useState(product?.compare_at_price != null ? String(product.compare_at_price) : "");
+  const [promoEnd, setPromoEnd] = React.useState(promoEndToDay(product?.promo_ends_at));
   const [description, setDescription] = React.useState(product?.description ?? "");
   const [category, setCategory] = React.useState(product?.category ?? "");
   const [marketCategory, setMarketCategory] = React.useState(product?.market_category ?? "");
@@ -215,6 +223,11 @@ export function ProductForm({
     if (readyPaths.length === 0) return setError(t("products.needPhoto"));
     if (!priceOnRequest && price.trim() === "") return setError(t("products.needPrice"));
     if (videoBusy) return setError(t("products.videoBusy"));
+    const promoActive = promoOn && !priceOnRequest;
+    if (promoActive) {
+      const promoError = promoInputError(Number(price.replace(/\D/g, "")) || null, Number(oldPrice.replace(/\D/g, "")) || null);
+      if (promoError) return setError(promoError);
+    }
     const parsedOptions = options
       .map((o) => ({ name: o.name.trim(), values: parseOptionValues(o.values) }))
       .filter((o) => o.name && o.values.length > 0);
@@ -229,6 +242,8 @@ export function ProductForm({
         displayMedia,
         name,
         price: priceOnRequest ? null : Number(price.replace(/\D/g, "")),
+        compareAtPrice: promoActive ? Number(oldPrice.replace(/\D/g, "")) : null,
+        promoEndsOn: promoActive && promoEnd ? promoEnd : null,
         description,
         category,
         marketCategory: marketCategory || null,
@@ -498,7 +513,7 @@ export function ProductForm({
             />
           </Field>
 
-          <Field label={t("products.priceLabel")} htmlFor="product-price">
+          <Field label={promoOn && !priceOnRequest ? t("products.pricePromoLabel") : t("products.priceLabel")} htmlFor="product-price">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <Input
                 id="product-price"
@@ -520,6 +535,32 @@ export function ProductForm({
               </label>
             </div>
           </Field>
+
+          {!priceOnRequest && (
+            <PromoFields
+              allowed={promoAllowed}
+              on={promoOn}
+              price={price}
+              oldPrice={oldPrice}
+              end={promoEnd}
+              onToggle={(next) => {
+                if (next) {
+                  // L'ancien prix = le prix actuel ; le vendeur baisse ensuite le prix.
+                  if (!oldPrice && price) setOldPrice(price);
+                  setPromoOn(true);
+                  setTimeout(() => document.getElementById("product-price")?.focus(), 0);
+                } else {
+                  // Fin de la promo : on revient à l'ancien prix.
+                  if (oldPrice) setPrice(oldPrice);
+                  setOldPrice("");
+                  setPromoEnd("");
+                  setPromoOn(false);
+                }
+              }}
+              onOldPrice={setOldPrice}
+              onEnd={setPromoEnd}
+            />
+          )}
 
           <Field label={<>{t("products.descriptionLabel")}<AiHint field="description" /></>} htmlFor="product-description" optional>
             <Textarea
@@ -694,6 +735,86 @@ export function ProductForm({
       )}
 
       {!showForm && <ErrorNote message={error} className="mt-4" />}
+    </div>
+  );
+}
+
+/** Bloc « Mettre en promo » : ancien prix barré, fin facultative, aperçu de la remise (Pro). */
+function PromoFields({
+  allowed,
+  on,
+  price,
+  oldPrice,
+  end,
+  onToggle,
+  onOldPrice,
+  onEnd,
+}: {
+  allowed: boolean;
+  on: boolean;
+  price: string;
+  oldPrice: string;
+  end: string;
+  onToggle: (next: boolean) => void;
+  onOldPrice: (v: string) => void;
+  onEnd: (v: string) => void;
+}) {
+  const { t } = useLocale();
+  const preview = activePromo(Number(price) || null, Number(oldPrice) || null);
+  const today = new Date().toISOString().slice(0, 10);
+  return (
+    <div className={cn("rounded-xl border p-3", on ? "border-primary/40 bg-primary/5" : "border-border")}>
+      <label className={cn("flex items-center justify-between gap-3", !allowed && !on && "opacity-70")}>
+        <span className="flex items-center gap-2 text-sm font-medium">
+          <Tag className="h-4 w-4 text-primary" />
+          {t("products.promoToggle")}
+          {!allowed && <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">PRO</span>}
+        </span>
+        <input
+          type="checkbox"
+          role="switch"
+          checked={on}
+          disabled={!allowed && !on}
+          onChange={(e) => onToggle(e.target.checked)}
+          className="h-5 w-5 rounded border-input accent-primary"
+        />
+      </label>
+      {!allowed && !on && (
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          {t("products.promoPro")}{" "}
+          <Link href="/dashboard/abonnement" className="font-semibold text-primary hover:underline">
+            {t("products.promoUpgrade")}
+          </Link>
+        </p>
+      )}
+      {on && (
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="product-old-price" className="text-sm font-medium">
+              {t("products.promoOldPrice")}
+            </label>
+            <Input
+              id="product-old-price"
+              inputMode="numeric"
+              value={oldPrice}
+              onChange={(e) => onOldPrice(e.target.value.replace(/\D/g, "").slice(0, 9))}
+              placeholder="15000"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="product-promo-end" className="text-sm font-medium">
+              {t("products.promoEnd")} <span className="font-normal text-muted-foreground">({t("shop.optional")})</span>
+            </label>
+            <Input id="product-promo-end" type="date" min={today} value={end} onChange={(e) => onEnd(e.target.value)} />
+          </div>
+          <p className="text-xs text-muted-foreground sm:col-span-2">
+            {preview
+              ? t("products.promoPreview").replace("{old}", preview.oldPriceLabel).replace("{p}", String(preview.percent))
+              : t("products.promoHint")}{" "}
+            {t("products.promoEndHint")}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

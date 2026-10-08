@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 // Mobile : un bouton « Filtrer » ouvre un panneau par le bas ; ordinateur : une barre en ligne.
 // On ne montre que les filtres utiles à la page (jamais 15 à la fois).
 
-export type FilterField = "category" | "city" | "price" | "available" | "sort";
+export type FilterField = "category" | "city" | "price" | "available" | "promo" | "sort";
 export type Option = { value: string; label: string; group?: string };
 
 export interface FilterValues {
@@ -19,6 +19,8 @@ export interface FilterValues {
   min: number | null;
   max: number | null;
   available: boolean;
+  /** En promo uniquement (?promo=1). */
+  promo?: boolean;
   sort: string;
 }
 
@@ -27,6 +29,7 @@ const SORTS: Option[] = [
   { value: "new", label: "Plus récents" },
   { value: "price_asc", label: "Prix croissant" },
   { value: "price_desc", label: "Prix décroissant" },
+  { value: "promo", label: "Meilleures remises" },
 ];
 
 export function MarketFilters({
@@ -56,6 +59,7 @@ export function MarketFilters({
     (has("city") && values.city ? 1 : 0) +
     (has("price") && (values.min != null || values.max != null) ? 1 : 0) +
     (has("available") && values.available ? 1 : 0) +
+    (has("promo") && values.promo ? 1 : 0) +
     (values.sort !== "relevance" ? 1 : 0);
 
   React.useEffect(() => {
@@ -97,6 +101,12 @@ export function MarketFilters({
           <label className="flex h-11 cursor-pointer items-center gap-2 rounded-xl border border-[#D9D5CB] bg-white px-3.5 text-sm font-semibold">
             <input type="checkbox" name="dispo" value="1" defaultChecked={values.available} onChange={submitOnChange} className="h-4 w-4 accent-[#17151F]" />
             Disponible
+          </label>
+        )}
+        {has("promo") && (
+          <label className="flex h-11 cursor-pointer items-center gap-2 rounded-xl border border-[#D9D5CB] bg-white px-3.5 text-sm font-semibold">
+            <input type="checkbox" name="promo" value="1" defaultChecked={values.promo} onChange={submitOnChange} className="h-4 w-4 accent-[#E5484D]" />
+            En promo
           </label>
         )}
         <Field label="Trier par" className="ml-auto">
@@ -182,6 +192,12 @@ export function MarketFilters({
                 <label className="flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-xl border border-[#D9D5CB] bg-white px-4 text-sm font-semibold">
                   Disponible uniquement
                   <input type="checkbox" name="dispo" value="1" defaultChecked={values.available} className="h-5 w-5 accent-[#17151F]" />
+                </label>
+              )}
+              {has("promo") && (
+                <label className="flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-xl border border-[#D9D5CB] bg-white px-4 text-sm font-semibold">
+                  En promo uniquement
+                  <input type="checkbox" name="promo" value="1" defaultChecked={values.promo} className="h-5 w-5 accent-[#E5484D]" />
                 </label>
               )}
             </div>

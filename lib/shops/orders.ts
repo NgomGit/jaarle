@@ -3,6 +3,7 @@ import { cache } from "react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { siteUrl } from "@/lib/shops/format";
 import type { ProductWithImages } from "@/lib/shops/products";
+import { activePromo } from "@/lib/shops/promo";
 import { notifyNewOrder } from "@/lib/push/send";
 
 // Commandes du panier (migration 0024, table shop_orders) : chaque envoi de panier sur WhatsApp
@@ -18,6 +19,8 @@ export interface OrderItem {
   options: string;
   qty: number;
   unit_price: number | null;
+  /** Ancien prix si le produit était en promo au moment de la commande (0046). */
+  old_unit_price?: number | null;
   image_path: string | null;
 }
 
@@ -63,6 +66,7 @@ export function toOrderItem(p: ProductWithImages, qty: number, options: string):
     options,
     qty,
     unit_price: p.price,
+    old_unit_price: activePromo(p.price, p.compare_at_price, p.promo_ends_at)?.oldPrice ?? null,
     image_path: p.product_images[0]?.path ?? null,
   };
 }

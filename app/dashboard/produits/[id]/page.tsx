@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getProductById } from "@/lib/shops/products";
 import { ProductForm } from "@/components/products/product-form";
-import { canUseProductVideo, getEntitlements } from "@/lib/billing/entitlements";
+import { canUseProductVideo, canUsePromo, getEntitlements } from "@/lib/billing/entitlements";
 
 export default async function EditProductPage({
   params,
@@ -21,6 +21,6 @@ export default async function EditProductPage({
   if (!product || product.owner_id !== user.id) notFound();
 
   return (
-    <ProductForm product={product} importedNote={searchParams.imported === "1"} videoAllowed={canUseProductVideo(entitlements)} />
+    <ProductForm product={product} importedNote={searchParams.imported === "1"} videoAllowed={canUseProductVideo(entitlements)} promoAllowed={canUsePromo(entitlements)} />
   );
 }

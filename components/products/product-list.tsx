@@ -12,6 +12,7 @@ import { shopMediaThumbUrl, shopMediaUrl } from "@/lib/shops/media";
 import type { ProductWithImages } from "@/lib/shops/products";
 import type { ProductStatus } from "@/lib/shops/types";
 import { useLocale } from "@/lib/locale-context";
+import { activePromo } from "@/lib/shops/promo";
 
 const STATUS_VARIANT: Record<ProductStatus, "success" | "warning" | "neutral"> = {
   active: "success",
@@ -78,6 +79,7 @@ function ProductRow({ product }: { product: ProductWithImages }) {
   const [confirmDelete, setConfirmDelete] = React.useState(false);
   const main = product.product_images[0];
   const thumb = main ? shopMediaThumbUrl(main.path) : null;
+  const promo = activePromo(product.price, product.compare_at_price, product.promo_ends_at);
 
   async function toggleSoldOut() {
     setBusy(true);
@@ -123,7 +125,11 @@ function ProductRow({ product }: { product: ProductWithImages }) {
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold">{product.name}</p>
-          <p className="text-sm text-muted-foreground">{formatPrice(product.price)}</p>
+          <p className="text-sm text-muted-foreground">
+            {formatPrice(product.price)}
+            {promo && <span className="ml-1.5 text-xs line-through">{promo.oldPriceLabel}</span>}
+            {promo && <span className="ml-1.5 rounded-full bg-[#E5484D] px-1.5 py-0.5 text-[10px] font-bold text-white">-{promo.percent} %</span>}
+          </p>
           {product.moderated_at ? (
             <Badge variant="destructive" className="mt-1 px-2 py-0.5 text-[10.5px]">
               {t("products.moderated")}
