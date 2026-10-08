@@ -9,7 +9,8 @@ import { MarketShell } from "@/components/market/shell";
 import { allMarketCategories, getMarketCategory, marketRootCategories } from "@/lib/market/categories";
 import { getMarketCity, MARKET_CITIES } from "@/lib/market/cities";
 import { citiesWithProducts, getMarketCounts, getMarketProducts, MARKET_PAGE_SIZE, totalsFor } from "@/lib/market/queries";
-import { parseMarketSearch } from "@/lib/market/search";
+import { parseMarketSearch, searchGroups } from "@/lib/market/search";
+import { SearchLogger } from "@/components/market/search-logger";
 import { parseListingParams } from "@/lib/market/seo";
 import { cn } from "@/lib/utils";
 
@@ -50,6 +51,7 @@ export default async function MarketSearchPage({ searchParams }: Props) {
       type: lp.type,
       available: lp.available,
       qCategories: text && !chosenCategory ? parsed.leafKeys : null,
+      qGroups: text ? searchGroups(text) : null,
       page: lp.page,
     }),
     getMarketCounts(),
@@ -104,6 +106,10 @@ export default async function MarketSearchPage({ searchParams }: Props) {
         <Breadcrumbs items={[{ name: "Market", href: "/market" }, { name: "Recherche" }]} />
 
         <LiveSearch initial={q}>
+          {/* Recherche « aboutie » (le visiteur a arrêté de taper) → journal pour l'admin. */}
+          {q.length >= 2 && lp.page === 1 && (
+            <SearchLogger key={`${q}|${city?.slug ?? ""}|${chosenCategory?.slug ?? ""}`} q={q} results={total} city={city?.slug ?? null} category={chosenCategory?.slug ?? null} />
+          )}
           <div className="mt-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
             <h1 className="min-w-0 font-[family-name:var(--font-market-display)] text-[28px] font-extrabold leading-tight tracking-tight sm:text-[40px]">
               {heading}

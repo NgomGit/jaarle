@@ -1,13 +1,23 @@
 // Validation des produits (partagée client / server actions).
-import { z } from "zod";
+import { z } from "@/lib/zod-locale";
+import { OPTION_VALUE_MAX, OPTION_VALUES_MAX } from "@/lib/shops/product-options";
 import { isMarketLeaf } from "@/lib/market/categories";
 import { MAX_VIDEO_BYTES, MAX_VIDEO_MS_DB } from "@/lib/shops/video";
 
 export const PRODUCT_STATUSES = ["draft", "active", "sold_out", "hidden"] as const;
 
 const OptionSchema = z.object({
-  name: z.string().trim().min(1).max(30),
-  values: z.array(z.string().trim().min(1).max(30)).min(1).max(20),
+  name: z.string().trim().min(1, "Donne un nom à chaque option.").max(30, "Nom d'option : 30 caractères maximum."),
+  values: z
+    .array(
+      z
+        .string()
+        .trim()
+        .min(1)
+        .max(OPTION_VALUE_MAX, `Option : un choix dépasse ${OPTION_VALUE_MAX} caractères. Sépare les choix par des virgules (ex. Vert, Rose, Noir).`)
+    )
+    .min(1, "Ajoute au moins un choix à chaque option.")
+    .max(OPTION_VALUES_MAX, `Option : ${OPTION_VALUES_MAX} choix maximum.`),
 });
 
 const ImageSchema = z.object({
@@ -51,7 +61,7 @@ export const ProductInputSchema = z.object({
     .nullable()
     .optional()
     .transform((v) => (v && isMarketLeaf(v) ? v : null)),
-  options: z.array(OptionSchema).max(3).default([]),
+  options: z.array(OptionSchema).max(3, "3 options maximum.").default([]),
   status: z.enum(PRODUCT_STATUSES).default("active"),
   images: z.array(ImageSchema).max(4, "4 photos maximum."),
   // undefined = vidéo inchangée (imports, appels sans formulaire) ; null = aucune vidéo / suppression.

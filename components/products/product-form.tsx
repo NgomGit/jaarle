@@ -21,6 +21,7 @@ import { PosterChooser } from "@/components/products/poster-chooser";
 import { ProductVideoField } from "@/components/products/product-video-field";
 import type { ProductVideoDraft } from "@/lib/shops/video";
 import { cn } from "@/lib/utils";
+import { optionValuesError, parseOptionValues } from "@/lib/shops/product-options";
 
 const MAX_PHOTOS = 4;
 
@@ -213,6 +214,13 @@ export function ProductForm({
     if (readyPaths.length === 0) return setError(t("products.needPhoto"));
     if (!priceOnRequest && price.trim() === "") return setError(t("products.needPrice"));
     if (videoBusy) return setError(t("products.videoBusy"));
+    const parsedOptions = options
+      .map((o) => ({ name: o.name.trim(), values: parseOptionValues(o.values) }))
+      .filter((o) => o.name && o.values.length > 0);
+    for (const o of parsedOptions) {
+      const optionError = optionValuesError(o.name, o.values);
+      if (optionError) return setError(optionError);
+    }
     setSaving(mode);
     const res = await saveProduct(
       {
@@ -224,15 +232,7 @@ export function ProductForm({
         category,
         marketCategory: marketCategory || null,
         status: nextStatus,
-        options: options
-          .map((o) => ({
-            name: o.name.trim(),
-            values: o.values
-              .split(",")
-              .map((v) => v.trim())
-              .filter(Boolean),
-          }))
-          .filter((o) => o.name && o.values.length > 0),
+        options: parsedOptions,
         images: photos
           .filter((p) => p.path)
           .map((p) => ({ path: p.path as string, width: p.width ?? null, height: p.height ?? null })),
@@ -556,8 +556,11 @@ export function ProductForm({
 
           <Field label={t("products.optionsLabel")} optional hint={t("products.optionsHint")}>
             <div className="flex flex-col gap-2">
-              {options.map((opt, i) => (
-                <div key={i} className="flex items-center gap-2">
+              {options.map((opt, i) => {
+                const values = parseOptionValues(opt.values);
+                return (
+                <div key={i} className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-2">
                   <Input
                     value={opt.name}
                     onChange={(e) =>
@@ -583,7 +586,24 @@ export function ProductForm({
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
-              ))}
+                {values.length > 0 && (
+                  <div className="flex flex-wrap gap-1 pl-[8.5rem]">
+                    {values.map((v) => (
+                      <span
+                        key={v}
+                        className={cn(
+                          "rounded-full px-2 py-0.5 text-[11px] font-medium",
+                          v.length > 30 ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {v}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                </div>
+                );
+              })}
               {options.length < 3 && (
                 <div className="flex flex-wrap gap-2">
                   {[t("products.optionSize"), t("products.optionColor"), t("products.optionShoe")]

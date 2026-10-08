@@ -156,6 +156,8 @@ export interface ProductQuery {
   available?: boolean;
   /** Catégories reconnues dans la recherche : leurs produits sont inclus (migration 0028). */
   qCategories?: string[] | null;
+  /** Mots de la recherche avec variantes (searchGroups) — migration 0042 ; remplace q côté base. */
+  qGroups?: string[] | null;
   page?: number;
   limit?: number;
 }
@@ -181,7 +183,11 @@ export async function getMarketProducts(query: ProductQuery): Promise<{ items: M
     if (query.available) extra.p_available = true;
     if (query.qCategories?.length) extra.p_q_categories = query.qCategories;
     const client = createPublicClient();
-    let { data, error } = await client.rpc("market_products", { ...args, ...extra });
+    // 0042 : recherche tolérante (accents, ordre, synonymes, fautes). Sans la migration : repli
+    // sur la recherche d'avant (0028), puis sur l'appel de base.
+    const groups = query.qGroups?.length ? query.qGroups : null;
+    let { data, error } = await client.rpc("market_products", { ...args, ...extra, ...(groups ? { p_q_groups: groups } : {}) });
+    if (error && groups) ({ data, error } = await client.rpc("market_products", { ...args, ...extra }));
     if (error && Object.keys(extra).length) ({ data, error } = await client.rpc("market_products", args));
     if (error || !data) return { items: [], total: 0 };
     const rows = data as ProductRow[];

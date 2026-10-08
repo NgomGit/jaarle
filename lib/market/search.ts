@@ -66,3 +66,78 @@ export function parseMarketSearch(raw: string, opts: { cityAlreadySet?: boolean 
   const leafKeys = [...new Set(categories.flatMap((c) => c.leafKeys))];
   return { text, city, categories, leafKeys };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Mots de la recherche → groupes de variantes envoyés à market_products (migration 0042).
+// Chaque mot doit être trouvé (ou une de ses variantes) ; accents, pluriels et ordre ignorés,
+// petites fautes de frappe tolérées côté base (mots de 5 lettres ou plus).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Synonymes et orthographes courantes au Sénégal. Chaque ligne = mots interchangeables (sans accent). */
+const SYNONYMS: string[][] = [
+  ["bazin", "basin", "getzner"],
+  ["wax", "pagne"],
+  ["thiouraye", "thiouray", "tiouraye", "curaye", "encens"],
+  ["jalabe", "djellaba", "jellaba", "djelaba"],
+  ["caftan", "kaftan"],
+  ["tenue", "ensemble", "complet"],
+  ["chaussure", "soulier"],
+  ["basket", "sneaker", "tennis"],
+  ["sac", "sacoche"],
+  ["parfum", "fragrance"],
+  ["maquillage", "makeup", "make up"],
+  ["perruque", "wig"],
+  ["meche", "tissage"],
+  ["telephone", "tel", "portable", "smartphone"],
+  ["ordinateur", "ordi", "laptop", "pc"],
+  ["television", "tele", "tv"],
+  ["refrigerateur", "frigo"],
+  ["climatiseur", "clim"],
+  ["voiture", "auto", "vehicule"],
+  ["gateau", "cake", "patisserie"],
+];
+
+const GROUP_STOPWORDS = new Set([...STOPWORDS, "de", "du", "la", "le", "un", "et", "en", "au", "aux", "ou"]);
+
+let SYN_INDEX: Map<string, string[]> | null = null;
+function synonymIndex(): Map<string, string[]> {
+  if (!SYN_INDEX) {
+    SYN_INDEX = new Map();
+    for (const row of SYNONYMS) {
+      const forms = row.map((w) => stem(slugify(w).replace(/-/g, " ")));
+      for (const f of forms) SYN_INDEX.set(f, forms);
+    }
+  }
+  return SYN_INDEX;
+}
+
+/**
+ * « Robes brodées bazin » → ["robe", "brodee", "bazin|basin|getzner"].
+ * Mots d'une lettre et petits mots (de, la, pour…) ignorés ; 8 mots maximum ; doublons retirés.
+ */
+export function searchGroups(text: string): string[] {
+  const words = slugify(text)
+    .split("-")
+    .filter((w) => w.length >= 2 && !GROUP_STOPWORDS.has(w))
+    .map(stem);
+  const seen = new Set<string>();
+  const groups: string[] = [];
+  for (const w of words) {
+    if (seen.has(w)) continue;
+    seen.add(w);
+    const variants = synonymIndex().get(w) ?? [w];
+    groups.push([w, ...variants.filter((v) => v !== w)].join("|"));
+    if (groups.length >= 8) break;
+  }
+  return groups;
+}
+
+/** Forme regroupée d'une recherche pour les statistiques (« Robes Brodées » = « robe brodee »). */
+export function searchKey(text: string): string {
+  return slugify(text)
+    .split("-")
+    .filter((w) => w.length >= 2)
+    .map(stem)
+    .join(" ")
+    .slice(0, 80);
+}

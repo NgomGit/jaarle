@@ -1,5 +1,5 @@
 // Validation des formulaires boutique (partagée client / server actions).
-import { z } from "zod";
+import { z } from "@/lib/zod-locale";
 import { SLUG_MAX, SLUG_MIN, validateSlug } from "@/lib/shops/slug";
 
 const optionalText = (max: number) =>
