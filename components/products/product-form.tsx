@@ -7,6 +7,7 @@ import { ArrowLeft, Camera, Images, Loader2, Megaphone, Plus, Sparkles, Star, Tr
 import { saveProduct } from "@/app/dashboard/produits/actions";
 import { LimitDialog, type LimitReason } from "@/components/billing/upgrade-card";
 import { Button } from "@/components/ui/button";
+import { ModerationBanner } from "@/components/products/moderation-banner";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ErrorNote, Field } from "@/components/shop/shop-fields";
@@ -292,6 +293,9 @@ export function ProductForm({
           </div>
         )}
       </div>
+      {isEdit && product?.moderated_at && (
+        <ModerationBanner productId={product.id} reason={product.moderated_reason ?? null} reviewRequestedAt={product.review_requested_at ?? null} />
+      )}
       {importedNote && (
         <p className="mb-4 rounded-xl bg-accent px-3.5 py-3 text-sm text-accent-foreground">{t("products.importedNote")}</p>
       )}

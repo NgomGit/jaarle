@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 const TABS = [
   { href: "/dashboard/admin", label: "Vue d'ensemble" },
   { href: "/dashboard/admin/signalements", label: "Signalements" },
+  { href: "/dashboard/admin/moderation", label: "Modération" },
   { href: "/dashboard/admin/market", label: "Market & mises en avant" },
   { href: "/dashboard/admin/recherches", label: "Recherches" },
   { href: "/dashboard/admin/relances", label: "Boutiques à relancer" },

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { ShopInputSchema, type ShopInput } from "@/lib/shops/schema";
+import { TERMS_VERSION } from "@/lib/legal/terms";
 import { slugify, validateSlug, withSuffix, type SlugProblem } from "@/lib/shops/slug";
 import { toE164Senegal } from "@/lib/shops/format";
 import { getMyShop } from "@/lib/shops/queries";
@@ -63,7 +64,8 @@ function ownsPath(userId: string, path: string | null | undefined): boolean {
   return !path || path.startsWith(`${userId}/`);
 }
 
-export async function createShop(input: ShopInput): Promise<ActionResult> {
+export async function createShop(input: ShopInput, acceptTerms = false): Promise<ActionResult> {
+  if (acceptTerms !== true) return { ok: false, error: "Accepte les conditions générales d'utilisation pour créer ta boutique.", field: "terms" };
   const invalid = firstIssue(input);
   if (invalid) return { ok: false, ...invalid };
   const data = ShopInputSchema.parse(input);
@@ -89,12 +91,22 @@ export async function createShop(input: ShopInput): Promise<ActionResult> {
     description: data.description,
     logo_path: data.logoPath ?? null,
     status: "published" as const, // en ligne dès la création : la vitrine vide affiche « bientôt » et reste en noindex
+    terms_version: TERMS_VERSION,
+    terms_accepted_at: new Date().toISOString(),
   };
+  // Migration 0045 pas encore exécutée : on crée la boutique sans ces deux colonnes.
+  let withTerms = true;
 
   // Le slug a pu être pris entre la vérification et l'envoi : on bascule sur une variante suffixée.
   let slug = data.slug;
   for (let attempt = 0; attempt < 3; attempt++) {
-    const { error } = await supabase.from("shops").insert({ ...row, slug });
+    const { terms_version, terms_accepted_at, ...base } = row;
+    const { error } = await supabase.from("shops").insert(withTerms ? { ...base, terms_version, terms_accepted_at, slug } : { ...base, slug });
+    if (error && withTerms && /terms_(version|accepted_at)/.test(error.message)) {
+      withTerms = false;
+      attempt--;
+      continue;
+    }
     if (!error) {
       revalidatePath("/dashboard", "layout");
       revalidatePath("/boutiques", "layout");

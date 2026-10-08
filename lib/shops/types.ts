@@ -68,6 +68,10 @@ export interface Product {
   poster_key?: string | null;
   options: ProductOption[];
   status: ProductStatus;
+  /** Masqué par l'admin (migration 0044) : raison, et demande de vérification du vendeur. */
+  moderated_at?: string | null;
+  moderated_reason?: string | null;
+  review_requested_at?: string | null;
   position: number;
   ai_suggestions: Record<string, unknown> | null;
   source_creation_id: string | null;

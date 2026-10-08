@@ -124,14 +124,20 @@ function ProductRow({ product }: { product: ProductWithImages }) {
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold">{product.name}</p>
           <p className="text-sm text-muted-foreground">{formatPrice(product.price)}</p>
-          <Badge variant={STATUS_VARIANT[product.status]} className="mt-1 px-2 py-0.5 text-[10.5px]">
-            {t(`products.status_${product.status}`)}
-          </Badge>
+          {product.moderated_at ? (
+            <Badge variant="destructive" className="mt-1 px-2 py-0.5 text-[10.5px]">
+              {t("products.moderated")}
+            </Badge>
+          ) : (
+            <Badge variant={STATUS_VARIANT[product.status]} className="mt-1 px-2 py-0.5 text-[10.5px]">
+              {t(`products.status_${product.status}`)}
+            </Badge>
+          )}
         </div>
       </Link>
 
       <div className="flex shrink-0 flex-col items-end gap-1.5 sm:flex-row sm:items-center">
-        {(product.status === "active" || product.status === "sold_out") && (
+        {!product.moderated_at && (product.status === "active" || product.status === "sold_out") && (
           <Button variant="secondary" size="sm" disabled={busy} onClick={toggleSoldOut}>
             {busy && <Loader2 className="h-3 w-3 animate-spin" />}
             {product.status === "sold_out" ? t("products.markAvailable") : t("products.markSoldOut")}

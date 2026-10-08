@@ -28,6 +28,7 @@ function back(path: string, params: Record<string, string>): never {
   // Le message précédent ne doit pas rester affiché.
   q.delete("ok");
   q.delete("erreur");
+  q.delete("prevenir");
   for (const [k, v] of Object.entries(params)) q.set(k, v);
   redirect(`${base}?${q.toString()}`);
 }
@@ -96,7 +97,7 @@ export async function suspendShopAction(fd: FormData) {
   revalidatePublic(shop.slug);
   revalidatePath(REPORTS);
   revalidatePath(MARKET);
-  back(from, { ok: `« ${shop.name} » est suspendue : hors ligne, hors Market et hors annuaire.` });
+  back(from, { ok: `« ${shop.name} » est suspendue : hors ligne, hors Market et hors annuaire.`, prevenir: `shop_suspended:${shopId}` });
 }
 
 export async function reactivateShopAction(fd: FormData) {
@@ -116,7 +117,82 @@ export async function reactivateShopAction(fd: FormData) {
   await logAdminAction(userId, "shop.reactivate", "shop", shopId, { name: shop.name });
   revalidatePublic(shop.slug);
   revalidatePath(REPORTS);
-  back(from, { ok: `« ${shop.name} » est de nouveau en ligne.` });
+  back(from, { ok: `« ${shop.name} » est de nouveau en ligne.`, prevenir: `shop_reactivated:${shopId}` });
+}
+
+// ── Modération des produits (migration 0044) ────────────────────────────────
+
+const MODERATION = "/dashboard/admin/moderation";
+
+export async function hideProductAction(fd: FormData) {
+  const { userId } = await requireAdmin();
+  const productId = str(fd, "productId", 64);
+  const reason = str(fd, "reason", 500);
+  const from = safeFrom(str(fd, "from", 200) ?? MODERATION);
+  if (!productId) back(from, { erreur: "Produit manquant." });
+  if (!reason) back(from, { erreur: "Indique la raison : elle est envoyée au vendeur et gardée dans le journal." });
+
+  const admin = createAdminClient();
+  const { data: current } = await admin.from("products").select("status, moderated_at").eq("id", productId).maybeSingle();
+  if (!current) back(from, { erreur: "Produit introuvable." });
+  const { data: product, error } = await admin
+    .from("products")
+    .update({
+      status: "hidden",
+      moderated_at: new Date().toISOString(),
+      moderated_reason: reason,
+      moderated_by: userId,
+      // Déjà masqué par l'admin : on garde le statut d'avant la première modération.
+      ...(current.moderated_at ? {} : { moderated_prev_status: current.status }),
+      review_requested_at: null,
+    })
+    .eq("id", productId)
+    .select("name, shops(slug)")
+    .single();
+  if (error || !product) back(from, { erreur: error?.message ?? "Produit introuvable." });
+  // Plus de mise en avant pour ce produit (elle ne reviendrait pas seule).
+  await admin.from("market_boosts").update({ active: false }).eq("product_id", productId).eq("active", true);
+  await logAdminAction(userId, "product.hide", "product", productId, { reason, name: product.name });
+  const shop = Array.isArray(product.shops) ? product.shops[0] : product.shops;
+  revalidatePublic((shop as { slug?: string } | null)?.slug);
+  revalidatePath(MODERATION);
+  back(from, { ok: `« ${product.name} » est masqué : hors vitrine et hors Market.`, prevenir: `product_hidden:${productId}` });
+}
+
+export async function restoreProductAction(fd: FormData) {
+  const { userId } = await requireAdmin();
+  const productId = str(fd, "productId", 64);
+  const from = safeFrom(str(fd, "from", 200) ?? MODERATION);
+  if (!productId) back(from, { erreur: "Produit manquant." });
+
+  const admin = createAdminClient();
+  const { data: current } = await admin.from("products").select("moderated_prev_status").eq("id", productId).maybeSingle();
+  if (!current) back(from, { erreur: "Produit introuvable." });
+  const prev = current.moderated_prev_status;
+  const status = prev === "active" || prev === "sold_out" || prev === "draft" || prev === "hidden" ? prev : "active";
+  const { data: product, error } = await admin
+    .from("products")
+    .update({ status, moderated_at: null, moderated_reason: null, moderated_by: null, moderated_prev_status: null, review_requested_at: null })
+    .eq("id", productId)
+    .not("moderated_at", "is", null)
+    .select("name, shops(slug)")
+    .single();
+  if (error || !product) back(from, { erreur: error?.message ?? "Produit introuvable ou déjà en ligne." });
+  await logAdminAction(userId, "product.restore", "product", productId, { name: product.name, status });
+  const shop = Array.isArray(product.shops) ? product.shops[0] : product.shops;
+  revalidatePublic((shop as { slug?: string } | null)?.slug);
+  revalidatePath(MODERATION);
+  back(from, { ok: `« ${product.name} » n'est plus masqué par Jaarle.`, prevenir: `product_restored:${productId}` });
+}
+
+/** Trace « vendeur prévenu sur WhatsApp » (bouton du message prérempli). */
+export async function markNoticeSentAction(kind: string, targetId: string): Promise<{ ok: boolean }> {
+  const { userId } = await requireAdmin();
+  if (!/^[0-9a-f-]{36}$/.test(targetId)) return { ok: false };
+  if (!["product_hidden", "product_restored", "shop_suspended", "shop_reactivated"].includes(kind)) return { ok: false };
+  await logAdminAction(userId, `${kind.startsWith("product") ? "product" : "shop"}.notified`, kind.startsWith("product") ? "product" : "shop", targetId, { kind });
+  revalidatePath(MODERATION);
+  return { ok: true };
 }
 
 // ── Règles du Market ─────────────────────────────────────────────────────────

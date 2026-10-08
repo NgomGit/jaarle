@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { forgetDevicePushSubscription } from "@/lib/push/device";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { MIN_PASSWORD_LENGTH, mustChangePassword } from "@/lib/auth/password";
+import { TERMS_VERSION } from "@/lib/legal/terms";
 
 /**
  * Destination après connexion : uniquement une page de Jaarle (« /… »). Refuse les adresses
@@ -51,6 +52,11 @@ export async function signup(formData: FormData) {
   const code = String(formData.get("code") || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 30);
   const next = plan === "pro" ? `/dashboard/abonnement${code ? `?code=${encodeURIComponent(code)}` : ""}` : "/dashboard";
 
+  // Conditions générales : case obligatoire (version et date gardées dans le compte).
+  if (formData.get("acceptTerms") !== "on") {
+    redirect(`/register?error=${encodeURIComponent("Accepte les conditions générales d'utilisation pour créer ton compte.")}`);
+  }
+
   // Numéro sénégalais complet obligatoire (le numéro sert d'identifiant et de contact WhatsApp).
   if (!SENEGAL_PHONE.test(phone) || !SENEGAL_PHONE.test(whatsapp)) {
     redirect(`/register?error=${encodeURIComponent("Numéro invalide : saisis les 9 chiffres, ex. 77 123 45 67.")}`);
@@ -61,7 +67,13 @@ export async function signup(formData: FormData) {
     phone,
     password,
     options: {
-      data: { full_name: fullName, whatsapp_number: whatsapp, ...(ref ? { ref } : {}) },
+      data: {
+        full_name: fullName,
+        whatsapp_number: whatsapp,
+        terms_version: TERMS_VERSION,
+        terms_accepted_at: new Date().toISOString(),
+        ...(ref ? { ref } : {}),
+      },
     },
   });
 

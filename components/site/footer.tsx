@@ -18,6 +18,7 @@ export function Footer() {
           <Link href="/tarifs" className="hover:text-foreground">{t("nav.pricing")}</Link>
           <Link href="/boutiques" className="hover:text-foreground">{t("nav.shops")}</Link>
           <Link href="/market" className="hover:text-foreground">{t("nav.market")}</Link>
+          <Link href="/conditions" className="hover:text-foreground">{t("footer.terms")}</Link>
           <a href="https://wa.me/221771350203" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">WhatsApp</a>
         </nav>
         <div className="text-xs text-muted-foreground">© 2026 Jaarle — Dakar, Sénégal</div>

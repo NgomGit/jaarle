@@ -123,7 +123,7 @@ export function ProductGrid({ products, withSidebar = false, priorityCount = 0 }
       <ThumbFallback />
       <ul className={cn("grid grid-cols-2 gap-3 sm:gap-5", withSidebar ? "md:grid-cols-3" : "sm:grid-cols-3 lg:grid-cols-4")}>
         {products.map((p, i) => (
-          <li key={p.id}>
+          <li key={p.id} data-product-id={p.id} data-shop-id={p.shop.id} data-pos={i + 1}>
             <MarketProductCard product={p} priority={i < priorityCount} />
           </li>
         ))}

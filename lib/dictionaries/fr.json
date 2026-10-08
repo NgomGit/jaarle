@@ -120,6 +120,7 @@
     "button": "Commencer maintenant"
   },
   "footer": {
+    "terms": "Conditions d'utilisation",
     "tagline": "Sa produit dafay gawa jaar !!!"
   },
   "auth": {
@@ -130,6 +131,9 @@
     "registerTitle": "Créer un compte",
     "registerDesc": "Commence à créer tes campagnes en quelques minutes.",
     "registerSubmit": "Créer mon compte",
+    "acceptTermsBefore": "J'accepte les",
+    "acceptTermsLink": "conditions générales d'utilisation",
+    "acceptTermsAfter": ". Un compte qui ne les respecte pas peut être suspendu ou banni.",
     "fullName": "Nom complet",
     "fullNamePlaceholder": "Awa Diop",
     "phone": "Numéro de téléphone",
@@ -339,6 +343,9 @@
     "ob_step3Title": "Ton logo et ta présentation",
     "ob_step3Desc": "Tu peux aussi les ajouter plus tard.",
     "ob_create": "Créer ma boutique",
+    "ob_acceptTermsBefore": "Je m'engage à respecter les",
+    "ob_acceptTermsLink": "conditions générales",
+    "ob_acceptTermsAfter": " : pas de produits illégaux, d'arnaques, de contrefaçons ni de contenus choquants. Sinon, ma boutique peut être suspendue et mon compte banni.",
     "ob_creating": "Création de ta boutique…",
     "ob_uploading": "Envoi du logo…",
     "nameLabel": "Nom de la boutique",
@@ -498,6 +505,13 @@
     "status_sold_out": "Épuisé",
     "status_hidden": "Masqué",
     "status_draft": "Brouillon",
+    "moderated": "Masqué par Jaarle",
+    "moderatedTitle": "Ce produit est masqué par Jaarle",
+    "moderatedReason": "Raison :",
+    "moderatedHelp": "Il n'est plus visible sur ta boutique ni sur Jaarle Market. Corrige-le (photos, nom, description), enregistre, puis demande une vérification : nous le remettrons en ligne s'il respecte les règles.",
+    "requestReview": "J'ai corrigé, demander une vérification",
+    "reviewRequested": "Vérification demandée. Nous te répondrons sur WhatsApp.",
+    "moderatedError": "Impossible d'envoyer la demande. Réessaie.",
     "publish": "Publier le produit",
     "saveDraft": "Enregistrer en brouillon",
     "save": "Enregistrer",

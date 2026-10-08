@@ -1,9 +1,11 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Store } from "lucide-react";
 import { createShop } from "@/app/dashboard/boutique/actions";
+import { TERMS_PATH } from "@/lib/legal/terms";
 import { CategoryPicker } from "@/components/dashboard/category-picker";
 import { PhoneInput } from "@/components/phone-input";
 import { Button } from "@/components/ui/button";
@@ -40,6 +42,7 @@ export function ShopOnboarding({ defaultWhatsapp }: { defaultWhatsapp: string })
   const [logoPreview, setLogoPreview] = React.useState<string | null>(null);
   const [phase, setPhase] = React.useState<"idle" | "uploading" | "creating">("idle");
   const [error, setError] = React.useState<string | null>(null);
+  const [acceptTerms, setAcceptTerms] = React.useState(false);
 
   React.useEffect(() => {
     return () => {
@@ -57,7 +60,7 @@ export function ShopOnboarding({ defaultWhatsapp }: { defaultWhatsapp: string })
       ? name.trim().length >= 2 && slugState === "available" // activité facultative, comme dans l'assistant d'affiche
       : step === 1
         ? whatsapp.length === 9 && city.trim().length > 0
-        : true;
+        : acceptTerms;
 
   async function submit() {
     setError(null);
@@ -78,7 +81,7 @@ export function ShopOnboarding({ defaultWhatsapp }: { defaultWhatsapp: string })
         district,
         description,
         logoPath,
-      });
+      }, acceptTerms);
       if (!res.ok) {
         setError(res.error);
         if (res.field === "slug" || res.field === "name") setStep(0);
@@ -204,6 +207,21 @@ export function ShopOnboarding({ defaultWhatsapp }: { defaultWhatsapp: string })
                 rows={3}
               />
             </Field>
+            <label className="flex items-start gap-2.5 rounded-xl border border-border bg-muted/40 p-3 text-sm leading-snug">
+              <input
+                type="checkbox"
+                checked={acceptTerms}
+                onChange={(e) => setAcceptTerms(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-input accent-primary"
+              />
+              <span>
+                {t("shop.ob_acceptTermsBefore")}{" "}
+                <Link href={TERMS_PATH} target="_blank" className="font-semibold text-primary hover:underline">
+                  {t("shop.ob_acceptTermsLink")}
+                </Link>
+                {t("shop.ob_acceptTermsAfter")}
+              </span>
+            </label>
           </>
         )}
 

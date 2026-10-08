@@ -268,6 +268,25 @@ export async function setProductStatus(productId: string, status: ProductStatus)
   return { ok: true, id: productId };
 }
 
+/** Produit masqué par Jaarle : le vendeur l'a corrigé et demande une vérification (0044). */
+export async function requestProductReview(productId: string): Promise<ProductActionResult> {
+  const ctx = await context();
+  if ("error" in ctx) return { ok: false, error: ctx.error };
+  // La date est posée par la base (trigger products_guard_moderation), seulement si le produit est masqué.
+  const { data, error } = await ctx.supabase
+    .from("products")
+    .update({ review_requested_at: new Date().toISOString() })
+    .eq("id", productId)
+    .eq("owner_id", ctx.userId)
+    .not("moderated_at", "is", null)
+    .select("id")
+    .maybeSingle();
+  if (error || !data) return { ok: false, error: "Produit introuvable." };
+  revalidatePath("/dashboard/produits");
+  revalidatePath(`/dashboard/produits/${productId}`);
+  return { ok: true, id: productId };
+}
+
 export async function deleteProduct(productId: string): Promise<ProductActionResult> {
   const ctx = await context();
   if ("error" in ctx) return { ok: false, error: ctx.error };

@@ -120,6 +120,7 @@
     "button": "Start now"
   },
   "footer": {
+    "terms": "Terms of use",
     "tagline": "let everyone know"
   },
   "auth": {
@@ -130,6 +131,9 @@
     "registerTitle": "Create an account",
     "registerDesc": "Start creating your campaigns in minutes.",
     "registerSubmit": "Create my account",
+    "acceptTermsBefore": "I accept the",
+    "acceptTermsLink": "terms and conditions",
+    "acceptTermsAfter": ". An account that doesn't follow them can be suspended or banned.",
     "fullName": "Full name",
     "fullNamePlaceholder": "Awa Diop",
     "phone": "Phone number",
@@ -339,6 +343,9 @@
     "ob_step3Title": "Your logo and description",
     "ob_step3Desc": "You can also add these later.",
     "ob_create": "Create my shop",
+    "ob_acceptTermsBefore": "I agree to follow the",
+    "ob_acceptTermsLink": "terms and conditions",
+    "ob_acceptTermsAfter": ": no illegal products, scams, counterfeits or shocking content. Otherwise my shop can be suspended and my account banned.",
     "ob_creating": "Creating your shop…",
     "ob_uploading": "Uploading logo…",
     "nameLabel": "Shop name",
@@ -498,6 +505,13 @@
     "status_sold_out": "Sold out",
     "status_hidden": "Hidden",
     "status_draft": "Draft",
+    "moderated": "Hidden by Jaarle",
+    "moderatedTitle": "This product is hidden by Jaarle",
+    "moderatedReason": "Reason:",
+    "moderatedHelp": "It is no longer visible on your shop or on Jaarle Market. Fix it (photos, name, description), save, then request a review: we'll put it back online if it follows the rules.",
+    "requestReview": "I fixed it, request a review",
+    "reviewRequested": "Review requested. We'll reply on WhatsApp.",
+    "moderatedError": "Couldn't send the request. Try again.",
     "publish": "Publish product",
     "saveDraft": "Save as draft",
     "save": "Save",

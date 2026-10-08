@@ -185,7 +185,12 @@ function MarketFooter() {
           </nav>
         </div>
         <div className="mt-12 flex flex-wrap justify-between gap-3 border-t border-[#2E2B3A] pt-5 text-[13px] text-[#9E9AAE]">
-          <span>© Jaarle · Dakar, Sénégal</span>
+          <span>
+            © Jaarle · Dakar, Sénégal ·{" "}
+            <Link href="/conditions" className="hover:text-white hover:underline">
+              Conditions d&apos;utilisation
+            </Link>
+          </span>
           <span>Jaarle met en relation acheteurs et vendeurs ; chaque vente se conclut avec la boutique.</span>
         </div>
       </div>

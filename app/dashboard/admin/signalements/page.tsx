@@ -9,6 +9,7 @@ import { frDate, frDateTime, REPORT_STATUS_LABELS } from "@/lib/admin/market";
 import { REPORT_REASONS } from "@/lib/shops/reports";
 import { cn } from "@/lib/utils";
 import { reactivateShopAction, suspendShopAction, updateReportAction } from "../actions";
+import { ModerationNotice } from "../moderation/notice";
 
 // Signalements des visiteurs (bouton « Signaler », migration 0020) regroupés par boutique,
 // + suspension / réactivation des boutiques (migration 0026).
@@ -34,7 +35,7 @@ type ReportRow = {
 
 const one = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v);
 
-export default async function AdminReportsPage({ searchParams }: { searchParams: { filtre?: string; ok?: string; erreur?: string } }) {
+export default async function AdminReportsPage({ searchParams }: { searchParams: { filtre?: string; ok?: string; erreur?: string; prevenir?: string } }) {
   await requireAdmin();
   const filter = FILTERS.find((f) => f.key === searchParams.filtre) ?? FILTERS[0];
   const admin = createAdminClient();
@@ -74,6 +75,7 @@ export default async function AdminReportsPage({ searchParams }: { searchParams:
       </div>
 
       <ActionFlash ok={searchParams.ok} error={searchParams.erreur} />
+      <ModerationNotice prevenir={searchParams.prevenir} />
       {reportsRes.error && <ActionFlash error={`Lecture impossible : ${reportsRes.error.message}`} />}
 
       <nav aria-label="Filtre" className="mb-5 inline-flex rounded-xl border border-border bg-muted p-1">
@@ -162,6 +164,10 @@ export default async function AdminReportsPage({ searchParams }: { searchParams:
                           Produit :{" "}
                           <Link href={`/boutique/${shop.slug}/p/${product.slug}`} target="_blank" className="font-medium text-foreground hover:text-primary">
                             {product.name}
+                          </Link>
+                          {" · "}
+                          <Link href={`/dashboard/admin/moderation?q=${encodeURIComponent(product.name)}`} className="font-medium text-destructive hover:underline">
+                            Masquer ce produit
                           </Link>
                         </p>
                       )}

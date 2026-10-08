@@ -10,6 +10,7 @@ import { allMarketCategories, getMarketCategory, marketRootCategories } from "@/
 import { getMarketCity, MARKET_CITIES } from "@/lib/market/cities";
 import { citiesWithProducts, getMarketCounts, getMarketProducts, MARKET_PAGE_SIZE, totalsFor } from "@/lib/market/queries";
 import { parseMarketSearch, searchGroups } from "@/lib/market/search";
+import { SearchClickTracker } from "@/components/market/search-click-tracker";
 import { SearchLogger } from "@/components/market/search-logger";
 import { parseListingParams } from "@/lib/market/seo";
 import { cn } from "@/lib/utils";
@@ -174,7 +175,10 @@ export default async function MarketSearchPage({ searchParams }: Props) {
             <div className="mt-6">
               {items.length > 0 ? (
                 <>
-                  <ProductGrid products={items} priorityCount={4} />
+                  {/* Clics sur les résultats → admin « Recherches » (ce qui intéresse vraiment). */}
+                  <SearchClickTracker q={q} offset={(lp.page - 1) * MARKET_PAGE_SIZE}>
+                    <ProductGrid products={items} priorityCount={4} />
+                  </SearchClickTracker>
                   <Pagination page={lp.page} total={total} pageSize={MARKET_PAGE_SIZE} hrefFor={pageHref} />
                 </>
               ) : (

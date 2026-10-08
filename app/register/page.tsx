@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/
 import { Logo } from "@/components/logo";
 import { PhoneInput } from "@/components/phone-input";
 import { useLocale } from "@/lib/locale-context";
+import { TERMS_PATH } from "@/lib/legal/terms";
 
 export default function RegisterPage({
   searchParams,
@@ -22,6 +23,7 @@ export default function RegisterPage({
   const [password, setPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
   const [mismatch, setMismatch] = React.useState(false);
+  const [acceptTerms, setAcceptTerms] = React.useState(false);
 
   const whatsappValue = sameAsPhone ? phone : whatsapp;
 
@@ -148,7 +150,24 @@ export default function RegisterPage({
                   }}
                 />
               </div>
-              <Button type="submit" variant="accent" size="lg" className="mt-2 w-full">
+              <label className="flex items-start gap-2.5 text-sm leading-snug">
+                <input
+                  type="checkbox"
+                  name="acceptTerms"
+                  required
+                  checked={acceptTerms}
+                  onChange={(e) => setAcceptTerms(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-input accent-primary"
+                />
+                <span>
+                  {t("auth.acceptTermsBefore")}{" "}
+                  <Link href={TERMS_PATH} target="_blank" className="font-semibold text-primary hover:underline">
+                    {t("auth.acceptTermsLink")}
+                  </Link>
+                  {t("auth.acceptTermsAfter")}
+                </span>
+              </label>
+              <Button type="submit" variant="accent" size="lg" className="mt-1 w-full" disabled={!acceptTerms}>
                 {t("auth.registerSubmit")}
               </Button>
             </form>
