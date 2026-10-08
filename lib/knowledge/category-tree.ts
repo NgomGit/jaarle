@@ -92,6 +92,7 @@ export const categoryTree: CategoryNode[] = [
           { key: "sandales", label: "Sandales & chaussures traditionnelles" },
           { key: "escarpins", label: "Escarpins & talons" },
           { key: "chaussures-homme", label: "Chaussures homme" },
+          { key: "claquettes-sabots", label: "Claquettes, sabots & mules (Crocs…)" },
         ],
       },
       {
@@ -101,8 +102,18 @@ export const categoryTree: CategoryNode[] = [
           { key: "sacs", label: "Sacs & pochettes" },
           { key: "bijoux", label: "Bijoux & montres" },
           { key: "foulards", label: "Foulards & châles" },
-          { key: "lunettes", label: "Lunettes" },
+          { key: "lunettes", label: "Lunettes de soleil & mode" },
+          { key: "lunettes-optique", label: "Lunettes de vue, anti-reflet & photochromiques" },
           { key: "casquettes-chapeaux", label: "Casquettes, bonnets & chapeaux" },
+        ],
+      },
+      {
+        key: "sport-loisirs",
+        label: "Sport",
+        leaves: [
+          { key: "maillots-foot", label: "Maillots de foot & d'équipes" },
+          { key: "tenues-sport", label: "Tenues de sport & fitness" },
+          { key: "crampons", label: "Crampons & chaussures de sport" },
         ],
       },
       {
@@ -126,6 +137,7 @@ export const categoryTree: CategoryNode[] = [
         label: "Soin de la peau",
         leaves: [
           { key: "creme-visage", label: "Crèmes & soins visage" },
+          { key: "protection-solaire", label: "Protection solaire" },
           { key: "soin-corps", label: "Produits pour le corps" },
           { key: "huiles-karite", label: "Beurre de karité & huiles" },
           { key: "savons-naturels", label: "Savons naturels" },
@@ -157,6 +169,11 @@ export const categoryTree: CategoryNode[] = [
           { key: "parfums", label: "Parfums" },
           { key: "thiouraye", label: "Thiouraye & encens" },
         ],
+      },
+      {
+        key: "bien-etre",
+        label: "Bien-être & produits naturels",
+        leaves: [{ key: "remedes-naturels", label: "Pommades, huiles & remèdes naturels" }],
       },
     ],
   },
