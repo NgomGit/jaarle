@@ -73,7 +73,7 @@ export function PromoBanners({ banners }: { banners: MarketBanner[] }) {
     <section aria-label="À la une" className="mx-auto max-w-[1240px] px-4 pb-12 sm:px-6 sm:pb-16">
       <PromoBanner banner={first} priority />
       {rest.length > 0 && (
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
           {rest.slice(0, 2).map((b) => (
             <PromoBanner key={b.id} banner={b} compact />
           ))}

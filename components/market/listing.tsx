@@ -190,7 +190,7 @@ export async function MarketListing({
         </section>
       </div>
 
-      <section className="mt-20 grid gap-12 border-t border-[#ECE9E1] pt-14 lg:grid-cols-2">
+      <section className="mt-20 grid grid-cols-1 gap-12 border-t border-[#ECE9E1] pt-14 lg:grid-cols-2">
         <div>
           <h2 className="font-[family-name:var(--font-market-display)] text-3xl font-bold tracking-tight">
             {category ? `Acheter : ${category.label.toLowerCase()}${city ? ` à ${city.name}` : ""}` : `Commander à ${city?.name ?? "travers le Sénégal"}`}

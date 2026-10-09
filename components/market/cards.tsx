@@ -155,7 +155,7 @@ export function MarketShopCard({ shop, compact = false }: { shop: MarketShop; co
   return (
     <Link
       href={`${shop.url}?src=market`}
-      className="group flex h-full flex-col gap-4 rounded-[22px] border border-[#ECE9E1] bg-white p-4 text-[#17151F] transition-colors hover:border-[#D9D5CB] sm:p-5"
+      className="group flex h-full w-full min-w-0 flex-col gap-4 rounded-[22px] border border-[#ECE9E1] bg-white p-4 text-[#17151F] transition-colors hover:border-[#D9D5CB] sm:p-5"
     >
       <span className="flex items-center gap-3">
         {shop.logoUrl ? (

@@ -242,7 +242,7 @@ export default async function MarketHome() {
           <h2 id="t-how" className="sr-only">
             Comment ça marche
           </h2>
-          <ol className="grid gap-px overflow-hidden rounded-[22px] border border-[#ECE9E1] bg-[#ECE9E1] sm:grid-cols-3">
+          <ol className="grid grid-cols-1 gap-px overflow-hidden rounded-[22px] border border-[#ECE9E1] bg-[#ECE9E1] sm:grid-cols-3">
             {[
               { Icon: Search, title: "Trouvez un produit", text: "Cherchez par nom, catégorie ou ville. Le prix est affiché en FCFA." },
               { Icon: Store, title: "Découvrez la boutique", text: "Son catalogue complet, sa ville et ses autres produits." },
