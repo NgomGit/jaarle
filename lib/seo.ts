@@ -1,4 +1,5 @@
-import { formatPrice, siteUrl } from "@/lib/shops/format";
+import { siteUrl } from "@/lib/shops/format";
+import { itemPriceLabel } from "@/lib/shops/posters";
 import type { ProductWithImages } from "@/lib/shops/products";
 import type { Shop } from "@/lib/shops/types";
 
@@ -53,10 +54,18 @@ export function shopDescription(shop: Shop, products: Pick<ProductWithImages, "n
   );
 }
 
+/** Titre d'une fiche (onglet, aperçu de partage) : le prix est libellé comme sur la fiche (« Sur devis » pour un service). */
+export function productTitle(shop: Pick<Shop, "name">, product: Pick<ProductWithImages, "name" | "price" | "subject_type">): string {
+  return `${product.name} — ${itemPriceLabel(product.price, product.subject_type === "service")} | ${shop.name}`;
+}
+
 export function productDescription(shop: Shop, product: ProductWithImages): string {
   if (product.description?.trim()) return metaDescription(product.description);
   const loc = shop.city ? ` à ${shop.city}` : "";
-  return metaDescription(`${product.name} chez ${shop.name}${loc} — ${formatPrice(product.price)}. Commandez directement sur WhatsApp.`);
+  const isService = product.subject_type === "service";
+  return metaDescription(
+    `${product.name} chez ${shop.name}${loc} — ${itemPriceLabel(product.price, isService)}. ${isService ? "Réservez" : "Commandez"} directement sur WhatsApp.`
+  );
 }
 
 // ─── Données structurées ────────────────────────────────────────────────────

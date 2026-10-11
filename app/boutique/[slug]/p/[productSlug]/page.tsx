@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getStorefrontTemplate } from "@/components/storefront/templates";
 import { getMarketCategory } from "@/lib/market/categories";
-import { formatPrice, shopPublicUrl } from "@/lib/shops/format";
-import { absoluteUrl, breadcrumbLd, jsonLdString, productDescription, productLd, SITE_LOCALE, SITE_NAME } from "@/lib/seo";
+import { shopPublicUrl } from "@/lib/shops/format";
+import { absoluteUrl, breadcrumbLd, jsonLdString, productDescription, productLd, productTitle, SITE_LOCALE, SITE_NAME } from "@/lib/seo";
 import { shopMediaUrl } from "@/lib/shops/media";
 import { getPublicProduct, getPublicProducts, getPublicShop, getServicePosters, getShopPublicMeta, productPublicUrl } from "@/lib/shops/public";
 import { resolveTheme, toProductCard, toProductDetail, toStorefrontShop } from "@/lib/storefront/view-models";
@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const data = await load(params);
   if (!data) return { title: "Produit introuvable", robots: { index: false } };
   const { shop, product } = data;
-  const title = `${product.name} — ${formatPrice(product.price)} | ${shop.name}`;
+  const title = productTitle(shop, product);
   const description = productDescription(shop, product);
   const url = productPublicUrl(shop.slug, product.slug);
   return {

@@ -5,6 +5,7 @@ import { MARKET_CITIES } from "@/lib/market/cities";
 // Catégories du Market, dérivées de l'arbre existant (lib/knowledge/category-tree.ts) :
 //   niveau 1 = secteur (mode, beaute…), niveau 2 = sous-catégorie, niveau 3 = feuille.
 // La valeur stockée sur un produit (products.market_category) est TOUJOURS une clé de feuille.
+// Nouvelle feuille : suivre docs/procedure-nouvelles-categories-market.md (reclassement des produits existants).
 // Chaque niveau a sa page /market/{slug} ; les slugs sont uniques (collision = entrée ignorée).
 
 /** Secteurs ouverts au Market — garder synchronisé avec market_shop_ids() (migrations 0029 / 0030). */

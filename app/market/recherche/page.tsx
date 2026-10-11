@@ -98,7 +98,7 @@ export default async function MarketSearchPage({ searchParams }: Props) {
   if (chosenCategory && !categoryOptions.some((o) => o.value === chosenCategory.slug)) categoryOptions.unshift({ value: chosenCategory.slug, label: chosenCategory.label });
 
   // « robe dakar » → titre « robe » à Dakar (la ville reconnue n'est pas répétée).
-  const heading = text ? `« ${text} »` : chosenCategory ? chosenCategory.label : lp.promo ? "Promos" : "Tous les produits";
+  const heading = text ? `« ${text} »` : chosenCategory ? chosenCategory.label : lp.promo ? "Promos" : lp.type === "service" ? "Tous les services" : "Tous les produits";
   // Une seule catégorie proposée (la plus précise) : pas de liste de liens au-dessus des résultats.
   const recognized = !chosenCategory && text ? parsed.categories.slice(0, 1) : [];
   const pageHref = (p: number) => href({ page: p > 1 ? String(p) : null });

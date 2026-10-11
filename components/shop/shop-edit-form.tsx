@@ -69,6 +69,8 @@ export function ShopEditForm({ shop, logoUrl }: { shop: Shop; logoUrl: string | 
       setLogoPath(nextLogoPath);
       setLogoFile(null);
       setSaved(true);
+      // Retour à « Ma boutique » une fois les modifications enregistrées.
+      router.push("/dashboard/boutique");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("shop.errorGeneric"));

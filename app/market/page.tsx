@@ -49,10 +49,11 @@ const HOME_CITY = "dakar";
 export default async function MarketHome() {
   const [counts, newest, shops, relevant, local, allBanners, settings, promos] = await Promise.all([
     getMarketCounts(),
-    getMarketProducts({ sort: "new", limit: 8 }),
+    // Rangées intitulées « produits » : uniquement des produits (les services ont leurs pages et l'onglet « Services »).
+    getMarketProducts({ sort: "new", limit: 8, type: "product" }),
     getMarketShops({ limit: 8 }),
-    getMarketProducts({ sort: "relevance", limit: 20 }),
-    getMarketProducts({ city: HOME_CITY, sort: "relevance", limit: 16 }),
+    getMarketProducts({ sort: "relevance", limit: 20, type: "product" }),
+    getMarketProducts({ city: HOME_CITY, sort: "relevance", limit: 16, type: "product" }),
     getMarketBanners(),
     getMarketPublicSettings(),
     // Promos des boutiques Pro (0046), plus fortes remises d'abord.
@@ -181,7 +182,7 @@ export default async function MarketHome() {
             )}
 
             {newSection.length > 0 && (
-              <Section title="Nouveautés" subtitle="Les derniers produits publiés par les boutiques." href="/market/recherche?tri=new" linkLabel="Tout voir">
+              <Section title="Nouveautés" subtitle="Les derniers produits publiés par les boutiques." href="/market/recherche?tri=new&type=produits" linkLabel="Tout voir">
                 <ProductRail products={newSection} priorityCount={2} />
               </Section>
             )}
@@ -205,11 +206,11 @@ export default async function MarketHome() {
             )}
 
             {moreSection.length > 0 && (
-              <Section title="Plus de produits" href="/market/recherche" linkLabel="Tous les produits">
+              <Section title="Plus de produits" href="/market/recherche?type=produits" linkLabel="Tous les produits">
                 <ProductRail products={moreSection.slice(0, 8)} />
                 {moreSection.length > 8 && (
                   <div className="mt-6 text-center sm:hidden">
-                    <Link href="/market/recherche" className="inline-flex h-12 items-center gap-2 rounded-full border border-[#17151F] px-6 font-bold">
+                    <Link href="/market/recherche?type=produits" className="inline-flex h-12 items-center gap-2 rounded-full border border-[#17151F] px-6 font-bold">
                       Voir tous les produits <ArrowRight className="h-4 w-4" aria-hidden />
                     </Link>
                   </div>

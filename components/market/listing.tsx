@@ -15,7 +15,7 @@ import {
   type MarketProduct,
   type Totals,
 } from "@/lib/market/queries";
-import { listingFaq, listingH1, listingIntro, type ListingParams } from "@/lib/market/seo";
+import { listingEmptyText, listingFaq, listingH1, listingIntro, listingSectionTitle, type ListingParams } from "@/lib/market/seo";
 import { absoluteUrl, breadcrumbLd, faqLd, jsonLdString } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
@@ -94,13 +94,13 @@ export async function MarketListing({
     return s ? `${path}?${s}` : path;
   };
 
-  const faq = listingFaq(category, city);
+  const faq = listingFaq(category, city, params.type);
   const jsonLd = [
     breadcrumbLd(links.map((c) => ({ name: c.name, url: absoluteUrl(c.href) }))),
     {
       "@context": "https://schema.org",
       "@type": "ItemList",
-      name: listingH1(category, city),
+      name: listingH1(category, city, params.type),
       numberOfItems: total,
       itemListElement: items.map((p, i) => ({ "@type": "ListItem", position: (params.page - 1) * MARKET_PAGE_SIZE + i + 1, url: absoluteUrl(p.url), name: p.name })),
     },
@@ -114,9 +114,9 @@ export async function MarketListing({
 
       <div className="mt-5 max-w-3xl">
         <h1 className="font-[family-name:var(--font-market-display)] text-[34px] font-extrabold leading-[1.02] tracking-tight sm:text-5xl">
-          {listingH1(category, city)}
+          {listingH1(category, city, params.type)}
         </h1>
-        <p className="mt-3 text-base leading-relaxed text-[#5E5A6B] sm:text-[17px]">{listingIntro(category, city, totals)}</p>
+        <p className="mt-3 text-base leading-relaxed text-[#5E5A6B] sm:text-[17px]">{listingIntro(category, city, totals, params.type)}</p>
       </div>
 
       {children.length > 0 && (
@@ -180,7 +180,7 @@ export async function MarketListing({
             <div className="rounded-3xl border border-dashed border-[#D9D5CB] bg-white px-6 py-14 text-center">
               <p className="font-[family-name:var(--font-market-display)] text-2xl font-bold">Rien ici pour l’instant</p>
               <p className="mx-auto mt-2 max-w-md text-[#5E5A6B]">
-                {params.filtered ? "Aucun produit ne correspond à ces filtres." : "Les boutiques n’ont pas encore de produit dans cette sélection."}
+                {listingEmptyText(category, params.filtered, params.type)}
               </p>
               <Link href={params.filtered ? path : "/market"} className="mt-5 inline-flex h-11 items-center rounded-full bg-[#17151F] px-5 font-bold text-white">
                 {params.filtered ? "Effacer les filtres" : "Voir tout le Market"}
@@ -193,9 +193,9 @@ export async function MarketListing({
       <section className="mt-20 grid grid-cols-1 gap-12 border-t border-[#ECE9E1] pt-14 lg:grid-cols-2">
         <div>
           <h2 className="font-[family-name:var(--font-market-display)] text-3xl font-bold tracking-tight">
-            {category ? `Acheter : ${category.label.toLowerCase()}${city ? ` à ${city.name}` : ""}` : `Commander à ${city?.name ?? "travers le Sénégal"}`}
+            {listingSectionTitle(category, city, params.type)}
           </h2>
-          <p className="mt-4 leading-[1.75] text-[#4A4656]">{listingIntro(category, city, totals)}</p>
+          <p className="mt-4 leading-[1.75] text-[#4A4656]">{listingIntro(category, city, totals, params.type)}</p>
           {children.length > 0 && (
             <p className="mt-3 leading-[1.75] text-[#4A4656]">
               On y trouve notamment : {children.slice(0, 6).map((c) => c.cat.label.toLowerCase()).join(", ")}.

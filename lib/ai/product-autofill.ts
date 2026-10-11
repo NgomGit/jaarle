@@ -57,7 +57,7 @@ Propose une fiche produit en FRANÇAIS, simple et vendeuse, comme l'écrirait un
 - description : 2 ou 3 phrases concrètes (matière, usage, occasion), 300 caractères maximum, sans prix, sans emoji, sans promesse invérifiable, sans aucun nom de marque.
 - category : catégorie courte pour ranger le produit dans la boutique, ex. « Boubous homme », « Soins visage », « Plats ».
 - industryKey : le secteur le plus proche parmi la liste fournie, ou "none".
-- marketCategory : la catégorie Jaarle Market la plus précise pour CE produit, parmi la liste ci-dessous (la clé seulement), ou "none" si aucune ne convient (service, produit hors liste) :
+- marketCategory : la catégorie Jaarle Market la plus précise pour CE produit ou CE service, parmi la liste ci-dessous (la clé seulement), ou "none" si aucune ne convient (produit ou service hors liste). Une prestation se classe dans les catégories de services (ex. coiffure, plomberie, décoration de mariage) :
 ${MARKET_LIST}
   Le TYPE d'article doit correspondre exactement (un jean ou un short n'est jamais un t-shirt) ; sinon "none".
 - keywords : 3 à 5 mots-clés de recherche.

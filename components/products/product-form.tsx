@@ -24,6 +24,7 @@ import type { ProductVideoDraft } from "@/lib/shops/video";
 import { cn } from "@/lib/utils";
 import { activePromo, promoEndToDay, promoInputError } from "@/lib/shops/promo";
 import { optionValuesError, parseOptionValues } from "@/lib/shops/product-options";
+import { marketCategoryWarningKey, typeAfterAiSuggestion } from "@/lib/shops/product-form-rules";
 
 const MAX_PHOTOS = 4;
 
@@ -77,6 +78,8 @@ export function ProductForm({
     }))
   );
   const [subjectType, setSubjectType] = React.useState<SubjectType>(product?.subject_type ?? "product");
+  // Type choisi à la main (« Produit » / « Service ») : l'IA ne le remplace plus.
+  const typeTouched = React.useRef(false);
   const [displayMedia, setDisplayMedia] = React.useState<DisplayMedia>(product?.display_media ?? "poster");
   const [name, setName] = React.useState(product?.name ?? "");
   const [price, setPrice] = React.useState(product?.price != null ? String(product.price) : "");
@@ -152,7 +155,7 @@ export function ProductForm({
         filled.add("category");
       }
       if (!marketTouched.current && s.marketCategory && s.marketCategory !== "none") setMarketCategory(s.marketCategory);
-      if (!isEdit) setSubjectType(s.subjectType === "service" ? "service" : "product");
+      setSubjectType((current) => typeAfterAiSuggestion(current, s.subjectType, { isEdit, typeTouched: typeTouched.current }));
       setAiFilled(filled);
       setAiSuggestion(s);
       setAiState("done");
@@ -446,7 +449,10 @@ export function ProductForm({
               <button
                 key={type}
                 type="button"
-                onClick={() => setSubjectType(type)}
+                onClick={() => {
+                  typeTouched.current = true;
+                  setSubjectType(type);
+                }}
                 className={cn(
                   "rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors",
                   subjectType === type ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
@@ -597,6 +603,12 @@ export function ProductForm({
                 setMarketCategory(slug);
               }}
             />
+            {/* Non bloquant : le produit peut être publié sans catégorie. */}
+            {marketCategoryWarningKey(marketCategory) && (
+              <p role="note" className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                {t(marketCategoryWarningKey(marketCategory)!)}
+              </p>
+            )}
           </Field>
 
           <Field label={t("products.optionsLabel")} optional hint={t("products.optionsHint")}>

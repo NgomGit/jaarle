@@ -7,7 +7,19 @@ import { BoostForm } from "@/components/admin/boost-form";
 import { MarketCategoryPicker } from "@/components/market/market-category-picker";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin/guard";
-import { BOOST_PLACEMENTS, BOOST_STATE_LABELS, boostState, frDate, inclusiveDayFromExclusive, todayIso } from "@/lib/admin/market";
+import {
+  BOOST_PLACEMENTS,
+  BOOST_STATE_LABELS,
+  boostState,
+  frDate,
+  inclusiveDayFromExclusive,
+  isListableOnMarket,
+  marketScopeFilter,
+  todayIso,
+  UNCATEGORIZED_LIST_LIMIT,
+  uncategorizedTitle,
+  uncategorizedTotal,
+} from "@/lib/admin/market";
 import { getMarketCategory } from "@/lib/market/categories";
 import { getMarketCity, MARKET_CITIES } from "@/lib/market/cities";
 import { shopMediaThumbUrl } from "@/lib/shops/media";
@@ -37,7 +49,7 @@ export default async function AdminMarketPage({ searchParams }: { searchParams: 
   await requireAdmin();
   const admin = createAdminClient();
 
-  const [settingsRes, listedRes, boostsRes, picksRes] = await Promise.all([
+  const [settingsRes, listedRes, boostsRes, picksRes, pickIdsRes, countsRes] = await Promise.all([
     admin.from("market_settings").select("launch_until, launch_min_items, pro_min_items, updated_at").maybeSingle(),
     admin.rpc("market_shop_ids"),
     admin
@@ -46,6 +58,9 @@ export default async function AdminMarketPage({ searchParams }: { searchParams: 
       .order("created_at", { ascending: false })
       .limit(100),
     admin.rpc("admin_market_pick_candidates"),
+    // Annonces choisies à l'unité (0032) et compteurs du Market : total exact des annonces sans catégorie.
+    admin.rpc("market_pick_ids"),
+    admin.rpc("market_counts"),
   ]);
 
   if (settingsRes.error && !settingsRes.data) {
@@ -63,21 +78,24 @@ export default async function AdminMarketPage({ searchParams }: { searchParams: 
   const proIds = listed.filter((l) => l.is_pro).map((l) => l.shop_id);
   const proSet = new Set(proIds);
   const launchActive = !!settings.launch_until && new Date(settings.launch_until).getTime() > Date.now();
+  const pickIds = ((pickIdsRes.data ?? []) as { product_id: string; shop_id: string }[]);
+  const scope = marketScopeFilter(listedIds, pickIds.map((k) => k.product_id));
+  const shopIds = [...new Set([...listedIds, ...pickIds.map((k) => k.shop_id)])];
 
   const [shopsRes, proProductsRes, uncategorizedRes] = await Promise.all([
-    listedIds.length ? admin.from("shops").select("id, name, slug, city").in("id", listedIds) : Promise.resolve({ data: [] }),
+    shopIds.length ? admin.from("shops").select("id, name, slug, city").in("id", shopIds) : Promise.resolve({ data: [] }),
     proIds.length
       ? admin.from("products").select("id, name, shop_id").in("shop_id", proIds).in("status", ["active", "sold_out"]).order("name").limit(1000)
       : Promise.resolve({ data: [] }),
-    listedIds.length
+    scope
       ? admin
           .from("products")
-          .select("id, name, slug, shop_id, category, product_images(path, position)")
-          .in("shop_id", listedIds)
+          .select("id, name, slug, shop_id, subject_type, category, product_images(path, position)")
+          .or(scope)
           .in("status", ["active", "sold_out"])
           .is("market_category", null)
           .order("created_at", { ascending: false })
-          .limit(40)
+          .limit(UNCATEGORIZED_LIST_LIMIT * 3)
       : Promise.resolve({ data: [] }),
   ]);
 
@@ -88,7 +106,11 @@ export default async function AdminMarketPage({ searchParams }: { searchParams: 
     .sort((a, b) => a.name.localeCompare(b.name, "fr"))
     .map((s) => ({ value: s.id, label: s.city ? `${s.name} · ${s.city}` : s.name }));
   const proProducts = ((proProductsRes.data ?? []) as { id: string; name: string; shop_id: string }[]).map((p) => ({ id: p.id, name: p.name, shopId: p.shop_id }));
-  const uncategorized = (uncategorizedRes.data ?? []) as { id: string; name: string; slug: string; shop_id: string; category: string | null; product_images: { path: string; position: number }[] | null }[];
+  const uncategorized = ((uncategorizedRes.data ?? []) as { id: string; name: string; slug: string; shop_id: string; subject_type: string | null; category: string | null; product_images: { path: string; position: number }[] | null }[])
+    .filter(isListableOnMarket)
+    .slice(0, UNCATEGORIZED_LIST_LIMIT);
+  // Total exact (market_counts) ; à défaut (RPC indisponible), le nombre listé.
+  const uncategorizedCount = countsRes.error ? uncategorized.length : uncategorizedTotal(countsRes.data as { market_category: string | null; products: number }[]);
   const boosts = (boostsRes.data ?? []) as Boost[];
   const cityOptions = MARKET_CITIES.map((c) => ({ value: c.slug, label: c.name }));
   // Annonces des boutiques sous le seuil, groupées par boutique (celles qui ont déjà des choix d'abord).
@@ -287,7 +309,7 @@ export default async function AdminMarketPage({ searchParams }: { searchParams: 
 
       {/* Annonces à classer */}
       <section id="a-classer" className="rounded-2xl border border-border bg-card p-5">
-        <SectionTitle icon={<Tags className="h-4 w-4" />} title={`Annonces sans catégorie Market (${uncategorized.length}${uncategorized.length === 40 ? "+" : ""})`} />
+        <SectionTitle icon={<Tags className="h-4 w-4" />} title={uncategorizedTitle(uncategorizedCount, uncategorized.length)} />
         <p className="mb-4 text-sm text-muted-foreground">
           Elles sont sur le Market mais n&apos;apparaissent ni dans les pages catégorie, ni dans leurs compteurs. Classe-les ici en attendant que les vendeurs le fassent.
         </p>

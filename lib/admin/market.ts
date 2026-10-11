@@ -72,3 +72,38 @@ export function boostState(b: { active: boolean; starts_at: string; ends_at: str
   if (new Date(b.starts_at).getTime() > now) return "scheduled";
   return shopIsListedPro ? "live" : "not_pro";
 }
+
+// ── Annonces sans catégorie Market (page admin, étape 3) ──────────────────────
+
+/** Nombre d'annonces affichées dans la liste « à classer » (le total exact est affiché à côté). */
+export const UNCATEGORIZED_LIST_LIMIT = 40;
+
+/**
+ * Total exact des annonces visibles sur le Market sans catégorie, à partir de market_counts()
+ * (mêmes règles que le Market : boutiques présentes + annonces choisies à l'unité, image affichable).
+ */
+export function uncategorizedTotal(rows: { market_category: string | null; products: number | string }[] | null | undefined): number {
+  return (rows ?? []).filter((r) => !r.market_category).reduce((n, r) => n + (Number(r.products) || 0), 0);
+}
+
+/**
+ * Filtre PostgREST des annonces concernées : boutiques présentes sur le Market OU annonces choisies
+ * à l'unité (market_pick_ids). null = aucune annonce possible.
+ */
+export function marketScopeFilter(listedShopIds: string[], pickedProductIds: string[]): string | null {
+  const parts = [
+    listedShopIds.length ? `shop_id.in.(${listedShopIds.join(",")})` : null,
+    pickedProductIds.length ? `id.in.(${pickedProductIds.join(",")})` : null,
+  ].filter(Boolean);
+  return parts.length ? parts.join(",") : null;
+}
+
+/** Visible sur le Market : un produit avec photo, ou un service (affiche ou photo, vérifiée par le compteur). */
+export function isListableOnMarket(p: { subject_type?: string | null; product_images?: unknown[] | null }): boolean {
+  return (p.product_images?.length ?? 0) > 0 || p.subject_type === "service";
+}
+
+/** Titre de la section : « (N) », ou « (40 affichées sur N) » quand la liste est tronquée. */
+export function uncategorizedTitle(total: number, shown: number): string {
+  return `Annonces sans catégorie Market (${shown < total ? `${shown} affichées sur ${total}` : total})`;
+}
