@@ -75,6 +75,8 @@ export const ProductInputSchema = z.object({
   video: VideoSchema.nullable().optional(),
   aiSuggestions: z.record(z.string(), z.unknown()).nullable().optional(),
   sourceCreationId: z.string().uuid().nullable().optional(),
+  // Import en lot (0048) : un groupe du lot ne crée jamais deux produits (index unique).
+  importGroupId: z.string().uuid().nullable().optional(),
 });
 
 export type ProductInput = z.input<typeof ProductInputSchema>;

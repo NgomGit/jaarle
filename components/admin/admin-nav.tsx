@@ -14,6 +14,7 @@ const TABS = [
   { href: "/dashboard/admin/affiches", label: "Affiches" },
   { href: "/dashboard/admin/comptes", label: "Comptes & abonnements" },
   { href: "/dashboard/admin/credits", label: "Crédits" },
+  { href: "/dashboard/admin/couts-ia", label: "Coûts IA" },
 ];
 
 export function AdminNav({ openReports }: { openReports: number }) {

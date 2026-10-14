@@ -2,6 +2,19 @@
 // ou la description d'un produit, pour éviter les litiges de contrefaçon). Liste volontairement
 // centrée sur la mode, le luxe et les accessoires — les marques les plus copiées. À compléter au besoin.
 // Écartés volontairement (mots ou prénoms courants) : boss, essentials, represent, coach, céline, omega.
+// EXCEPTION (décision du 2026-10-14) : véhicules et pièces auto (secteur Market « Auto, moto & vélo ») —
+// la marque et le modèle font partie de l'annonce (« Toyota Corolla 2015 ») : on ne retire rien.
+
+import { categoryTrail, getMarketCategory } from "@/lib/market/categories";
+
+/** Secteur Market où la marque est autorisée dans le nom et la description. */
+export const BRAND_ALLOWED_ROOT = "auto-moto";
+
+/** Vrai si la catégorie Market (feuille ou nœud) est dans l'auto / moto : la marque est gardée. */
+export function brandsAllowedFor(marketCategory: string | null | undefined): boolean {
+  const cat = getMarketCategory(marketCategory);
+  return !!cat && categoryTrail(cat)[0]?.slug === BRAND_ALLOWED_ROOT;
+}
 
 const BRANDS = [
   // Streetwear

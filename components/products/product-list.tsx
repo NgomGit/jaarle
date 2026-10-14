@@ -13,6 +13,7 @@ import type { ProductWithImages } from "@/lib/shops/products";
 import type { ProductStatus } from "@/lib/shops/types";
 import { useLocale } from "@/lib/locale-context";
 import { activePromo } from "@/lib/shops/promo";
+import { BulkUploadTeaser } from "@/components/products/bulk-upload-teaser";
 
 const STATUS_VARIANT: Record<ProductStatus, "success" | "warning" | "neutral"> = {
   active: "success",
@@ -21,7 +22,22 @@ const STATUS_VARIANT: Record<ProductStatus, "success" | "warning" | "neutral"> =
   draft: "neutral",
 };
 
-export function ProductList({ products, justSaved }: { products: ProductWithImages[]; justSaved: boolean }) {
+export function ProductList({
+  products,
+  justSaved,
+  bulkIncluded,
+  bulkOpen,
+  bulkResumeId,
+}: {
+  products: ProductWithImages[];
+  justSaved: boolean;
+  /** Import en lot inclus dans la formule (Pro, Business). undefined = bloc masqué. */
+  bulkIncluded?: boolean;
+  /** Écran d'import ouvert pour ce compte (phase pilote). */
+  bulkOpen?: boolean;
+  /** Lot en cours à reprendre. */
+  bulkResumeId?: string | null;
+}) {
   const { t } = useLocale();
 
   return (
@@ -42,6 +58,8 @@ export function ProductList({ products, justSaved }: { products: ProductWithImag
           </Button>
         )}
       </div>
+
+      {bulkIncluded !== undefined && <BulkUploadTeaser included={bulkIncluded} open={bulkOpen} resumeId={bulkResumeId} />}
 
       {justSaved && (
         <p role="status" className="mb-4 flex items-center gap-2 rounded-xl bg-accent px-3.5 py-2.5 text-sm text-accent-foreground">

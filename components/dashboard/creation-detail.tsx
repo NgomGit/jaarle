@@ -29,6 +29,7 @@ import { CreationStudio } from "@/components/studio/creation-studio";
 import type { MockShop } from "@/components/studio/mockups";
 import type { MarketingPack } from "@/lib/studio/types";
 import { cn } from "@/lib/utils";
+import { LimitDialog, limitReasonFrom, type LimitReason } from "@/components/billing/upgrade-card";
 
 function formatHashtags(hashtags: string[]): string {
   return hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ");
@@ -88,6 +89,9 @@ export function CreationDetail({
   const [currentIndex, setCurrentIndex] = React.useState(initialIndex);
   const [focus, setFocus] = React.useState<number | undefined>(initialIndex > 0 ? initialIndex : undefined);
   const [regenerating, setRegenerating] = React.useState(false);
+  // Nouvelle version = 1 génération (grille 0047) : quota épuisé → fenêtre « limite atteinte ».
+  const [limitReason, setLimitReason] = React.useState<LimitReason | null>(null);
+  const [regenError, setRegenError] = React.useState<string | null>(null);
   const [regenInstructions, setRegenInstructions] = React.useState("");
   const [regenRemaining, setRegenRemaining] = React.useState(
     Math.max(0, getTierConfig(creation.tier).maxRegenerations - (creation.regenerations_used ?? 0))
@@ -129,6 +133,7 @@ export function CreationDetail({
   async function regenerate() {
     if (regenerating || regenRemaining <= 0) return;
     setRegenerating(true);
+    setRegenError(null);
     try {
       const res = await fetch("/api/regenerate-creation", {
         method: "POST",
@@ -142,9 +147,13 @@ export function CreationDetail({
         if (typeof data.regenerationsRemaining === "number") setRegenRemaining(data.regenerationsRemaining);
         const more = (data as { otherLayouts?: number }).otherLayouts;
         if (typeof more === "number") setOtherLayouts(more);
+      } else {
+        const reason = limitReasonFrom(data);
+        if (reason) setLimitReason(reason);
+        else setRegenError(data.error ?? t("creation.errorGeneric"));
       }
     } catch {
-      // silencieux : l'utilisateur peut réessayer
+      setRegenError(t("creation.errorGeneric"));
     } finally {
       setRegenerating(false);
       router.refresh(); // recharge la vérité serveur (versions) même si la réponse s'est perdue
@@ -480,6 +489,7 @@ export function CreationDetail({
                       ? t("creation.declinationGenerating")
                       : t("creation.regenerate").replace("{count}", String(regenRemaining))}
                   </Button>
+                  {regenError && <p className="text-xs text-destructive">{regenError}</p>}
                 </div>
               )}
 
@@ -521,6 +531,8 @@ export function CreationDetail({
           )}
         </div>
       </div>
+
+      <LimitDialog reason={limitReason} onClose={() => setLimitReason(null)} />
 
       {/* 5. Studio : publier sur mes réseaux */}
       {studioShop && (

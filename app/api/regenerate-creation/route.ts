@@ -1,5 +1,6 @@
 import { logAiCall } from "@/lib/billing/ai-cost";
-import { AI_COST_ESTIMATES_USD } from "@/lib/billing/usage";
+import { consumeUsage, limitPayload, refundUsage } from "@/lib/billing/consume";
+import { AI_COST_ESTIMATES_USD, usageUnits } from "@/lib/billing/usage";
 import { NextResponse } from "next/server";
 import { canUseMultiPhoto, getEntitlements } from "@/lib/billing/entitlements";
 import { resolveReferences } from "@/lib/multi-reference";
@@ -92,67 +93,92 @@ export async function POST(request: Request) {
   const releaseReservation = () =>
     admin.from("creations").update({ regenerations_used: creation.regenerations_used }).eq("id", creation.id).eq("regenerations_used", regenerationsUsed);
 
+  // Grille 0047 : une « Nouvelle version » compte pour 1 génération (quota du mois, puis crédits),
+  // décomptée avant l'appel IA et remboursée si la version n'a pas pu être produite.
+  const usage = await consumeUsage({
+    userId: user.id,
+    action: "poster_regenerate",
+    units: usageUnits("poster_regenerate"),
+    creationId: creation.id,
+  });
+  if (!usage.ok && usage.reason === "limit") {
+    await releaseReservation();
+    return NextResponse.json(limitPayload("generations"), { status: 403 });
+  }
+  const usageEventId = usage.ok ? usage.eventId : null;
+  const giveBack = async () => {
+    await releaseReservation();
+    await refundUsage(usageEventId);
+  };
+
   let backgroundResult: Awaited<ReturnType<typeof buildPosterBackground>> | Awaited<ReturnType<typeof buildServiceBackground>>;
   let secondaryBuffers: Buffer[] = [];
 
-  if (creation.photo_path) {
-    const { data: photoBlob, error: downloadError } = await supabase.storage.from("creations").download(creation.photo_path);
-    if (downloadError || !photoBlob) {
-      await releaseReservation();
-      return NextResponse.json({ error: "Photo introuvable." }, { status: 500 });
-    }
-    const photoBuffer = Buffer.from(await photoBlob.arrayBuffer());
-    const photoBase64 = photoBuffer.toString("base64");
-    const mediaType: AllowedMediaType = ALLOWED_MEDIA_TYPES.includes(photoBlob.type as AllowedMediaType)
-      ? (photoBlob.type as AllowedMediaType)
-      : "image/jpeg";
-
-    // Action unique « Nouvelle version » : les photos secondaires de l'affiche sont reprises et
-    // restent intégrées au design (remplace l'ancienne « déclinaison » séparée).
-    // Photos secondaires : offres payantes uniquement (décor multi-image + vraies vignettes).
-    const multiPhotoAllowed = canUseMultiPhoto(await getEntitlements());
-    let extraPhotos: { base64: string; mediaType: AllowedMediaType }[] = [];
-    for (const extraPath of multiPhotoAllowed ? ((creation.extra_photo_paths as string[] | null) ?? []) : []) {
-      const { data: extraBlob } = await supabase.storage.from("creations").download(extraPath);
-      if (!extraBlob) continue;
-      const buf = Buffer.from(await extraBlob.arrayBuffer());
-      const extraMediaType: AllowedMediaType = ALLOWED_MEDIA_TYPES.includes(extraBlob.type as AllowedMediaType)
-        ? (extraBlob.type as AllowedMediaType)
+  // Une erreur inattendue de l'IA ne doit jamais coûter une génération au vendeur.
+  try {
+    if (creation.photo_path) {
+      const { data: photoBlob, error: downloadError } = await supabase.storage.from("creations").download(creation.photo_path);
+      if (downloadError || !photoBlob) {
+        await giveBack();
+        return NextResponse.json({ error: "Photo introuvable." }, { status: 500 });
+      }
+      const photoBuffer = Buffer.from(await photoBlob.arrayBuffer());
+      const photoBase64 = photoBuffer.toString("base64");
+      const mediaType: AllowedMediaType = ALLOWED_MEDIA_TYPES.includes(photoBlob.type as AllowedMediaType)
+        ? (photoBlob.type as AllowedMediaType)
         : "image/jpeg";
-      extraPhotos.push({ base64: buf.toString("base64"), mediaType: extraMediaType });
-    }
 
-    // La photo principale reste celle de la création ; l'analyse groupée revérifie les secondaires.
-    const resolved =
-      extraPhotos.length > 0
-        ? await resolveReferences([{ base64: photoBase64, mediaType }, ...extraPhotos], creation.product_name, { heroFixed: true })
-        : null;
-    if (resolved) {
-      const all = [{ base64: photoBase64, mediaType }, ...extraPhotos];
-      extraPhotos = resolved.secondaryIndexes.map((i) => all[i]).filter((x): x is (typeof all)[number] => !!x);
-    }
+      // Action unique « Nouvelle version » : les photos secondaires de l'affiche sont reprises et
+      // restent intégrées au design (remplace l'ancienne « déclinaison » séparée).
+      // Photos secondaires : offres payantes uniquement (décor multi-image + vraies vignettes).
+      const multiPhotoAllowed = canUseMultiPhoto(await getEntitlements());
+      let extraPhotos: { base64: string; mediaType: AllowedMediaType }[] = [];
+      for (const extraPath of multiPhotoAllowed ? ((creation.extra_photo_paths as string[] | null) ?? []) : []) {
+        const { data: extraBlob } = await supabase.storage.from("creations").download(extraPath);
+        if (!extraBlob) continue;
+        const buf = Buffer.from(await extraBlob.arrayBuffer());
+        const extraMediaType: AllowedMediaType = ALLOWED_MEDIA_TYPES.includes(extraBlob.type as AllowedMediaType)
+          ? (extraBlob.type as AllowedMediaType)
+          : "image/jpeg";
+        extraPhotos.push({ base64: buf.toString("base64"), mediaType: extraMediaType });
+      }
 
-    backgroundResult = await buildPosterBackground(
-      photoBuffer,
-      photoBase64,
-      mediaType,
-      creation.product_name,
-      creation.industry,
-      trimmedInstructions,
-      extraPhotos,
-      undefined,
-      extraPhotos.length > 0,
-      { multi: resolved?.multi ?? null, productAnalysis: resolved?.productAnalysis ?? null }
-    );
-    secondaryBuffers = extraPhotos.map((p) => Buffer.from(p.base64, "base64"));
-  } else {
-    backgroundResult = await buildServiceBackground(
-      creation.product_name,
-      creation.service_description,
-      creation.service_items ?? [],
-      creation.industry,
-      trimmedInstructions
-    );
+      // La photo principale reste celle de la création ; l'analyse groupée revérifie les secondaires.
+      const resolved =
+        extraPhotos.length > 0
+          ? await resolveReferences([{ base64: photoBase64, mediaType }, ...extraPhotos], creation.product_name, { heroFixed: true })
+          : null;
+      if (resolved) {
+        const all = [{ base64: photoBase64, mediaType }, ...extraPhotos];
+        extraPhotos = resolved.secondaryIndexes.map((i) => all[i]).filter((x): x is (typeof all)[number] => !!x);
+      }
+
+      backgroundResult = await buildPosterBackground(
+        photoBuffer,
+        photoBase64,
+        mediaType,
+        creation.product_name,
+        creation.industry,
+        trimmedInstructions,
+        extraPhotos,
+        undefined,
+        extraPhotos.length > 0,
+        { multi: resolved?.multi ?? null, productAnalysis: resolved?.productAnalysis ?? null }
+      );
+      secondaryBuffers = extraPhotos.map((p) => Buffer.from(p.base64, "base64"));
+    } else {
+      backgroundResult = await buildServiceBackground(
+        creation.product_name,
+        creation.service_description,
+        creation.service_items ?? [],
+        creation.industry,
+        trimmedInstructions
+      );
+    }
+  } catch (err) {
+    console.error("[regenerate-creation] V1 :", err instanceof Error ? err.message : err);
+    await giveBack();
+    return NextResponse.json({ error: "Échec de la régénération." }, { status: 500 });
   }
 
   const { backgroundBuffer, imageError, layout, accentGradient, creativeBrief } = backgroundResult;
@@ -202,7 +228,7 @@ export async function POST(request: Request) {
   }
 
   if (!posterPath) {
-    await releaseReservation();
+    await giveBack();
     return NextResponse.json({ error: imageError || "Échec de la régénération." }, { status: 500 });
   }
 
@@ -225,8 +251,15 @@ export async function POST(request: Request) {
     kind: "regeneration",
   });
 
-  // Mesure du coût IA (retouche incluse dans l'affiche, non décomptée du quota). Jamais bloquant.
-  void logAiCall({ userId: user.id, feature: "poster_regenerate", estCostUsd: AI_COST_ESTIMATES_USD.poster_regenerate, images: 1, creationId: creation.id });
+  // Mesure du coût IA. Jamais bloquant.
+  void logAiCall({
+    userId: user.id,
+    feature: "poster_regenerate",
+    estCostUsd: AI_COST_ESTIMATES_USD.poster_regenerate,
+    images: 1,
+    creationId: creation.id,
+    usageEventId,
+  });
 
   return NextResponse.json({
     imageUrl: `/api/creations/${creation.id}/preview?v=${Date.now()}`,
@@ -325,8 +358,24 @@ async function regenerateV2(
     .eq("regenerations_used", creation.regenerations_used)
     .select("id");
   if (!reserved?.length) return NextResponse.json({ error: "Limite de régénérations atteinte." }, { status: 400 });
-  const release = () =>
+  const releaseCounter = () =>
     admin.from("creations").update({ regenerations_used: creation.regenerations_used }).eq("id", creation.id).eq("regenerations_used", regenerationsUsed);
+  // Nouvelle scène = 1 génération (grille 0047), remboursée en cas d'échec ; « autre mise en page » reste gratuite.
+  const usage = await consumeUsage({
+    userId: user.id,
+    action: "poster_regenerate",
+    units: usageUnits("poster_regenerate"),
+    creationId: creation.id,
+  });
+  if (!usage.ok && usage.reason === "limit") {
+    await releaseCounter();
+    return NextResponse.json(limitPayload("generations"), { status: 403 });
+  }
+  const usageEventId = usage.ok ? usage.eventId : null;
+  const release = async () => {
+    await releaseCounter();
+    await refundUsage(usageEventId);
+  };
 
   let r: Awaited<ReturnType<typeof regenerateScene>> = null;
   try {
@@ -336,7 +385,7 @@ async function regenerateV2(
   }
   if (!r) {
     await release();
-    return NextResponse.json({ error: "La nouvelle version n'a pas passé le contrôle qualité. Réessaie : ta régénération n'a pas été décomptée." }, { status: 500 });
+    return NextResponse.json({ error: "La nouvelle version n'a pas passé le contrôle qualité. Réessaie : ni ta régénération ni ta génération n'ont été décomptées." }, { status: 500 });
   }
   const ts = Date.now();
   const posterPath = `${user.id}/${ts}-poster.jpg`;
@@ -365,6 +414,7 @@ async function regenerateV2(
     estCostUsd: Math.max(0, r.design.est_cost_usd - design.est_cost_usd),
     images: r.design.calls.image - design.calls.image,
     creationId: creation.id,
+    usageEventId,
   });
   return NextResponse.json({
     imageUrl: `/api/creations/${creation.id}/preview?v=${ts}`,

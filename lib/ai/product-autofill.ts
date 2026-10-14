@@ -3,7 +3,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { industries } from "@/lib/knowledge/industries";
 import { marketLeafOptions } from "@/lib/market/categories";
-import { stripBrands, stripBrandsFromName } from "@/lib/shops/brands";
+import { brandsAllowedFor, stripBrands, stripBrandsFromName } from "@/lib/shops/brands";
 
 // « Photo → fiche produit » : l'IA PROPOSE nom, description, catégorie, mots-clés et
 // caractéristiques visibles ; le commerçant valide et ajoute le prix. Rien n'est publié ici.
@@ -54,7 +54,8 @@ ${shopContext || "(non renseigné)"}
 
 Propose une fiche produit en FRANÇAIS, simple et vendeuse, comme l'écrirait un bon vendeur à Dakar :
 - name : nom commercial court (2 à 6 mots), ex. « Boubou homme bazin bleu ». JAMAIS de nom de marque (Nike, Supreme, Gucci…), même si un logo est visible : décris l'article (« T-shirt graphique oversize »), et n'invente aucune référence.
-- description : 2 ou 3 phrases concrètes (matière, usage, occasion), 300 caractères maximum, sans prix, sans emoji, sans promesse invérifiable, sans aucun nom de marque.
+  EXCEPTION VÉHICULES : pour une voiture, une moto, un scooter, un utilitaire ou un camion (et une pièce auto), la marque et le modèle SONT le nom : écris-les quand ils sont reconnaissables avec certitude (logo, badge, forme caractéristique), ex. « Toyota Land Cruiser gris », « Mercedes Classe C noire », « Moto Yamaha 125 rouge ». N'invente jamais l'année, le kilométrage ni la motorisation ; si la marque n'est pas certaine, décris le véhicule (« SUV noir 7 places »).
+- description : 2 ou 3 phrases concrètes (matière, usage, occasion), 300 caractères maximum, sans prix, sans emoji, sans promesse invérifiable, sans aucun nom de marque (sauf véhicule : marque et modèle autorisés, et seulement ce qui est visible : couleur, carrosserie, intérieur, jantes…).
 - category : catégorie courte pour ranger le produit dans la boutique, ex. « Boubous homme », « Soins visage », « Plats ».
 - industryKey : le secteur le plus proche parmi la liste fournie, ou "none".
 - marketCategory : la catégorie Jaarle Market la plus précise pour CE produit ou CE service, parmi la liste ci-dessous (la clé seulement), ou "none" si aucune ne convient (produit ou service hors liste). Une prestation se classe dans les catégories de services (ex. coiffure, plomberie, décoration de mariage) :
@@ -77,11 +78,12 @@ Ne donne jamais de prix.`,
   onUsage?.({ model, inputTokens: message.usage?.input_tokens ?? 0, outputTokens: message.usage?.output_tokens ?? 0 });
   if (!message.parsed_output) throw new Error("Réponse IA invalide.");
   const out = message.parsed_output;
+  // Filet de sécurité : les noms de marques sont retirés même si le modèle en met un — sauf véhicules.
+  const keepBrands = brandsAllowedFor(out.marketCategory === "none" ? null : out.marketCategory);
   return {
     ...out,
-    // Filet de sécurité : les noms de marques sont retirés même si le modèle en met un.
-    name: stripBrandsFromName(out.name.trim()).slice(0, 120),
-    description: stripBrands(out.description.trim()).slice(0, 600),
+    name: (keepBrands ? out.name.trim() : stripBrandsFromName(out.name.trim())).slice(0, 120),
+    description: (keepBrands ? out.description.trim() : stripBrands(out.description.trim())).slice(0, 600),
     category: out.category.trim().slice(0, 60),
     keywords: out.keywords.map((k) => k.trim()).filter(Boolean).slice(0, 5),
     attributes: out.attributes.filter((a) => a.name.trim() && a.value.trim()).slice(0, 5),

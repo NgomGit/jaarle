@@ -9,7 +9,7 @@ import { storeProductImage } from "@/lib/shops/media-server";
 import { productSlug } from "@/lib/shops/slug";
 import { SHOP_MEDIA_BUCKET, type ProductStatus, type Shop } from "@/lib/shops/types";
 import { LIMIT_MESSAGES } from "@/lib/billing/format";
-import { stripBrands, stripBrandsFromName } from "@/lib/shops/brands";
+import { brandsAllowedFor, stripBrands, stripBrandsFromName } from "@/lib/shops/brands";
 import { isOwnPosterPath, isOwnVideoPath, PRODUCT_VIDEO_BUCKET, type ProductVideoDraft } from "@/lib/shops/video";
 import { canUseProductVideo, getEntitlements, canUsePromo } from "@/lib/billing/entitlements";
 import { PROMO_PRO_MESSAGE, promoEndFromDay, promoInputError } from "@/lib/shops/promo";
@@ -169,13 +169,15 @@ export async function saveProduct(input: ProductInput, productId?: string): Prom
     }
   }
 
-  // Règle de vente : aucun nom de marque dans les annonces (retiré automatiquement).
+  // Règle de vente : aucun nom de marque dans les annonces (retiré automatiquement), sauf pour les
+  // véhicules et pièces auto où la marque fait partie de l'annonce (« Toyota Corolla »).
+  const keepBrands = brandsAllowedFor(data.marketCategory);
   const fields = {
     subject_type: data.subjectType,
     display_media: data.displayMedia,
-    name: stripBrandsFromName(data.name),
+    name: keepBrands ? data.name : stripBrandsFromName(data.name),
     price: data.price,
-    description: data.description ? stripBrands(data.description) || null : null,
+    description: data.description ? (keepBrands ? data.description : stripBrands(data.description) || null) : null,
     category: data.category,
     market_category: data.marketCategory ?? null,
     options: data.options,
@@ -197,11 +199,18 @@ export async function saveProduct(input: ProductInput, productId?: string): Prom
         slug,
         ai_suggestions: data.aiSuggestions ?? null,
         source_creation_id: data.sourceCreationId ?? null,
+        // Colonne ajoutée par 0048 : seulement envoyée par l'import en lot (formulaire inchangé).
+        ...(data.importGroupId ? { import_group_id: data.importGroupId } : {}),
       })
       .select("id")
       .single();
     if (error?.message?.includes("PRO_REQUIRED:promo")) return { ok: false, error: PROMO_PRO_MESSAGE, limit: "feature" };
     if (error?.message?.includes("products_promo_valid")) return { ok: false, error: "Promo invalide : vérifie le prix promo et l'ancien prix." };
+    if (data.importGroupId && error?.message?.includes("products_import_group_uidx")) {
+      // Déjà créé par une autre requête (double clic, deux onglets) : on renvoie le produit existant.
+      const { data: existing } = await supabase.from("products").select("id").eq("import_group_id", data.importGroupId).eq("owner_id", userId).maybeSingle();
+      if (existing) return { ok: true, id: existing.id as string };
+    }
     if (error?.message?.includes("LIMIT_REACHED:products")) {
       // Limite du plan appliquée en base (trigger products_enforce_plan_limit).
       return { ok: false, error: LIMIT_MESSAGES.products, limit: "products" };

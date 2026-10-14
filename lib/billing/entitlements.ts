@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AnalyticsLevel, Entitlements, PlanKey } from "@/lib/billing/types";
 import { MULTI_PHOTO_POSTERS_ENABLED } from "@/lib/pricing";
+import { bulkUploadFrom } from "@/lib/billing/features";
 
 // Point d'entrée UNIQUE des droits d'un utilisateur. Tout le reste du code (limites, filigrane,
 // statistiques, Studio…) lit l'objet renvoyé ici, jamais le nom du plan directement.
@@ -43,6 +44,7 @@ export const LEGACY_ENTITLEMENTS: Entitlements = {
   marketingFeatures: { studio: true, contentCalendar: false, reports: false },
   posterUnlockIncluded: false,
   prioritySupport: false,
+  bulkUpload: null,
   subscription: null,
   periodStart: null,
   periodEnd: null,
@@ -84,6 +86,7 @@ export function toEntitlements(raw: Raw): Entitlements {
     },
     posterUnlockIncluded: bool(f.poster_unlock_included, false),
     prioritySupport: bool(f.priority_support, false),
+    bulkUpload: bulkUploadFrom(f.bulk_upload),
     subscription: raw.subscription
       ? {
           startsAt: raw.subscription.starts_at,
@@ -143,3 +146,5 @@ export function canUseProductVideo(e: Entitlements): boolean {
 export function canUsePromo(e: Entitlements): boolean {
   return !e.billingEnabled || e.plan !== "free";
 }
+
+export { canUseBulkUpload } from "@/lib/billing/features";

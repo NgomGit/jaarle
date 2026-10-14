@@ -19,7 +19,7 @@ export function getTierConfig(tier: string): TierConfig {
 }
 
 /**
- * Toutes les nouvelles affiches sont créées au niveau premium (clé technique « gold », 2 générations).
+ * Toutes les nouvelles affiches sont créées au niveau premium (clé technique « gold », 1 génération depuis 0047).
  * Le palier « premium » (ancien Standard) ne reste que pour les affiches déjà existantes.
  */
 export const DEFAULT_TIER: Tier = "gold";

@@ -60,6 +60,7 @@ export const ACTION_LABELS: Record<string, string> = {
   studio_pack: "Pack Studio",
   studio_regenerate: "Régénération Studio",
   product_autofill: "Fiche produit IA",
+  bulk_import: "Import en lot",
 };
 
 /** Ce qu'un pack permet réellement : nombre d'affiches et crédits restants inutilisables pour une affiche. */

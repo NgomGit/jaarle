@@ -10,7 +10,8 @@ export type UsageAction =
   | "poster_unlock"
   | "studio_pack"
   | "studio_regenerate"
-  | "product_autofill";
+  | "product_autofill"
+  | "bulk_import";
 
 export type UsageSource = "quota" | "credits" | "included" | "legacy";
 
@@ -37,6 +38,8 @@ export interface Entitlements {
   marketingFeatures: { studio: boolean; contentCalendar: boolean; reports: boolean };
   posterUnlockIncluded: boolean; // affiches débloquées sans paiement à l'unité
   prioritySupport: boolean;
+  /** Import de plusieurs produits en une fois (Bulk Upload) : limites par lot, null = non inclus (plans.features.bulk_upload, 0047). */
+  bulkUpload: { photosPerLot: number; videosPerLot: number } | null;
   subscription: { startsAt: string; endsAt: string; activeUntil: string; source: string } | null;
   periodStart: string | null;
   periodEnd: string | null;

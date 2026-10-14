@@ -874,7 +874,7 @@ export function NewCreationWizard({
             {generationBudget && (
               <div className="flex flex-col gap-1 rounded-xl bg-accent px-4 py-3">
                 <span className="text-sm font-bold text-accent-foreground">
-                  {t("creation.premiumIncluded").replace("{n}", String(generationBudget.units[tier] ?? 2))}
+                  {t("creation.premiumIncluded").replace("{n}", String(generationBudget.units[tier] ?? 1))}
                 </span>
                 <span className="text-xs text-muted-foreground">
                   {generationBudget.remaining == null
