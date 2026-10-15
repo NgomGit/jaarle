@@ -7,7 +7,7 @@ import { ImportCreations, type ImportableCreation } from "@/components/products/
 import { canUseBulkUpload, getEntitlements } from "@/lib/billing/entitlements";
 import { isBulkUploadOpen } from "@/lib/products/bulk-flags";
 
-export default async function ProductsPage({ searchParams }: { searchParams: { saved?: string } }) {
+export default async function ProductsPage({ searchParams }: { searchParams: { saved?: string; imported?: string; published?: string } }) {
   const supabase = createClient();
   const {
     data: { user },
@@ -57,6 +57,8 @@ export default async function ProductsPage({ searchParams }: { searchParams: { s
       <ProductList
         products={products}
         justSaved={searchParams.saved === "1"}
+        imported={Math.max(0, Number(searchParams.imported) || 0)}
+        importedPublished={searchParams.published === "1"}
         bulkIncluded={bulkIncluded}
         bulkOpen={bulkOpen}
         bulkResumeId={bulkResumeId}

@@ -526,6 +526,8 @@
     "saveDraft": "Save as draft",
     "save": "Save",
     "saving": "Saving…",
+    "importedDrafts": "{n} product(s) created as drafts. Check them, then tap “Publish”.",
+    "importedPublished": "{n} product(s) created and published.",
     "saved": "Product saved.",
     "delete": "Delete",
     "deleteConfirm": "Confirm deletion",

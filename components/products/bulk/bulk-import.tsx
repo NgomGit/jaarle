@@ -493,7 +493,9 @@ export function BulkImport({
     await flush();
     const failures = Object.values(out).filter((r) => !r.ok).length;
     if (failures === 0 && stateRef.current && creatableGroups(stateRef.current).length === 0) {
-      await finish(false);
+      // Tout est créé : direction la page Produits, avec le bilan en haut.
+      await finish(false, publish);
+      return;
     } else {
       setPhase("review");
       setError(t("bulk.someNotCreated").replace("{n}", String(failures)));
@@ -501,7 +503,7 @@ export function BulkImport({
     router.refresh();
   }
 
-  async function finish(cancel: boolean) {
+  async function finish(cancel: boolean, published = false) {
     const id = idRef.current;
     if (!id) return router.push("/dashboard/produits");
     await flush();
@@ -511,8 +513,11 @@ export function BulkImport({
       router.refresh();
       return;
     }
-    setFinishInfo({ created: res.data.created ?? stateRef.current?.groups.filter((g) => g.productId).length ?? 0 });
-    setPhase("done");
+    const created = res.data.created ?? stateRef.current?.groups.filter((g) => g.productId).length ?? 0;
+    setFinishInfo({ created });
+    // Lot terminé : la page Produits montre les produits créés et un bilan.
+    router.push(`/dashboard/produits?imported=${created}${published ? "&published=1" : ""}`);
+    router.refresh();
   }
 
   // ─── Rendu ────────────────────────────────────────────────────────────────────────────────────
@@ -885,7 +890,7 @@ export function BulkImport({
                   type="button"
                   variant="accent"
                   size="lg"
-                  className="flex-1"
+                  className="w-full sm:flex-1"
                   disabled={toCreate === 0 || phase === "creating" || suggesting.size > 0}
                   onClick={() => void createAll(false)}
                 >
@@ -896,6 +901,7 @@ export function BulkImport({
                   type="button"
                   variant="secondary"
                   size="lg"
+                  className="w-full sm:w-auto"
                   disabled={toCreate === 0 || phase === "creating" || suggesting.size > 0}
                   onClick={() => setConfirmPublish(true)}
                 >

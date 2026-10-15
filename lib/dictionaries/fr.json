@@ -526,6 +526,8 @@
     "saveDraft": "Enregistrer en brouillon",
     "save": "Enregistrer",
     "saving": "Enregistrement…",
+    "importedDrafts": "{n} produit(s) créé(s) en brouillon. Vérifie-les, puis touche « Publier ».",
+    "importedPublished": "{n} produit(s) créé(s) et publié(s).",
     "saved": "Produit enregistré.",
     "delete": "Supprimer",
     "deleteConfirm": "Confirmer la suppression",

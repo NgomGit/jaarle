@@ -28,9 +28,14 @@ export function ProductList({
   bulkIncluded,
   bulkOpen,
   bulkResumeId,
+  imported = 0,
+  importedPublished = false,
 }: {
   products: ProductWithImages[];
   justSaved: boolean;
+  /** Retour d'un import en lot : nombre de produits créés (0 = pas de bilan). */
+  imported?: number;
+  importedPublished?: boolean;
   /** Import en lot inclus dans la formule (Pro, Business). undefined = bloc masqué. */
   bulkIncluded?: boolean;
   /** Écran d'import ouvert pour ce compte (phase pilote). */
@@ -60,6 +65,13 @@ export function ProductList({
       </div>
 
       {bulkIncluded !== undefined && <BulkUploadTeaser included={bulkIncluded} open={bulkOpen} resumeId={bulkResumeId} />}
+
+      {imported > 0 && (
+        <p role="status" className="mb-4 flex items-center gap-2 rounded-xl bg-accent px-3.5 py-2.5 text-sm font-medium text-accent-foreground">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          {(importedPublished ? t("products.importedPublished") : t("products.importedDrafts")).replace("{n}", String(imported))}
+        </p>
+      )}
 
       {justSaved && (
         <p role="status" className="mb-4 flex items-center gap-2 rounded-xl bg-accent px-3.5 py-2.5 text-sm text-accent-foreground">
