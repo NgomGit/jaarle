@@ -44,6 +44,7 @@ export const FEATURE_LABELS: Record<string, string> = {
   product_autofill: "Fiche produit (photo → texte)",
   bulk_group: "Import en lot : regroupement",
   bulk_suggest: "Import en lot : fiches produit",
+  bulk_verify: "Import en lot : 2e vérification",
 };
 
 /** Formule active pour un utilisateur à une date (formule la plus haute, puis la plus longue). */

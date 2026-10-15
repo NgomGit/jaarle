@@ -1,23 +1,29 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyVariantChoices,
   checkImportInvariants,
+  correctionStats,
   creatableGroups,
   emptyDraft,
   groupState,
+  groupsConfirmed,
   importSummary,
   markReviewed,
   mergeGroups,
   moveItem,
   newGroup,
   normalizeImportState,
+  partitionOf,
   productPhotoIds,
   setExcluded,
   setMain,
   stateFromGrouping,
   unmergeGroup,
   suggestKeyOf,
+  suggestPhotoIds,
   unusedItemPaths,
   updateDraft,
+  variantFamilies,
   ImportStateSchema,
   type ImportState,
 } from "@/lib/products/bulk-import";
@@ -239,5 +245,130 @@ describe("schéma produit (non-régression)", () => {
 
   it("brouillon vide par défaut", () => {
     expect(emptyDraft()).toMatchObject({ name: "", price: null, priceOnRequest: true, options: [] });
+  });
+});
+
+// ─── Fiche : choix des photos, mesure des corrections ───────────────────────────────────────────
+
+describe("suggestPhotoIds", () => {
+  const it2 = (n: number, aiView: string | null, extra: Record<string, unknown> = {}) => ({ ...item(n), aiView, ...extra });
+  it("principale d'abord, puis des vues différentes plutôt qu'une 2e vue de face", () => {
+    const s = { items: [it2(1, "face"), it2(2, "face"), it2(3, "face"), it2(4, "dos"), it2(5, "gros_plan")] };
+    expect(suggestPhotoIds(s, { itemIds: [id(1), id(2), id(3), id(4), id(5)], mainId: id(1) })).toEqual([id(1), id(4), id(5)]);
+  });
+  it("vraies photos avant images de vidéo, photos illisibles en dernier", () => {
+    const s = { items: [it2(1, "face"), it2(2, null, { aiReadable: false }), { ...it2(3, null), videoRef: "v" }, it2(4, null)] };
+    expect(suggestPhotoIds(s, { itemIds: [id(1), id(2), id(3), id(4)], mainId: id(1) })).toEqual([id(1), id(4), id(3)]);
+  });
+  it("sans inventaire : même ordre qu'avant (principale, vraies photos, vidéo)", () => {
+    const s = { items: [item(1), item(2, "v"), item(3), item(4)] };
+    const g = { itemIds: [id(2), id(1), id(3), id(4)], mainId: id(3) };
+    expect(suggestPhotoIds(s, g)).toEqual(productPhotoIds(s, g).slice(0, 3));
+  });
+  it("groupe vide → aucune photo", () => {
+    expect(suggestPhotoIds({ items: [] }, { itemIds: [], mainId: null })).toEqual([]);
+  });
+});
+
+describe("correctionStats (corrections réelles du vendeur)", () => {
+  const a = (...n: number[]) => n.map(id);
+  it("proposition acceptée telle quelle → 0 correction", () => {
+    const s = correctionStats({ groups: [a(1, 2), a(3)], unsorted: [] }, [a(1, 2), a(3)]);
+    expect(s).toMatchObject({ photos: 3, merges: 0, movesOut: 0, placedFromUnsorted: 0, corrections: 0, per10: 0, exactGroups: 2, finalGroups: 2 });
+  });
+  it("séparation à tort de l'IA : le vendeur fusionne 3 fragments → 2 fusions", () => {
+    const s = correctionStats({ groups: [a(1), a(2), a(3)], unsorted: [] }, [a(1, 2, 3)]);
+    expect(s).toMatchObject({ merges: 2, movesOut: 0, corrections: 2, exactGroups: 0 });
+  });
+  it("fusion à tort de l'IA : le vendeur sort 1 photo → 1 déplacement", () => {
+    const s = correctionStats({ groups: [a(1, 2, 3)], unsorted: [] }, [a(1, 2), a(3)]);
+    expect(s).toMatchObject({ merges: 0, movesOut: 1, corrections: 1 });
+  });
+  it("non rangée placée par le vendeur ; photos retirées ou produits exclus ignorés", () => {
+    const s = correctionStats({ groups: [a(1, 2), a(5)], unsorted: a(3, 4) }, [a(1, 2, 3)]);
+    expect(s).toMatchObject({ photos: 3, placedFromUnsorted: 1, merges: 0, movesOut: 0, corrections: 1, per10: 3.3 });
+  });
+  it("partitionOf ignore les produits exclus et vides", () => {
+    const s = normalizeImportState({
+      items: [item(1), item(2), item(3)],
+      groups: [{ ...newGroup(G1, [id(1)]), excluded: true }, newGroup(G2, [id(2)])],
+      unsorted: [id(3)],
+      removed: [],
+      variants: [],
+    });
+    expect(partitionOf(s)).toEqual({ groups: [[id(2)]], unsorted: [id(3)] });
+  });
+});
+
+describe("mergeGroups efface les raisons réglées par la fusion", () => {
+  it("même nom / même vidéo / vues partielles disparaissent, les autres restent", () => {
+    const s = normalizeImportState({
+      items: [item(1), item(2)],
+      groups: [
+        { ...newGroup(G1, [id(1)]), reasons: ["même nom qu'un autre produit : même article ?", "images de la même vidéo dans un autre produit", "confiance faible"] },
+        { ...newGroup(G2, [id(2)]), reasons: ["seulement des vues partielles : peut-être une photo d'un autre produit"] },
+      ],
+      unsorted: [],
+      removed: [],
+      variants: [],
+    });
+    expect(mergeGroups(s, G1, G2).groups[0].reasons).toEqual(["confiance faible"]);
+  });
+});
+
+describe("étape « Valider les groupes »", () => {
+  const G4 = id(104);
+  const base = (): ImportState =>
+    normalizeImportState({
+      items: [item(1), item(2), item(3), item(4), item(5)],
+      groups: [
+        { ...newGroup(G1, [id(1)], "Chemise losange blanc"), draft: emptyDraft(""), suggestion: "pending", reasons: ["même modèle dans une autre couleur ?"] },
+        { ...newGroup(G2, [id(2)], "Chemise losange vert"), draft: emptyDraft(""), suggestion: "pending", reasons: ["même modèle dans une autre couleur ?"] },
+        { ...newGroup(G3, [id(3), id(4)], "Chemise losange noir"), draft: emptyDraft(""), suggestion: "pending", reasons: ["même modèle dans une autre couleur ?"] },
+        { ...newGroup(G4, [id(5)], "Sac"), draft: emptyDraft(""), suggestion: "pending" },
+      ],
+      unsorted: [],
+      removed: [],
+      variants: [{ groupIds: [G1, G2, G3], option: "Couleur", values: ["Blanc", "Vert", "Noir"], reason: "" }],
+    });
+
+  it("groupes non validés tant qu'aucune fiche n'est demandée ni saisie", () => {
+    expect(groupsConfirmed(base())).toBe(false);
+    const s = base();
+    expect(groupsConfirmed({ groups: s.groups.map((g, i) => (i === 0 ? { ...g, suggestion: "ready" as const } : g)) })).toBe(true);
+    expect(groupsConfirmed(updateDraft(s, G4, { name: "Sac cuir" }))).toBe(true);
+  });
+
+  it("familles : seulement les produits encore ouverts, au moins 2", () => {
+    expect(variantFamilies(base())).toEqual([{ index: 0, groupIds: [G1, G2, G3], option: "Couleur", values: ["Blanc", "Vert", "Noir"], reason: "" }]);
+    expect(variantFamilies(setExcluded(setExcluded(base(), G2, true), G3, true))).toEqual([]);
+  });
+
+  it("par défaut : UN produit avec l'option Couleur, fusion annulable, alertes retirées", () => {
+    const s = applyVariantChoices(base());
+    expect(checkImportInvariants(s)).toEqual([]);
+    expect(s.groups.map((g) => g.id)).toEqual([G1, G4]);
+    const robe = s.groups[0];
+    expect(robe.itemIds).toEqual([id(1), id(2), id(3), id(4)]);
+    expect(robe.draft.options).toEqual([{ name: "Couleur", values: ["Blanc", "Vert", "Noir"] }]);
+    expect(robe.reasons).toEqual([]);
+    expect(robe.merged.map((m) => m.id)).toEqual([G2, G3]);
+    expect(s.variants).toEqual([]);
+    // Le vendeur peut encore recréer une couleur à part.
+    expect(unmergeGroup(s, G1, G3).groups.map((g) => g.id)).toEqual([G1, G3, G4]);
+  });
+
+  it("refus : produits séparés, suggestion et alerte « autre couleur » retirées", () => {
+    const s = applyVariantChoices(base(), { 0: false });
+    expect(s.groups).toHaveLength(4);
+    expect(s.variants).toEqual([]);
+    expect(s.groups.every((g) => !g.reasons.some((r) => /autre couleur/.test(r)))).toBe(true);
+  });
+
+  it("sans valeurs fournies : fusion sans option", () => {
+    const s0 = base();
+    const s = applyVariantChoices({ ...s0, variants: [{ ...s0.variants[0], values: [] }] });
+    expect(s.groups[0].draft.options).toEqual([]);
+    expect(s.groups).toHaveLength(2);
   });
 });

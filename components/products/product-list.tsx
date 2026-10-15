@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ImageOff, Loader2, Megaphone, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
+import { CheckCircle2, ImageOff, Loader2, Megaphone, Pencil, Plus, Send, Sparkles, Trash2 } from "lucide-react";
 import { deleteProduct, setProductStatus } from "@/app/dashboard/produits/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -95,6 +95,7 @@ function ProductRow({ product }: { product: ProductWithImages }) {
   const router = useRouter();
   const [busy, setBusy] = React.useState(false);
   const [confirmDelete, setConfirmDelete] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
   const main = product.product_images[0];
   const thumb = main ? shopMediaThumbUrl(main.path) : null;
   const promo = activePromo(product.price, product.compare_at_price, product.promo_ends_at);
@@ -103,6 +104,16 @@ function ProductRow({ product }: { product: ProductWithImages }) {
     setBusy(true);
     await setProductStatus(product.id, product.status === "sold_out" ? "active" : "sold_out");
     setBusy(false);
+    router.refresh();
+  }
+
+  /** Brouillon → en ligne (boutique et Jaarle Market). */
+  async function publish() {
+    setBusy(true);
+    setError(null);
+    const res = await setProductStatus(product.id, "active");
+    setBusy(false);
+    if (!res.ok) return setError(res.error);
     router.refresh();
   }
 
@@ -142,7 +153,7 @@ function ProductRow({ product }: { product: ProductWithImages }) {
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold">{product.name}</p>
+          <p className="line-clamp-2 text-sm font-semibold leading-snug">{product.name}</p>
           <p className="text-sm text-muted-foreground">
             {formatPrice(product.price)}
             {promo && <span className="ml-1.5 text-xs line-through">{promo.oldPriceLabel}</span>}
@@ -167,12 +178,22 @@ function ProductRow({ product }: { product: ProductWithImages }) {
             {product.status === "sold_out" ? t("products.markAvailable") : t("products.markSoldOut")}
           </Button>
         )}
-        <div className="flex gap-1">
-          <Button variant="ghost" size="sm" asChild aria-label={t("products.createContent")} title={t("products.createContent")}>
-            <Link href={`/dashboard/studio/${product.id}`}>
-              <Megaphone className="h-3.5 w-3.5" />
-            </Link>
+        {!product.moderated_at && product.status === "draft" && (
+          <Button variant="accent" size="sm" disabled={busy} onClick={publish}>
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+            {t("products.publishShort")}
           </Button>
+        )}
+        {error && <p className="max-w-[10rem] text-right text-[11px] text-destructive">{error}</p>}
+        <div className="flex gap-1">
+          {/* Campagne : seulement pour un produit déjà en ligne (un brouillon se publie d'abord). */}
+          {product.status !== "draft" && (
+            <Button variant="ghost" size="sm" asChild aria-label={t("products.createContent")} title={t("products.createContent")}>
+              <Link href={`/dashboard/studio/${product.id}`}>
+                <Megaphone className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
+          )}
           <Button variant="ghost" size="sm" asChild aria-label={t("products.createPoster")} title={t("products.createPoster")}>
             <Link href={`/dashboard/new?productId=${product.id}`}>
               <Sparkles className="h-3.5 w-3.5" />

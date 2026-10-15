@@ -31,6 +31,14 @@ export const ImportItemSchema = z.object({
   /** Image tirée d'une vidéo : identifiant (nom) de la vidéo source. */
   videoRef: z.string().max(120).nullable().optional(),
   name: z.string().max(200).nullable().optional(),
+  /** Date du fichier sur le téléphone (ms, File.lastModified) : indice « photos prises à la suite ». */
+  takenAt: z.number().int().positive().nullable().optional(),
+  /** Inventaire IA du regroupement (type · couleurs · motif · détails), relu pour la fiche. */
+  aiNote: z.string().max(200).nullable().optional(),
+  /** Vue détectée par l'IA (face, dos, gros_plan…). */
+  aiView: z.string().max(20).nullable().optional(),
+  /** false si l'IA a jugé la photo illisible. */
+  aiReadable: z.boolean().nullable().optional(),
 });
 export type ImportItem = z.infer<typeof ImportItemSchema>;
 
@@ -253,7 +261,8 @@ export function mergeGroups(s: ImportState, intoId: string, fromId: string, opti
     ...into,
     itemIds: [...into.itemIds, ...from.itemIds],
     draft,
-    reasons: into.reasons.filter((r) => !/autre couleur|presque identique/.test(r)),
+    // Raisons qui suggéraient justement cette fusion : réglées par le geste du vendeur.
+    reasons: into.reasons.filter((r) => !/autre couleur|presque identique|même vidéo|même nom|vues partielles/.test(r)),
     // L'ordre compte : défusionner rend à chacun ses photos d'origine.
     merged: [...(into.merged ?? []), ...(fromMerged ?? []), fromSnapshot],
   };
@@ -323,9 +332,41 @@ export function productPhotoIds(s: Pick<ImportState, "items">, g: Pick<ImportGro
   return [...(g.mainId ? [g.mainId] : []), ...real, ...frames].slice(0, PHOTOS_PER_PRODUCT);
 }
 
+/**
+ * Photos envoyées à l'IA pour rédiger la fiche (SUGGEST_IMAGES au plus) : la principale, puis des
+ * vues DIFFÉRENTES de l'article (une vue de dos ou un gros plan apporte plus qu'une 2e vue de face),
+ * vraies photos avant images de vidéo, photos jugées illisibles en dernier.
+ */
+export function suggestPhotoIds(s: Pick<ImportState, "items">, g: Pick<ImportGroup, "itemIds" | "mainId">): string[] {
+  const byId = new Map(s.items.map((i) => [i.id, i]));
+  const main = g.mainId && g.itemIds.includes(g.mainId) ? g.mainId : g.itemIds[0];
+  if (!main) return [];
+  const score = (id: string) => {
+    const it = byId.get(id);
+    return (it?.aiReadable === false ? 4 : 0) + (it?.videoRef ? 2 : 0);
+  };
+  const rest = g.itemIds.filter((id) => id !== main).map((id, k) => ({ id, k })).sort((a, b) => score(a.id) - score(b.id) || a.k - b.k).map((x) => x.id);
+  const picked = [main];
+  const views = new Set([byId.get(main)?.aiView ?? "?"]);
+  // 1er passage : une photo par vue encore absente ; 2e passage : compléter dans l'ordre.
+  for (const id of rest) {
+    if (picked.length >= SUGGEST_IMAGES) break;
+    const v = byId.get(id)?.aiView;
+    if (v && !views.has(v) && byId.get(id)?.aiReadable !== false) {
+      picked.push(id);
+      views.add(v);
+    }
+  }
+  for (const id of rest) {
+    if (picked.length >= SUGGEST_IMAGES) break;
+    if (!picked.includes(id)) picked.push(id);
+  }
+  return picked;
+}
+
 /** Clé « médias de la fiche » : la fiche IA est à refaire quand les photos envoyées changent. */
 export function suggestKeyOf(s: Pick<ImportState, "items">, g: Pick<ImportGroup, "itemIds" | "mainId">): string {
-  return productPhotoIds(s, g).slice(0, SUGGEST_IMAGES).join(",");
+  return suggestPhotoIds(s, g).join(",");
 }
 
 // ─── États de révision ────────────────────────────────────────────────────────────────────────
@@ -394,14 +435,32 @@ export function stateFromGrouping(
     groups: { key: string; items: number[]; main: number; confidence: "high" | "medium" | "low"; label: string; reviewReasons: string[] }[];
     unsorted: { item: number }[];
     variants: { groups: string[]; option: string; values: string[]; reason: string }[];
+    /** Groupes fusionnés par la 2e vérification, par clé du groupe qui les a reçus (annulables). */
+    mergedFrom?: Record<string, { key: string; items: number[]; main: number; label: string }[]>;
   },
   newId: () => string
 ): ImportState {
   const keyToId = new Map<string, string>();
+  const ids = (list: number[]) => list.map((i) => items[i]?.id).filter((x): x is string => !!x);
   const groups: ImportGroup[] = grouping.groups.map((g) => {
     const id = newId();
     keyToId.set(g.key, id);
-    const itemIds = g.items.map((i) => items[i]?.id).filter((x): x is string => !!x);
+    const itemIds = ids(g.items);
+    // Fusion faite par la vérification : instantané gardé pour que le vendeur puisse « défusionner ».
+    const merged: MergedSnapshot[] = (grouping.mergedFrom?.[g.key] ?? []).map((m) => {
+      const mIds = ids(m.items);
+      return {
+        id: newId(),
+        itemIds: mIds,
+        mainId: items[m.main]?.id ?? mIds[0] ?? null,
+        confidence: "medium" as const,
+        reasons: [],
+        label: m.label,
+        suggestion: "pending" as const,
+        suggestKey: null,
+        draft: emptyDraft(""),
+      };
+    });
     return {
       ...newGroup(id, itemIds, g.label),
       mainId: items[g.main]?.id ?? itemIds[0] ?? null,
@@ -410,6 +469,7 @@ export function stateFromGrouping(
       label: g.label,
       suggestion: "pending",
       draft: emptyDraft(""),
+      merged: merged.slice(0, 50),
     };
   });
   const variants: ImportVariant[] = grouping.variants
@@ -421,5 +481,150 @@ export function stateFromGrouping(
     unsorted: grouping.unsorted.map((u) => items[u.item]?.id).filter((x): x is string => !!x),
     removed: [],
     variants,
+  });
+}
+
+// ─── Mesure des corrections du vendeur ──────────────────────────────────────────────────────────
+
+/** Répartition des médias (identifiants) : produits non exclus et non rangés. */
+export interface ImportPartition {
+  groups: string[][];
+  unsorted: string[];
+}
+
+export function partitionOf(s: Pick<ImportState, "groups" | "unsorted">): ImportPartition {
+  return { groups: s.groups.filter((g) => !g.excluded && g.itemIds.length).map((g) => [...g.itemIds]), unsorted: [...s.unsorted] };
+}
+
+export const ImportPartitionSchema = z.object({ groups: z.array(z.array(z.string())), unsorted: z.array(z.string()) });
+
+export interface CorrectionStats {
+  /** Photos qui ont fini dans un produit créé (base de la mesure). */
+  photos: number;
+  /** Fragments d'un même produit final que l'IA avait séparés (le vendeur a dû fusionner). */
+  merges: number;
+  /** Photos sorties d'un groupe IA qui mélangeait des articles (le vendeur a dû séparer). */
+  movesOut: number;
+  /** Photos laissées « non rangées » par l'IA et placées par le vendeur. */
+  placedFromUnsorted: number;
+  /** Total des gestes estimés (même définition que scoreLot du banc). */
+  corrections: number;
+  /** Corrections pour 10 photos. */
+  per10: number;
+  /** Produits finaux identiques à un groupe proposé par l'IA. */
+  exactGroups: number;
+  finalGroups: number;
+}
+
+/**
+ * Compare la proposition de l'IA (`initial`) aux produits réellement créés (`final`, ex. groupes
+ * avec productId). Même logique que le banc : chaque produit final est la « vérité ».
+ *  - movesOut : dans chaque groupe IA, photos qui ne vont pas avec la majorité de ses photos ;
+ *  - merges : un produit final réparti entre k groupes IA compte k - 1 ;
+ *  - placedFromUnsorted : photos non rangées par l'IA qui finissent dans un produit.
+ * Les photos jamais utilisées (retirées, produits exclus) ne comptent pas.
+ */
+export function correctionStats(initial: ImportPartition, final: string[][]): CorrectionStats {
+  const finalOf = new Map<string, number>();
+  final.forEach((g, k) => g.forEach((id) => finalOf.set(id, k)));
+  const photos = finalOf.size;
+  const initialOf = new Map<string, number>();
+  initial.groups.forEach((g, k) => g.forEach((id) => initialOf.set(id, k)));
+  const unsorted = new Set(initial.unsorted);
+
+  let movesOut = 0;
+  for (const g of initial.groups) {
+    const used = g.filter((id) => finalOf.has(id));
+    if (!used.length) continue;
+    const counts = new Map<number, number>();
+    for (const id of used) counts.set(finalOf.get(id)!, (counts.get(finalOf.get(id)!) ?? 0) + 1);
+    const top = Math.max(...counts.values());
+    movesOut += used.length - top;
+  }
+  let merges = 0;
+  let placedFromUnsorted = 0;
+  let exactGroups = 0;
+  for (const g of final) {
+    const fromGroups = new Set(g.filter((id) => initialOf.has(id)).map((id) => initialOf.get(id)!));
+    merges += Math.max(0, fromGroups.size - 1);
+    placedFromUnsorted += g.filter((id) => unsorted.has(id) || (!initialOf.has(id) && !unsorted.has(id))).length;
+    if (fromGroups.size === 1 && g.every((id) => initialOf.has(id))) {
+      const src = initial.groups[[...fromGroups][0]];
+      if (src.length === g.length) exactGroups++;
+    }
+  }
+  const corrections = merges + movesOut + placedFromUnsorted;
+  return { photos, merges, movesOut, placedFromUnsorted, corrections, per10: photos ? Math.round((corrections / photos) * 100) / 10 : 0, exactGroups, finalGroups: final.length };
+}
+
+// ─── Étape « Valider les groupes » (avant toute fiche IA) ───────────────────────────────────────
+
+/**
+ * Les groupes sont validés dès qu'une fiche a été demandée, saisie ou créée. Après le regroupement
+ * (IA ou « ranger moi-même »), toutes les fiches sont « pending » : le vendeur passe d'abord par
+ * l'étape de validation, et aucune fiche IA n'est rédigée pour des produits qu'il va fusionner.
+ */
+export function groupsConfirmed(s: Pick<ImportState, "groups">): boolean {
+  return s.groups.some((g) => !!g.productId || g.suggestion !== "pending" || !!g.draft.name.trim());
+}
+
+export interface VariantFamily {
+  /** Index dans state.variants. */
+  index: number;
+  groupIds: string[];
+  option: string;
+  values: string[];
+  reason: string;
+}
+
+/** Familles « même modèle, autre couleur » encore applicables (au moins 2 produits non créés). */
+export function variantFamilies(s: Pick<ImportState, "groups" | "variants">): VariantFamily[] {
+  const open = new Set(s.groups.filter((g) => !g.productId && !g.excluded).map((g) => g.id));
+  return (s.variants ?? [])
+    .map((v, index) => ({ index, groupIds: v.groupIds.filter((id) => open.has(id)), option: v.option.trim() || "Couleur", values: v.values.map((x) => x.trim()).filter(Boolean), reason: v.reason }))
+    .filter((f) => f.groupIds.length >= 2);
+}
+
+const VARIANT_REASON = /autre couleur/;
+
+/**
+ * Applique les choix du vendeur sur les familles de variantes (index → oui / non ; défaut : oui).
+ *  - oui : les produits de la famille sont fusionnés dans le 1er, avec l'option (ex. Couleur :
+ *    Blanc, Noir, Marron). Fusion annulable ensuite (« Recréer ce produit à part »).
+ *  - non : la suggestion est retirée et l'alerte « autre couleur » disparaît des produits.
+ */
+export function applyVariantChoices(s: ImportState, choices: Record<number, boolean> = {}): ImportState {
+  const families = variantFamilies(s);
+  const absorbedInto = new Map<string, string>();
+  const root = (id: string) => {
+    let cur = id;
+    while (absorbedInto.has(cur)) cur = absorbedInto.get(cur)!;
+    return cur;
+  };
+  let next = s;
+  const declined = new Set<string>();
+  for (const f of families) {
+    if (choices[f.index] === false) {
+      f.groupIds.forEach((id) => declined.add(id));
+      continue;
+    }
+    const ids = [...new Set(f.groupIds.map(root))];
+    const [into, ...rest] = ids;
+    for (const from of rest) {
+      const option = f.values.length >= 2 ? { name: f.option, values: f.values } : undefined;
+      const merged = mergeGroups(next, into, from, option);
+      if (merged !== next) absorbedInto.set(from, into);
+      next = merged;
+    }
+  }
+  // Familles refusées : la suggestion disparaît (ses produits restent séparés).
+  const variants = (next.variants ?? []).filter((v) => !v.groupIds.every((id) => declined.has(id)));
+  const stillInVariant = new Set(variants.flatMap((v) => v.groupIds));
+  return normalizeImportState({
+    ...next,
+    variants,
+    groups: next.groups.map((g) =>
+      declined.has(g.id) && !stillInVariant.has(g.id) ? { ...g, reasons: g.reasons.filter((r) => !VARIANT_REASON.test(r)) } : g
+    ),
   });
 }

@@ -34,10 +34,39 @@ export type ProductSuggestion = z.infer<typeof ProductSuggestionSchema>;
 
 export type AutofillImage = { base64: string; mediaType: "image/jpeg" };
 
+/** Contexte venant de l'import en lot : nom provisoire du groupe et inventaire IA de ses photos. */
+export interface AutofillGroupHints {
+  label?: string | null;
+  /** Une note par photo envoyée, dans le même ordre (vide si inconnue). */
+  notes?: (string | null | undefined)[];
+  /** Options déjà choisies par le vendeur (ex. Couleur : Blanc, Noir) : un seul produit décliné. */
+  options?: { name: string; values: string[] }[];
+}
+
+/** Bloc de consigne « analyse du lot » (vide sans indice). Exporté pour les tests. */
+export function groupHintsBlock(hints?: AutofillGroupHints): string {
+  const label = hints?.label?.replace(/\s+/g, " ").trim().slice(0, 120);
+  const notes = (hints?.notes ?? []).map((n, i) => (n?.trim() ? `photo ${i + 1} : ${n.replace(/\s+/g, " ").trim().slice(0, 200)}` : null)).filter(Boolean);
+  const options = (hints?.options ?? []).filter((o) => o.name.trim() && o.values.length >= 2);
+  if (!label && !notes.length && !options.length) return "";
+  const optionLines = options
+    .map((o) => {
+      const colour = /couleur|coloris|color/i.test(o.name);
+      return `- Ce produit est vendu en plusieurs déclinaisons — ${o.name.trim()} : ${o.values.join(", ")}. Les photos montrent ces déclinaisons : ${
+        colour ? "n'écris AUCUNE couleur dans le nom, la description ni les caractéristiques" : `ne fixe pas une seule valeur de « ${o.name.trim()} »`
+      } (ex. « Ensemble chemise à losanges » et non « Ensemble chemise à losanges vert »).`;
+    })
+    .join("\n");
+  return `
+Analyse du lot (indicative : vérifie sur les photos, ne reprends que ce qui y est visible) :
+${label ? `- Nom provisoire déjà montré au vendeur : « ${label} »\n` : ""}${notes.length ? `- Notes par photo :\n${notes.map((n) => `  ${n}`).join("\n")}\n` : ""}${optionLines ? `${optionLines}\n` : ""}${label ? (optionLines ? "Ta fiche doit décrire le MÊME modèle que ce nom provisoire, sans la déclinaison qu'il cite.\n" : "Ta fiche doit décrire le MÊME article que ce nom provisoire : garde-le reconnaissable (tu peux le préciser, ou le corriger s'il est faux d'après les photos).\n") : ""}`;
+}
+
 export async function suggestProductFromPhotos(
   images: AutofillImage[],
   shopContext: string,
-  onUsage?: (usage: { model: string; inputTokens: number; outputTokens: number }) => void
+  onUsage?: (usage: { model: string; inputTokens: number; outputTokens: number }) => void,
+  groupHints?: AutofillGroupHints
 ): Promise<ProductSuggestion> {
   const anthropic = new Anthropic();
   const content: (
@@ -51,7 +80,7 @@ export async function suggestProductFromPhotos(
 
 Contexte de la boutique :
 ${shopContext || "(non renseigné)"}
-
+${groupHintsBlock(groupHints)}
 Propose une fiche produit en FRANÇAIS, simple et vendeuse, comme l'écrirait un bon vendeur à Dakar :
 - name : nom commercial court (2 à 6 mots), ex. « Boubou homme bazin bleu ». JAMAIS de nom de marque (Nike, Supreme, Gucci…), même si un logo est visible : décris l'article (« T-shirt graphique oversize »), et n'invente aucune référence.
   EXCEPTION VÉHICULES : pour une voiture, une moto, un scooter, un utilitaire ou un camion (et une pièce auto), la marque et le modèle SONT le nom : écris-les quand ils sont reconnaissables avec certitude (logo, badge, forme caractéristique), ex. « Toyota Land Cruiser gris », « Mercedes Classe C noire », « Moto Yamaha 125 rouge ». N'invente jamais l'année, le kilométrage ni la motorisation ; si la marque n'est pas certaine, décris le véhicule (« SUV noir 7 places »).
@@ -62,7 +91,7 @@ Propose une fiche produit en FRANÇAIS, simple et vendeuse, comme l'écrirait un
 ${MARKET_LIST}
   Le TYPE d'article doit correspondre exactement (un jean ou un short n'est jamais un t-shirt) ; sinon "none".
 - keywords : 3 à 5 mots-clés de recherche.
-- attributes : caractéristiques VISIBLES uniquement (couleur, matière, motif, contenance lisible sur l'étiquette…). N'invente pas de tailles, de quantités ni de stock.
+- attributes : caractéristiques VISIBLES uniquement (couleur, matière, motif, contenance lisible sur l'étiquette…). N'invente pas de tailles, de quantités, de stock ni de matière qu'on ne peut pas voir ou lire.
 - subjectType : "service" seulement si la photo montre clairement une prestation plutôt qu'un objet à vendre.
 Ne donne jamais de prix.`,
   });

@@ -17,7 +17,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const BodySchema = z.object({ itemIds: z.array(z.string().uuid()).min(1).max(10) });
+const BodySchema = z.object({ itemIds: z.array(z.string().uuid()).min(1).max(10), groupId: z.string().uuid().optional() });
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const access = await bulkAccess();
@@ -44,15 +44,18 @@ export async function POST(request: Request, { params }: { params: { id: string 
   }
 
   const byId = new Map(row.items.map((i) => [i.id, i]));
-  const paths = parsed.data.itemIds
-    .map((id) => byId.get(id)?.path)
-    .filter((p): p is string => !!p)
+  const picked = parsed.data.itemIds
+    .map((id) => byId.get(id))
+    .filter((i): i is NonNullable<typeof i> => !!i)
     .slice(0, SUGGEST_IMAGES);
-  if (paths.length === 0) return NextResponse.json({ error: "Photo introuvable." }, { status: 404 });
+  if (picked.length === 0) return NextResponse.json({ error: "Photo introuvable." }, { status: 404 });
+  // Nom provisoire du groupe (celui que le vendeur voit) : la fiche doit désigner le même article.
+  const group = parsed.data.groupId ? row.groups.find((g) => g.id === parsed.data.groupId) : undefined;
 
   const images: AutofillImage[] = [];
-  for (const path of paths) {
-    const { data: blob } = await supabase.storage.from(SHOP_MEDIA_BUCKET).download(path);
+  const notes: (string | null)[] = [];
+  for (const item of picked) {
+    const { data: blob } = await supabase.storage.from(SHOP_MEDIA_BUCKET).download(item.path);
     if (!blob) continue;
     try {
       const jpeg = await sharp(Buffer.from(await blob.arrayBuffer()))
@@ -60,6 +63,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
         .jpeg({ quality: 80 })
         .toBuffer();
       images.push({ base64: jpeg.toString("base64"), mediaType: "image/jpeg" });
+      notes.push(item.aiNote ?? null);
     } catch {
       // image illisible : ignorée
     }
@@ -78,7 +82,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
         usageEventId: row.usage_event_id,
         shopId: shop.id,
         meta: { importId: row.id },
-      })
+      }),
+      { label: group?.label ?? null, notes, options: group?.draft.options ?? [] }
     );
     const attributes = s.attributes.map((a) => `${a.name} : ${a.value}`).join(" · ");
     return NextResponse.json({

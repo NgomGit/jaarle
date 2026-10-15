@@ -288,6 +288,12 @@ export interface ModelSummary {
   photos: number;
   wrongMergeItemRate: number;
   unsortedClearRate: number;
+  /** Toutes les non rangées (évitables + ambiguës) / photos. */
+  unsortedRate: number;
+  /** Gestes « fusionner » (l'IA a séparé à tort) pour 10 photos. */
+  mergeFixesPer10Photos: number;
+  /** Gestes « sortir une photo » (l'IA a fusionné à tort) pour 10 photos. */
+  splitFixesPer10Photos: number;
   pairPrecision: number;
   pairRecall: number;
   correctionsPer10Photos: number;
@@ -331,6 +337,9 @@ export function summarize(records: CallRecord[]): ModelSummary[] {
       photos,
       wrongMergeItemRate: photos ? sum((s) => s.wrongMergeItems) / photos : 0,
       unsortedClearRate: photos ? sum((s) => s.unsortedClear) / photos : 0,
+      unsortedRate: photos ? sum((s) => s.unsortedTotal) / photos : 0,
+      mergeFixesPer10Photos: photos ? (10 * sum((s) => s.splitExtraFragments)) / photos : 0,
+      splitFixesPer10Photos: photos ? (10 * sum((s) => s.wrongMergeItems)) / photos : 0,
       pairPrecision: sum((s) => s.pairPrecision) / pairs,
       pairRecall: sum((s) => s.pairRecall) / pairs,
       correctionsPer10Photos: photos ? (10 * sum((s) => s.corrections)) / photos : 0,

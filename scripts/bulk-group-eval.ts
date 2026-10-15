@@ -14,6 +14,9 @@
 // Options : --lots <dossier> (défaut tmp/bulk-group-lots) · --lot a,b · --models haiku,sonnet,<id>
 //           --runs N · --size 512 · --shuffle <graine> · --concurrency 2 · --out <dossier>
 //           --mock · --dry-run · --hash-hints · --include-synthetic=false
+//           --thinking on,off (réflexion interne du modèle, défaut : off)
+//           --prompt v1,v2 (consignes à comparer, défaut v2) · --verify (ajoute la 2e vérification ciblée ;
+//           avec --verify=both, chaque configuration est mesurée avec ET sans)
 
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -21,11 +24,14 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   DEFAULT_BULK_GROUP_MODEL,
+  HAIKU_MODEL,
   groupMediaWithAi,
   normalizeGrouping,
   type GroupingImage,
   type GroupingOutput,
+  type GroupingPromptVersion,
 } from "@/lib/ai/bulk-group";
+import { applyVerification, suspiciousPairs, verifyPairsWithAi } from "@/lib/ai/bulk-group-verify";
 import { estimateImageTokens, exactDuplicatePairs, groupingThumbnail, imagePrint, nearDuplicatePairs, type ImagePrint } from "@/lib/ai/bulk-group-hash";
 import {
   expandTruth,
@@ -42,7 +48,7 @@ import { tokenCostUsd } from "@/lib/billing/usage";
 
 const IMAGE_EXT = new Set([".jpg", ".jpeg", ".png", ".webp"]);
 const VIDEO_EXT = new Set([".mp4", ".mov", ".m4v", ".webm"]);
-const MODEL_ALIASES: Record<string, string> = { haiku: DEFAULT_BULK_GROUP_MODEL, sonnet: "claude-sonnet-5" };
+const MODEL_ALIASES: Record<string, string> = { haiku: HAIKU_MODEL, sonnet: "claude-sonnet-5", default: DEFAULT_BULK_GROUP_MODEL };
 const PROMPT_TOKENS_ESTIMATE = 1300;
 
 async function loadEnv() {
@@ -79,6 +85,9 @@ function parseArgs() {
     /** Envoie aussi à l'IA les paires « très proches » calculées (par défaut : seulement les fichiers identiques). */
     hashHints: a.includes("--hash-hints"),
     includeSynthetic: !a.includes("--include-synthetic=false"),
+    prompts: (opt("prompt") ?? "v2").split(",").map((p) => (p.trim() === "v1" ? "v1" : "v2")) as GroupingPromptVersion[],
+    thinkings: (opt("thinking") ?? "off").split(",").map((t) => (t.trim() === "on" ? "on" : "off")) as ("on" | "off")[],
+    verify: a.includes("--verify=both") ? [false, true] : a.includes("--verify") ? [true] : [false],
   };
 }
 
@@ -296,11 +305,15 @@ async function main() {
 
   const models = args.mock ? ["mock"] : args.models;
   const tasks: (() => Promise<CallRecord>)[] = [];
+  const configs = models.flatMap((model) =>
+    args.prompts.flatMap((prompt) => args.thinkings.flatMap((thinking) => args.verify.map((verify) => ({ model, prompt, verify, thinking }))))
+  );
   for (const lot of lots) {
-    for (const model of models) {
+    for (const { model, prompt, verify, thinking } of configs) {
       for (let run = 1; run <= args.runs; run++) {
         tasks.push(async () => {
-          const base = { lot: lot.name, model, run };
+          const label = `${model} · ${prompt}${thinking === "on" ? " · avec réflexion" : ""}${verify ? " · vérif" : ""}`;
+          const base = { lot: lot.name, model: label, run };
           let raw: GroupingOutput;
           let durationMs = 0;
           let inputTokens = 0;
@@ -312,7 +325,7 @@ async function main() {
               const res = await groupMediaWithAi(
                 lot.images,
                 { exactDuplicates: lot.exactDuplicates, similarPairs: args.hashHints ? lot.similarPairs : [], shopContext: lot.truth.shopContext },
-                { model }
+                { model, promptVersion: prompt, thinking }
               );
               raw = res.raw;
               durationMs = res.durationMs;
@@ -324,21 +337,42 @@ async function main() {
             console.warn(`  ✗ ${lot.name} · ${model} · passage ${run} : ${message}`);
             return { ...base, ok: false, error: message, durationMs, inputTokens, outputTokens, costUsd: 0 };
           }
-          const normalized = normalizeGrouping(raw, lot.images.length, { nearDuplicates: [...lot.exactDuplicates, ...lot.similarPairs] });
+          const videoRefs = lot.images.map((i) => i.videoRef ?? null);
+          let normalized: ReturnType<typeof normalizeGrouping> = normalizeGrouping(raw, lot.images.length, { nearDuplicates: [...lot.exactDuplicates, ...lot.similarPairs], videoRefs });
+          let costUsd = args.mock ? 0 : tokenCostUsd(model, inputTokens, outputTokens);
+          let verifyInfo: Record<string, unknown> | null = null;
+          if (verify && !args.mock) {
+            const pairs = suspiciousPairs(normalized, videoRefs);
+            if (pairs.length) {
+              try {
+                const v = await verifyPairsWithAi(lot.images, normalized, pairs, { model });
+                normalized = applyVerification(normalized, pairs, v.raw);
+                durationMs += v.durationMs;
+                inputTokens += v.inputTokens;
+                outputTokens += v.outputTokens;
+                costUsd += tokenCostUsd(model, v.inputTokens, v.outputTokens);
+                verifyInfo = { pairs, raw: v.raw, durationMs: v.durationMs, images: v.images };
+              } catch (err) {
+                verifyInfo = { pairs, error: err instanceof Error ? err.message : String(err) };
+              }
+            } else verifyInfo = { pairs: [] };
+          }
           const score = scoreLot(lot.expanded, normalized);
-          const costUsd = args.mock ? 0 : tokenCostUsd(model, inputTokens, outputTokens);
           const named = {
             groups: normalized.groups.map((g) => ({ ...g, files: g.items.map((i) => lot.expanded.files[i]), truth: g.items.map((i) => lot.expanded.groupOf[i]) })),
             unsorted: normalized.unsorted.map((u) => ({ ...u, file: lot.expanded.files[u.item], truth: lot.expanded.groupOf[u.item] })),
             duplicates: normalized.duplicates.map((d) => ({ ...d, files: [lot.expanded.files[d.a], lot.expanded.files[d.b]] })),
             variants: normalized.variants,
             issues: normalized.issues,
+            signals: normalized.signals,
+            photos: normalized.photos.map((p, i) => (p ? { file: lot.expanded.files[i], ...p } : null)),
+            verify: verifyInfo,
           };
-          const safeModel = model.replace(/[^a-z0-9.-]/gi, "_");
+          const safeModel = label.replace(/[^a-z0-9.-]+/gi, "_");
           await mkdir(path.join(args.out, lot.name), { recursive: true });
           await writeFile(path.join(args.out, lot.name, `${safeModel}-run${run}.json`), JSON.stringify({ raw, result: named, score, durationMs, inputTokens, outputTokens, costUsd }, null, 2));
           console.log(
-            `  ${lot.name} · ${model} · #${run} : ${score.predictedGroups}/${score.truthGroups} groupes, fusions ${score.wrongMergeItems}, séparations ${score.splitExtraFragments}, non rangées ${score.unsortedClear}+${score.unsortedAmbiguous} amb., corrections ${score.corrections}, ${(durationMs / 1000).toFixed(1)} s, $${costUsd.toFixed(4)}`
+            `  ${lot.name} · ${label} · #${run} : ${score.predictedGroups}/${score.truthGroups} groupes, fusions ${score.wrongMergeItems}, séparations ${score.splitExtraFragments}, non rangées ${score.unsortedClear}+${score.unsortedAmbiguous} amb., corrections ${score.corrections}, ${(durationMs / 1000).toFixed(1)} s, $${costUsd.toFixed(4)}`
           );
           return { ...base, ok: true, score, durationMs, inputTokens, outputTokens, costUsd };
         });
@@ -357,11 +391,11 @@ async function main() {
   if (syntheticOnly) lines.push("> **Lots synthétiques uniquement** : ces chiffres ne valident pas la phase 1. Il faut des lots réels (voir docs/bulk-group-eval.md).", "");
   if (skipped.length) lines.push(`Lots ignorés : ${skipped.map((s) => `${s.lot} (${s.error.split("\n")[0]})`).join(" ; ")}`, "");
   lines.push("## Synthèse par modèle", "");
-  lines.push("| Modèle | Appels (échecs) | Photos | Mal fusionnées | Non rangées évitables | Précision | Rappel | Articles exacts | Corrections / 10 photos | Variantes trouvées | Doublons trouvés | Sorties brutes à corriger | Perdus | Coût / 30 photos | Durée p50 / p95 | Écart entre passages |");
-  lines.push("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+  lines.push("| Configuration | Appels (échecs) | Photos | Mal fusionnées | Non rangées évitables | Non rangées (toutes) | Précision | Rappel | Articles exacts | Corrections / 10 photos | dont fusions / sorties | Variantes trouvées | Doublons trouvés | Sorties brutes à corriger | Perdus | Coût / 30 photos | Durée p50 / p95 | Écart entre passages |");
+  lines.push("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
   for (const s of summaries) {
     lines.push(
-      `| ${s.model} | ${s.calls} (${s.failedCalls}) | ${s.photos} | ${pct(s.wrongMergeItemRate)} | ${pct(s.unsortedClearRate)} | ${s.pairPrecision.toFixed(3)} | ${s.pairRecall.toFixed(3)} | ${pct(s.exactGroupRate)} | ${s.correctionsPer10Photos.toFixed(2)} | ${s.variantsRecall == null ? "—" : pct(s.variantsRecall)} | ${s.duplicatesRecall == null ? "—" : pct(s.duplicatesRecall)} | ${s.rawIssueCalls} | ${s.lost} | $${s.costPer30PhotosUsd.toFixed(4)} | ${(s.durationP50Ms / 1000).toFixed(1)} / ${(s.durationP95Ms / 1000).toFixed(1)} s | ${s.maxCorrectionSpread} |`
+      `| ${s.model} | ${s.calls} (${s.failedCalls}) | ${s.photos} | ${pct(s.wrongMergeItemRate)} | ${pct(s.unsortedClearRate)} | ${pct(s.unsortedRate)} | ${s.pairPrecision.toFixed(3)} | ${s.pairRecall.toFixed(3)} | ${pct(s.exactGroupRate)} | ${s.correctionsPer10Photos.toFixed(2)} | ${s.mergeFixesPer10Photos.toFixed(2)} / ${s.splitFixesPer10Photos.toFixed(2)} | ${s.variantsRecall == null ? "—" : pct(s.variantsRecall)} | ${s.duplicatesRecall == null ? "—" : pct(s.duplicatesRecall)} | ${s.rawIssueCalls} | ${s.lost} | $${s.costPer30PhotosUsd.toFixed(4)} | ${(s.durationP50Ms / 1000).toFixed(1)} / ${(s.durationP95Ms / 1000).toFixed(1)} s | ${s.maxCorrectionSpread} |`
     );
   }
   lines.push("", "## Critères de passage en phase 1 (à juger sur lots réels)", "");
@@ -373,7 +407,7 @@ async function main() {
     lines.push("");
   }
   lines.push("## Détail par lot", "");
-  lines.push("| Lot | Modèle | # | Groupes (prévus/vrais) | Fusions (photos) | Séparations | Non rangées (évitables + ambiguës) | Ambiguës mal placées | Exacts | Variantes | Doublons (dont calcul) | Sortie brute à corriger | Durée | Coût |");
+  lines.push("| Lot | Configuration | # | Groupes (prévus/vrais) | Fusions (photos) | Séparations | Non rangées (évitables + ambiguës) | Ambiguës mal placées | Exacts | Variantes | Doublons (dont calcul) | Sortie brute à corriger | Durée | Coût |");
   lines.push("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
   for (const r of records) {
     if (!r.ok || !r.score) {

@@ -25,3 +25,6 @@ yarn-error.log*
 next-env.d.ts
 # sorties des scripts de test (poster-v2)
 /tmp/
+
+# photos de test du banc Bulk Upload (images de vendeurs : ne jamais commiter)
+/bulk/

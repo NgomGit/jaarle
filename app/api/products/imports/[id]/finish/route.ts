@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { bulkAccess, loadImport, publicImport } from "@/lib/products/bulk-server";
-import { unusedItemPaths } from "@/lib/products/bulk-import";
+import { ImportPartitionSchema, correctionStats, unusedItemPaths } from "@/lib/products/bulk-import";
 import { thumbPath } from "@/lib/shops/media";
 import { SHOP_MEDIA_BUCKET } from "@/lib/shops/types";
 
@@ -39,13 +39,20 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const createdMap = new Map(((created ?? []) as { id: string; import_group_id: string }[]).map((r) => [r.import_group_id, r.id]));
   const groups = row.groups.map((g) => ({ ...g, productId: createdMap.get(g.id) ?? g.productId ?? null }));
 
+  // Corrections réelles du vendeur : proposition de l'IA (stats.initial) contre produits créés.
+  const initial = ImportPartitionSchema.safeParse(row.stats?.initial);
+  const corrections =
+    initial.success && !row.stats?.manual
+      ? correctionStats(initial.data, groups.filter((g) => g.productId).map((g) => g.itemIds))
+      : null;
+
   const { error } = await supabase
     .from("product_imports")
     .update({
       status: body.cancel ? "canceled" : "done",
       groups,
       version: row.version + 1,
-      stats: { ...row.stats, created: createdMap.size, deletedMedia: unused.length },
+      stats: { ...row.stats, created: createdMap.size, deletedMedia: unused.length, ...(corrections ? { corrections } : {}) },
     })
     .eq("id", row.id);
   if (error) {

@@ -18,6 +18,7 @@ const BodySchema = z.object({
         height: z.number().int().positive().nullable().optional(),
         videoRef: z.string().trim().max(120).nullable().optional(),
         name: z.string().max(200).nullable().optional(),
+        takenAt: z.number().int().positive().max(8_640_000_000_000).nullable().optional(),
       })
     )
     .min(1)
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
   for (const i of raw) {
     if (seen.has(i.path)) continue;
     seen.add(i.path);
-    items.push({ id: randomUUID(), path: i.path, width: i.width ?? null, height: i.height ?? null, videoRef: i.videoRef || null, name: i.name ?? null });
+    items.push({ id: randomUUID(), path: i.path, width: i.width ?? null, height: i.height ?? null, videoRef: i.videoRef || null, name: i.name ?? null, takenAt: i.takenAt ?? null });
   }
 
   // Sessions expirées de ce vendeur : nettoyées au passage (pas de cron).

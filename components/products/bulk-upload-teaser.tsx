@@ -21,7 +21,7 @@ export function BulkUploadTeaser({ included, open = false, resumeId = null }: { 
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-foreground">
         <Images className="h-5 w-5" />
       </span>
-      <div className="min-w-0 flex-1">
+      <div className="min-w-[12rem] flex-1 basis-[12rem]">
         <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">
           {t("products.bulkTitle")}
           {live ? (
@@ -37,16 +37,16 @@ export function BulkUploadTeaser({ included, open = false, resumeId = null }: { 
         </p>
       </div>
       {live && (
-        <div className="flex shrink-0 gap-2">
+        <div className="flex w-full gap-2 sm:w-auto sm:shrink-0">
           {resumeId && (
-            <Button variant="secondary" size="sm" className="gap-1.5" asChild>
+            <Button variant="secondary" size="sm" className="flex-1 gap-1.5 sm:flex-none" asChild>
               <Link href={`/dashboard/produits/import?id=${resumeId}`}>
                 <RotateCcw className="h-3.5 w-3.5" />
                 {t("products.bulkResume")}
               </Link>
             </Button>
           )}
-          <Button variant="accent" size="sm" className="gap-1.5" asChild>
+          <Button variant="accent" size="sm" className="flex-1 gap-1.5 sm:flex-none" asChild>
             <Link href="/dashboard/produits/import">
               {t("products.bulkStart")}
               <ArrowRight className="h-3.5 w-3.5" />
@@ -55,7 +55,7 @@ export function BulkUploadTeaser({ included, open = false, resumeId = null }: { 
         </div>
       )}
       {!included && (
-        <Button variant="secondary" size="sm" className="shrink-0 gap-1.5" asChild>
+        <Button variant="secondary" size="sm" className="w-full gap-1.5 sm:w-auto sm:shrink-0" asChild>
           <Link href="/dashboard/abonnement">
             <Lock className="h-3.5 w-3.5" />
             {t("products.bulkUpgrade")}

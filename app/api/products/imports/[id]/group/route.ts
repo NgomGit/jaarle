@@ -1,8 +1,9 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { bulkAccess, loadImport, publicImport } from "@/lib/products/bulk-server";
-import { BULK_IMPORTS_PER_DAY, newGroup, normalizeImportState, stateFromGrouping, type ImportState } from "@/lib/products/bulk-import";
-import { groupMediaWithAi, normalizeGrouping, type GroupingImage } from "@/lib/ai/bulk-group";
+import { BULK_IMPORTS_PER_DAY, newGroup, normalizeImportState, partitionOf, stateFromGrouping, type ImportItem, type ImportState } from "@/lib/products/bulk-import";
+import { groupMediaWithAi, normalizeGrouping, photoNoteText, type GroupingImage } from "@/lib/ai/bulk-group";
+import { applyVerification, suspiciousPairs, verifyMode, verifyPairsWithAi, type VerifiedGrouping } from "@/lib/ai/bulk-group-verify";
 import { exactDuplicatePairs, groupingThumbnail, imagePrint, nearDuplicatePairs, type ImagePrint } from "@/lib/ai/bulk-group-hash";
 import { buildShopContext } from "@/lib/shops/context";
 import { SHOP_MEDIA_BUCKET } from "@/lib/shops/types";
@@ -20,6 +21,8 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const DOWNLOAD_CONCURRENCY = 6;
+/** La 2e vérification (facultative) n'est lancée que s'il reste assez de temps avant maxDuration. */
+const VERIFY_TIME_BUDGET_MS = 35_000;
 
 async function mapLimit<T, R>(list: T[], limit: number, fn: (x: T, i: number) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(list.length);
@@ -36,9 +39,10 @@ async function mapLimit<T, R>(list: T[], limit: number, fn: (x: T, i: number) =>
 }
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
+  const startedAt = Date.now();
   const access = await bulkAccess();
   if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status });
-  const { supabase, userId, shop } = access;
+  const { supabase, userId, shop, noDailyCap } = access;
   const body = (await request.json().catch(() => ({}))) as { manual?: boolean };
 
   const row = await loadImport(supabase, params.id);
@@ -85,8 +89,15 @@ export async function POST(request: Request, { params }: { params: { id: string 
       .eq("owner_id", userId)
       .neq("id", row.id)
       .gte("grouped_at", since);
-    if ((today ?? 0) >= BULK_IMPORTS_PER_DAY) {
-      return NextResponse.json({ error: `Tu as déjà analysé ${BULK_IMPORTS_PER_DAY} lots aujourd'hui. Reviens demain.` }, { status: 429 });
+    if (!noDailyCap && (today ?? 0) >= BULK_IMPORTS_PER_DAY) {
+      return NextResponse.json(
+        {
+          error: `Limite de ${BULK_IMPORTS_PER_DAY} analyses par jour atteinte (tes crédits ne sont pas touchés). Reviens demain, ou range ce lot toi-même.`,
+          canManual: true,
+          daily: true,
+        },
+        { status: 429 }
+      );
     }
     const { count: before } = await supabase
       .from("product_imports")
@@ -132,7 +143,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const prints: ImagePrint[] = ok.map((p) => p.print);
   const exact = exactDuplicatePairs(prints);
   const near = nearDuplicatePairs(prints);
-  const images: GroupingImage[] = ok.map((p) => ({ base64: p.thumb.base64, videoRef: p.item.videoRef ?? null }));
+  const images: GroupingImage[] = ok.map((p) => ({ base64: p.thumb.base64, videoRef: p.item.videoRef ?? null, takenAt: p.item.takenAt ?? null }));
 
   try {
     const result = await groupMediaWithAi(images, { exactDuplicates: exact, shopContext: buildShopContext(shop) });
@@ -145,20 +156,71 @@ export async function POST(request: Request, { params }: { params: { id: string 
       images: images.length,
       usageEventId,
       shopId: shop.id,
-      meta: { importId: row.id, durationMs: result.durationMs },
+      meta: { importId: row.id, durationMs: result.durationMs, prompt: result.promptVersion },
     });
-    const grouping = normalizeGrouping(result.raw, ok.length, { nearDuplicates: [...exact, ...near] });
+    const videoRefs = ok.map((p) => p.item.videoRef ?? null);
+    let grouping: ReturnType<typeof normalizeGrouping> | VerifiedGrouping = normalizeGrouping(result.raw, ok.length, {
+      nearDuplicates: [...exact, ...near],
+      videoRefs,
+    });
+
+    // 2e vérification ciblée (BULK_GROUP_VERIFY=on) : seulement les paires suspectes, et seulement
+    // s'il reste du temps. Un échec ne bloque jamais le lot : on garde le 1er regroupement.
+    if (verifyMode() === "on" && Date.now() - startedAt < VERIFY_TIME_BUDGET_MS) {
+      const pairs = suspiciousPairs(grouping, videoRefs);
+      if (pairs.length) {
+        try {
+          const v = await verifyPairsWithAi(images, grouping, pairs);
+          void logAiCall({
+            userId,
+            feature: "bulk_verify",
+            model: v.model,
+            inputTokens: v.inputTokens,
+            outputTokens: v.outputTokens,
+            images: v.images,
+            usageEventId,
+            shopId: shop.id,
+            meta: { importId: row.id, durationMs: v.durationMs, pairs: pairs.length },
+          });
+          grouping = applyVerification(grouping, pairs, v.raw);
+        } catch (err) {
+          console.error("[imports/group] verify failed (ignored):", err);
+        }
+      }
+    }
     const grouped = stateFromGrouping(
       ok.map((p) => p.item),
       grouping,
       () => randomUUID()
     );
+    // Inventaire IA gardé avec chaque média : relu pour rédiger la fiche du produit.
+    const notes = new Map<string, Pick<ImportItem, "aiNote" | "aiView" | "aiReadable">>();
+    ok.forEach((p, i) => {
+      const n = grouping.photos[i];
+      if (n) notes.set(p.item.id, { aiNote: photoNoteText(n) || null, aiView: n.view, aiReadable: n.identifiable });
+    });
+    const items = row.items.map((it) => ({ ...it, ...(notes.get(it.id) ?? {}) }));
     // Photos illisibles (non téléchargées) : gardées dans « non rangées », jamais perdues.
-    const state = normalizeImportState({ ...grouped, items: row.items, removed: row.removed });
+    const state = normalizeImportState({ ...grouped, items, removed: row.removed });
     const saved = await save(state, {
+      items,
       grouped_at: row.grouped_at ?? new Date().toISOString(),
       usage_event_id: usageEventId ?? null,
-      stats: { ...row.stats, free, groups: state.groups.length, unsorted: state.unsorted.length, issues: grouping.issues, model: result.model },
+      stats: {
+        ...row.stats,
+        manual: false,
+        free,
+        groups: state.groups.length,
+        unsorted: state.unsorted.length,
+        issues: grouping.issues,
+        signals: grouping.signals,
+        ...("verification" in grouping ? { verification: grouping.verification } : {}),
+        model: result.model,
+        prompt: result.promptVersion,
+        durationMs: result.durationMs,
+        // Proposition de l'IA, gardée telle quelle : comparée au résultat final pour mesurer les corrections.
+        initial: partitionOf(state),
+      },
     });
     if (!saved) {
       await giveBack();

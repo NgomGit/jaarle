@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getMyShop } from "@/lib/shops/queries";
 import { bulkUploadLimits, canUseBulkUpload } from "@/lib/billing/features";
 import { getEntitlements } from "@/lib/billing/entitlements";
-import { isBulkUploadOpen } from "@/lib/products/bulk-flags";
+import { isBulkTester, isBulkUploadOpen } from "@/lib/products/bulk-flags";
 import { ImportStateSchema, normalizeImportState, type ImportState, type ImportStatus } from "@/lib/products/bulk-import";
 import type { Entitlements } from "@/lib/billing/types";
 import type { Shop } from "@/lib/shops/types";
@@ -24,7 +24,16 @@ export interface ImportRow extends ImportState {
 }
 
 export type BulkAccess =
-  | { ok: true; supabase: Supabase; userId: string; shop: Shop; entitlements: Entitlements; limits: { photosPerLot: number; videosPerLot: number } }
+  | {
+      ok: true;
+      supabase: Supabase;
+      userId: string;
+      shop: Shop;
+      entitlements: Entitlements;
+      limits: { photosPerLot: number; videosPerLot: number };
+      /** Testeur du pilote : pas de plafond quotidien d'analyses. */
+      noDailyCap: boolean;
+    }
   | { ok: false; status: number; error: string };
 
 /** Vérifie session, boutique, formule (Pro / Business) et phase pilote. */
@@ -43,7 +52,7 @@ export async function bulkAccess(): Promise<BulkAccess> {
   if (!canUseBulkUpload(entitlements) || !limits) {
     return { ok: false, status: 403, error: "L'import de plusieurs produits est inclus dans les formules Pro et Business." };
   }
-  return { ok: true, supabase, userId: user.id, shop, entitlements, limits };
+  return { ok: true, supabase, userId: user.id, shop, entitlements, limits, noDailyCap: isBulkTester(user) };
 }
 
 /** Lit une session du vendeur (RLS : uniquement les siennes). L'état est remis en ordre à la lecture. */

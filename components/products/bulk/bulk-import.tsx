@@ -8,18 +8,20 @@ import { Button } from "@/components/ui/button";
 import { uploadShopMedia } from "@/lib/client-image";
 import { bulkFetch, runLimited, videoFrames } from "@/lib/products/bulk-client";
 import {
+  applyVariantChoices,
   creatableGroups,
+  groupsConfirmed,
   importSummary,
   markReviewed,
   mergeGroups,
   moveItem,
   unmergeGroup,
-  productPhotoIds,
   setExcluded,
   setMain,
   suggestKeyOf,
+  suggestPhotoIds,
   updateDraft,
-  SUGGEST_IMAGES,
+  BULK_IMPORTS_PER_DAY,
   type ImportDraft,
   type ImportState,
 } from "@/lib/products/bulk-import";
@@ -27,6 +29,7 @@ import { createFromImportGroup } from "@/app/dashboard/produits/bulk-actions";
 import { useLocale } from "@/lib/locale-context";
 import { cn } from "@/lib/utils";
 import { GroupCard, MediaThumb, PhotoSheet, type PhotoAction } from "@/components/products/bulk/group-card";
+import { GroupBoard } from "@/components/products/bulk/group-board";
 
 // Import en lot (Bulk Upload) — parcours piloté par le navigateur, en petites requêtes rejouables :
 // 1 Photos (envoi) · 2 Analyse (regroupement IA + fiches) · 3 Vérification · 4 Création.
@@ -40,7 +43,7 @@ export interface BulkImportInitial {
   state: ImportState;
 }
 
-type Phase = "pick" | "sending" | "analyzing" | "groupFailed" | "review" | "creating" | "done";
+type Phase = "pick" | "sending" | "analyzing" | "groupFailed" | "groups" | "review" | "creating" | "done";
 
 interface Picked {
   key: string;
@@ -50,13 +53,18 @@ interface Picked {
   over: boolean;
   status: "waiting" | "sending" | "sent" | "failed";
   error?: string;
-  uploaded: { path: string; width: number; height: number; videoRef: string | null; name: string }[];
+  uploaded: { path: string; width: number; height: number; videoRef: string | null; name: string; takenAt: number | null }[];
 }
 
 type CreateResult = { ok: true } | { ok: false; error: string };
 
 const SAVE_DELAY = 800;
 const SUGGEST_CONCURRENCY = 2;
+
+/** Date du fichier (ms) : indice faible « photos prises à la suite » pour le regroupement. */
+function takenAtOf(file: File): number | null {
+  return Number.isFinite(file.lastModified) && file.lastModified > 0 ? Math.round(file.lastModified) : null;
+}
 
 function uid(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -69,12 +77,15 @@ export function BulkImport({
   limits,
   firstFree,
   creditsLeft,
+  analysesLeftToday,
 }: {
   initial: BulkImportInitial | null;
   limits: { photosPerLot: number; videosPerLot: number };
   firstFree: boolean;
   /** Générations restantes du mois + crédits achetés ; null = illimité / inconnu. */
   creditsLeft: number | null;
+  /** Lots que le vendeur peut encore faire analyser sur 24 h (plafond vérifié par le serveur). */
+  analysesLeftToday?: number;
 }) {
   const { t } = useLocale();
   const router = useRouter();
@@ -84,7 +95,9 @@ export function BulkImport({
     : initial.status === "done" || initial.status === "canceled"
       ? "done"
       : initial.grouped || initial.state.groups.length > 0
-        ? "review"
+        ? groupsConfirmed(initial.state)
+          ? "review"
+          : "groups"
         : "groupFailed";
 
   const [phase, setPhase] = React.useState<Phase>(initialPhase);
@@ -99,6 +112,12 @@ export function BulkImport({
   const [notice, setNotice] = React.useState<string | null>(null);
   const [results, setResults] = React.useState<Record<string, CreateResult>>({});
   const [confirmPublish, setConfirmPublish] = React.useState(false);
+  /** Étape « Valider les groupes » : choix par famille de variantes (absent = un seul produit). */
+  const [variantChoices, setVariantChoices] = React.useState<Record<number, boolean>>({});
+  const [confirming, setConfirming] = React.useState(false);
+  /** Dernière fusion faite à l'étape Groupes : annulable quelques secondes. */
+  const [undo, setUndo] = React.useState<{ snapshot: ImportState; message: string } | null>(null);
+  const undoTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const [finishInfo, setFinishInfo] = React.useState<{ created: number } | null>(
     initial && initialPhase === "done" ? { created: initial.state.groups.filter((g) => g.productId).length } : null
   );
@@ -205,11 +224,11 @@ export function BulkImport({
         const cur = stateRef.current?.groups.find((g) => g.id === g0.id);
         if (!cur || !stateRef.current) return;
         const key = suggestKeyOf(stateRef.current, cur);
-        const itemIds = productPhotoIds(stateRef.current, cur).slice(0, SUGGEST_IMAGES);
+        const itemIds = suggestPhotoIds(stateRef.current, cur);
         setSuggesting((prev) => new Set(prev).add(g0.id));
         const res = await bulkFetch<{ suggestion?: Omit<ImportDraft, "price" | "priceOnRequest" | "options">; capped?: boolean }>(
           `/api/products/imports/${id}/suggest`,
-          { body: { itemIds } }
+          { body: { itemIds, groupId: g0.id } }
         );
         setSuggesting((prev) => {
           const n = new Set(prev);
@@ -319,7 +338,7 @@ export function BulkImport({
       try {
         if (f.kind === "image") {
           const up = await uploadShopMedia(f.file, "product");
-          const uploaded = [{ path: up.path, width: up.width, height: up.height, videoRef: null, name: f.file.name }];
+          const uploaded = [{ path: up.path, width: up.width, height: up.height, videoRef: null, name: f.file.name, takenAt: takenAtOf(f.file) }];
           done.set(f.key, uploaded);
           patch(f.key, { status: "sent", uploaded });
         } else {
@@ -331,7 +350,7 @@ export function BulkImport({
           const uploaded: Picked["uploaded"] = [];
           for (const [i, b] of frames.entries()) {
             const up = await uploadShopMedia(new File([b], `${f.file.name}-${i + 1}.jpg`, { type: "image/jpeg" }), "product");
-            uploaded.push({ path: up.path, width: up.width, height: up.height, videoRef: ref, name: f.file.name });
+            uploaded.push({ path: up.path, width: up.width, height: up.height, videoRef: ref, name: f.file.name, takenAt: takenAtOf(f.file) });
           }
           done.set(f.key, uploaded);
           patch(f.key, { status: "sent", uploaded });
@@ -354,7 +373,7 @@ export function BulkImport({
       return;
     }
     const created = await bulkFetch<{ id?: string; import?: BulkImportInitial | null }>("/api/products/imports", {
-      body: { items: items.map(({ path, width, height, videoRef, name }) => ({ path, width, height, videoRef, name })) },
+      body: { items: items.map(({ path, width, height, videoRef, name, takenAt }) => ({ path, width, height, videoRef, name, takenAt })) },
     });
     if (!created.ok || !created.data.id || !created.data.import) {
       setPhase("pick");
@@ -396,6 +415,40 @@ export function BulkImport({
     versionRef.current = res.data.import.version;
     orderRef.current = [];
     commit(res.data.import.state);
+    // Pas de fiche IA tout de suite : le vendeur valide d'abord les groupes.
+    setVariantChoices({});
+    setPhase("groups");
+  }
+
+  /** Fusionne des produits à l'étape Groupes (sélection ou glisser-déposer), avec « Annuler ». */
+  function mergeWithUndo(intoId: string, fromIds: string[]) {
+    const before = stateRef.current;
+    if (!before || !fromIds.length) return;
+    update((s) => fromIds.reduce((acc, id) => mergeGroups(acc, intoId, id), s));
+    setUndo({ snapshot: before, message: t("bulk.mergedToast").replace("{n}", String(fromIds.length + 1)) });
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    undoTimer.current = setTimeout(() => setUndo(null), 6000);
+  }
+
+  function undoMerge() {
+    if (!undo) return;
+    const snapshot = undo.snapshot;
+    update(() => snapshot);
+    setUndo(null);
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+  }
+
+  /** Valide les groupes (fusions des familles de variantes choisies), puis lance les fiches IA. */
+  async function confirmGroups() {
+    if (!stateRef.current) return;
+    setConfirming(true);
+    setSelected(null);
+    setUndo(null);
+    update((s) => applyVariantChoices(s, variantChoices));
+    // La fiche lit les options du produit côté serveur : on enregistre avant de la demander.
+    await flush();
+    orderRef.current = [];
+    setConfirming(false);
     setPhase("review");
     void runSuggestions();
   }
@@ -463,7 +516,7 @@ export function BulkImport({
   }
 
   // ─── Rendu ────────────────────────────────────────────────────────────────────────────────────
-  const step = phase === "pick" || phase === "sending" ? 1 : phase === "analyzing" || phase === "groupFailed" ? 2 : phase === "done" ? 4 : 3;
+  const step = phase === "pick" || phase === "sending" ? 1 : phase === "analyzing" || phase === "groupFailed" || phase === "groups" ? 2 : phase === "done" ? 4 : 3;
   const summary = state ? importSummary(state) : null;
   const toCreate = state ? creatableGroups(state).length : 0;
   const items = new Map((state?.items ?? []).map((i) => [i.id, i]));
@@ -546,6 +599,13 @@ export function BulkImport({
                   ? t("bulk.costOne")
                   : t("bulk.costOneLeft").replace("{n}", String(creditsLeft))}
             </p>
+            {analysesLeftToday != null && (
+              <p className={cn("mt-1 text-xs", analysesLeftToday === 0 ? "font-medium text-destructive" : "text-muted-foreground")}>
+                {analysesLeftToday === 0
+                  ? t("bulk.dailyNone")
+                  : t("bulk.dailyLeft").replace("{n}", String(analysesLeftToday)).replace("{max}", String(BULK_IMPORTS_PER_DAY))}
+              </p>
+            )}
           </div>
 
           <input
@@ -682,6 +742,32 @@ export function BulkImport({
           </div>
           <button type="button" className="text-xs text-muted-foreground underline" onClick={() => void finish(true)}>
             {t("bulk.cancelImport")}
+          </button>
+        </div>
+      )}
+
+      {/* 2 bis. Valider les groupes (avant les fiches) */}
+      {phase === "groups" && state && (
+        <GroupBoard
+          state={state}
+          choices={variantChoices}
+          onChoice={(index, merge) => setVariantChoices((prev) => ({ ...prev, [index]: merge }))}
+          selected={selected}
+          onSelect={setSelected}
+          onPhotoAction={photoAction}
+          onMerge={mergeWithUndo}
+          onExclude={(groupId, ex) => update((s) => setExcluded(s, groupId, ex))}
+          onConfirm={() => void confirmGroups()}
+          confirming={confirming}
+          saveLabel={saveStatus === "saving" ? t("bulk.saving") : saveStatus === "saved" ? t("bulk.saved") : saveStatus === "error" ? t("bulk.saveError") : ""}
+        />
+      )}
+
+      {undo && phase === "groups" && (
+        <div role="status" className="fixed inset-x-4 bottom-44 z-40 mx-auto flex max-w-md items-center justify-between gap-3 rounded-2xl bg-foreground px-4 py-3 text-sm text-background shadow-xl sm:bottom-28">
+          <span>{undo.message}</span>
+          <button type="button" className="shrink-0 font-semibold underline" onClick={undoMerge}>
+            {t("bulk.undo")}
           </button>
         </div>
       )}
