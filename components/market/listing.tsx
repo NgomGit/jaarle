@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Breadcrumbs, Pagination, ProductGrid } from "@/components/market/cards";
+import { Breadcrumbs, Pagination } from "@/components/market/cards";
+import { InfiniteProductGrid } from "@/components/market/infinite-product-grid";
 import { MarketFilters } from "@/components/market/filters";
 import { PromoBanner } from "@/components/market/promo";
 import { categoryTrail, getMarketCategory, marketRootCategories, type MarketCategory } from "@/lib/market/categories";
@@ -173,8 +174,24 @@ export async function MarketListing({
           )}
           {items.length > 0 ? (
             <>
-              <ProductGrid products={items} priorityCount={4} />
-              <Pagination page={params.page} total={total} pageSize={MARKET_PAGE_SIZE} hrefFor={hrefFor} />
+              <InfiniteProductGrid
+                key={`${category?.slug ?? ""}|${city?.slug ?? ""}|${hrefFor(params.page)}`}
+                initialItems={items}
+                total={total}
+                startPage={params.page}
+                pageSize={MARKET_PAGE_SIZE}
+                priorityCount={4}
+                query={{
+                  categorySlug: category?.slug ?? null,
+                  city: city?.slug ?? null,
+                  sort: params.sort,
+                  min: params.min,
+                  max: params.max,
+                  type: params.type,
+                  available: params.available,
+                }}
+                fallback={<Pagination page={params.page} total={total} pageSize={MARKET_PAGE_SIZE} hrefFor={hrefFor} />}
+              />
             </>
           ) : (
             <div className="rounded-3xl border border-dashed border-[#D9D5CB] bg-white px-6 py-14 text-center">

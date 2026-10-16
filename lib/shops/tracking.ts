@@ -13,6 +13,22 @@ export function normalizeSource(raw: string | null | undefined): string | null {
   return SOURCES.has(s) ? s : null;
 }
 
+// Robots, aperçus de liens (WhatsApp, Facebook, Telegram…), outils de surveillance et préchargements :
+// ils ouvrent les liens /r/wa/… sans être des clients. On ne les compte jamais.
+const BOT_UA =
+  /bot\b|bot\/|crawl|spider|slurp|preview|facebookexternalhit|facebookcatalog|meta-externalagent|whatsapp\/|telegram|twitterbot|linkedin|skype|discord|slack|embedly|pinterest|vkshare|headless|lighthouse|pingdom|uptime|monitor|curl\/|wget|python-requests|python-urllib|axios|node-fetch|undici|go-http-client|java\/|okhttp|httpclient|scrapy|ahrefs|semrush|mj12|dataforseo|bytespider|petalbot|gptbot|claudebot|ccbot|amazonbot|applebot|bingpreview|google-inspectiontool|googleother|vercel-screenshot|vercel-favicon/i;
+
+/** Vrai si la requête vient d'un robot / aperçu de lien / préchargement, pas d'un visiteur. */
+export function isAutomatedRequest(request: Request): boolean {
+  if (request.method === "HEAD") return true;
+  const ua = request.headers.get("user-agent") || "";
+  if (!ua.trim() || BOT_UA.test(ua)) return true;
+  const purpose = `${request.headers.get("purpose") || ""} ${request.headers.get("sec-purpose") || ""} ${request.headers.get("x-purpose") || ""}`;
+  if (/prefetch|preview|prerender/i.test(purpose)) return true;
+  if (request.headers.get("x-middleware-prefetch") || request.headers.get("next-router-prefetch")) return true;
+  return false;
+}
+
 /** Empreinte anonyme du visiteur pour la journée (aucune IP stockée en clair). */
 export function visitorHash(request: Request): string {
   const ip = (request.headers.get("x-forwarded-for") || "").split(",")[0].trim();

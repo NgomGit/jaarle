@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createPublicClient } from "@/lib/supabase/public";
-import { normalizeSource, recordShopEvent, visitorHash } from "@/lib/shops/tracking";
+import { isAutomatedRequest, normalizeSource, recordShopEvent, visitorHash } from "@/lib/shops/tracking";
 import type { ShopEventType } from "@/lib/shops/types";
 
 // POST /api/track — balise envoyée par les pages publiques (vues boutique / produit, partages).
@@ -11,6 +11,8 @@ import type { ShopEventType } from "@/lib/shops/types";
 const ALLOWED: ShopEventType[] = ["shop_view", "product_view", "share_click", "call_click", "product_video_play"];
 
 export async function POST(request: Request) {
+  // Robots qui exécutent le JavaScript (Googlebot…) : pas des visiteurs.
+  if (isAutomatedRequest(request)) return new NextResponse(null, { status: 204 });
   const body = (await request.json().catch(() => null)) as {
     shopId?: string;
     productId?: string | null;

@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { X } from "lucide-react";
-import { Breadcrumbs, Pagination, ProductGrid } from "@/components/market/cards";
+import { Breadcrumbs, Pagination } from "@/components/market/cards";
+import { InfiniteProductGrid } from "@/components/market/infinite-product-grid";
 import { MarketFilters, type Option } from "@/components/market/filters";
 import { LiveSearch, SearchResults } from "@/components/market/live-search";
 import { SEARCH_SUGGESTIONS } from "@/components/market/search-hero";
@@ -179,9 +180,29 @@ export default async function MarketSearchPage({ searchParams }: Props) {
                 <>
                   {/* Clics sur les résultats → admin « Recherches » (ce qui intéresse vraiment). */}
                   <SearchClickTracker q={q} offset={(lp.page - 1) * MARKET_PAGE_SIZE}>
-                    <ProductGrid products={items} priorityCount={4} />
+                    <InfiniteProductGrid
+                      key={pageHref(lp.page)}
+                      initialItems={items}
+                      total={total}
+                      startPage={lp.page}
+                      pageSize={MARKET_PAGE_SIZE}
+                      priorityCount={4}
+                      query={{
+                        q: text || null,
+                        categorySlug: chosenCategory?.slug ?? null,
+                        city: city?.slug ?? null,
+                        sort: lp.sort,
+                        min: lp.min,
+                        max: lp.max,
+                        type: lp.type,
+                        available: lp.available,
+                        promo: lp.promo,
+                        qCategories: text && !chosenCategory ? parsed.leafKeys : null,
+                        qGroups: text ? searchGroups(text) : null,
+                      }}
+                      fallback={<Pagination page={lp.page} total={total} pageSize={MARKET_PAGE_SIZE} hrefFor={pageHref} />}
+                    />
                   </SearchClickTracker>
-                  <Pagination page={lp.page} total={total} pageSize={MARKET_PAGE_SIZE} hrefFor={pageHref} />
                 </>
               ) : (
                 <div className="rounded-[28px] border border-dashed border-[#D9D5CB] bg-white px-6 py-14 text-center">

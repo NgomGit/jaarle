@@ -613,6 +613,7 @@
     "qrScans": "QR code scans",
     "vsPrevious": "vs before",
     "headlineClicks": "{n} click(s) on “Order on WhatsApp” in the last {d} days.",
+    "clicksNote": "A click = a visitor who opened WhatsApp to your number (counted once per 30 min). They don't always send the message: check that the WhatsApp number in My shop is correct.",
     "headlineNone": "No WhatsApp clicks in the last {d} days yet.",
     "conversion": "{p}% of visitors clicked WhatsApp.",
     "tipShare": "Share your link in your WhatsApp status and stick your QR code on your packaging to attract your first visitors.",

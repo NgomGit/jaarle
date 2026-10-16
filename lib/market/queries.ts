@@ -10,7 +10,8 @@ import { activePromo, type ActivePromo } from "@/lib/shops/promo";
 // Lectures publiques du Market : uniquement via les fonctions SQL de la migration 0020
 // (security definer) — les tables d'abonnement et de comptes ne sont jamais lues d'ici.
 
-export const MARKET_PAGE_SIZE = 24;
+/** 36 = 9 rangées de 4, 12 de 3, 18 de 2 (grilles du Market). Les suivantes se chargent au défilement. */
+export const MARKET_PAGE_SIZE = 36;
 /**
  * Seuils d'indexation (pas de pages pauvres) :
  *  - catégorie seule (/market/robes) : 8 produits, 1 boutique suffit (phase de lancement) ;

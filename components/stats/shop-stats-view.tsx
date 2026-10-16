@@ -115,6 +115,7 @@ export function ShopStatsView({
             ? t("stats.conversion").replace("{p}", String(conversion))
             : t("stats.tipShare")}
         </p>
+        {current.whatsappClicks > 0 && <p className="mt-2 text-xs opacity-75">{t("stats.clicksNote")}</p>}
       </div>
 
       {/* Vidéos produit : affiché seulement quand il y a eu des lectures. */}
