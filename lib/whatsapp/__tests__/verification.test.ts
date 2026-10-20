@@ -4,8 +4,8 @@ import {
   extractVerificationCode,
   parseWebhookMessages,
   verificationWaLink,
-  verifyMetaSignature,
 } from "../verification";
+import { verifyMetaSignature } from "../signature";
 
 describe("extractVerificationCode", () => {
   it("lit les variantes courantes", () => {

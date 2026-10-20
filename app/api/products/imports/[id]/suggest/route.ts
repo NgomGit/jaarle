@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import sharp from "sharp";
 import { z } from "zod";
 import { bulkAccess, loadImport } from "@/lib/products/bulk-server";
-import { BULK_SUGGESTIONS_PER_IMPORT, SUGGEST_IMAGES } from "@/lib/products/bulk-import";
+import { BULK_IMPORTS_PER_DAY, BULK_SUGGESTIONS_PER_IMPORT, SUGGEST_IMAGES } from "@/lib/products/bulk-import";
 import { suggestProductFromPhotos, type AutofillImage } from "@/lib/ai/product-autofill";
 import { buildShopContext } from "@/lib/shops/context";
 import { SHOP_MEDIA_BUCKET } from "@/lib/shops/types";
@@ -22,7 +22,7 @@ const BodySchema = z.object({ itemIds: z.array(z.string().uuid()).min(1).max(10)
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const access = await bulkAccess();
   if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status });
-  const { supabase, userId, shop } = access;
+  const { supabase, userId, shop, noDailyCap } = access;
 
   const parsed = BodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Aucune photo." }, { status: 400 });
@@ -40,6 +40,20 @@ export async function POST(request: Request, { params }: { params: { id: string 
       .eq("meta->>importId", row.id);
     if ((count ?? 0) >= BULK_SUGGESTIONS_PER_IMPORT) {
       return NextResponse.json({ error: "Limite de fiches IA atteinte pour ce lot. Remplis la fiche à la main.", capped: true }, { status: 429 });
+    }
+    // Audit 2026-10-20 : un lot rangé à la main est gratuit (pas de crédit) ; sans plafond par jour,
+    // ouvrir des lots en boucle donnait des fiches IA illimitées. Plafond : 3 lots × 30 fiches / 24 h.
+    if (!noDailyCap) {
+      const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+      const { count: today } = await createAdminClient()
+        .from("ai_calls")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("feature", "bulk_suggest")
+        .gte("created_at", since);
+      if ((today ?? 0) >= BULK_IMPORTS_PER_DAY * BULK_SUGGESTIONS_PER_IMPORT) {
+        return NextResponse.json({ error: "Limite de fiches IA atteinte pour aujourd'hui. Remplis la fiche à la main ou reviens demain.", capped: true }, { status: 429 });
+      }
     }
   }
 

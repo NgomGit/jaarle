@@ -4,10 +4,10 @@ import {
   confirmationReply,
   extractVerificationCode,
   parseWebhookMessages,
-  verifyMetaSignature,
   whatsappVerificationEnabled,
   type ConfirmStatus,
 } from "@/lib/whatsapp/verification";
+import { verifyMetaSignature } from "@/lib/whatsapp/signature";
 
 // Webhook WhatsApp Cloud API (Meta) — vérification du numéro de la boutique (migration 0049).
 // Meta appelle cette route en server-to-server : la signature X-Hub-Signature-256 (App Secret) EST

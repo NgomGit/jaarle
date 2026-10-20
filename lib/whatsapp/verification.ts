@@ -1,7 +1,6 @@
 // Vérification du numéro WhatsApp de la boutique (migration 0049).
 // Logique pure (testée dans __tests__/verification.test.ts) : format du code, message pré-rempli,
 // lecture du webhook Meta et signature X-Hub-Signature-256.
-import { createHmac, timingSafeEqual } from "node:crypto";
 
 export const VERIFICATION_PREFIX = "JRL";
 
@@ -80,15 +79,6 @@ export function parseWebhookMessages(body: unknown): IncomingWhatsappMessage[] {
   return out;
 }
 
-/** Vérifie l'en-tête X-Hub-Signature-256 (« sha256=<hex> ») calculé avec l'App Secret Meta sur le corps brut. */
-export function verifyMetaSignature(rawBody: string, header: string | null, appSecret: string): boolean {
-  if (!header || !appSecret) return false;
-  const [algo, sig] = header.split("=", 2);
-  if (algo !== "sha256" || !sig || !/^[0-9a-f]{64}$/i.test(sig)) return false;
-  const expected = createHmac("sha256", appSecret).update(rawBody, "utf8").digest();
-  const given = Buffer.from(sig, "hex");
-  return given.length === expected.length && timingSafeEqual(given, expected);
-}
 
 export type ConfirmStatus = "verified" | "already" | "unknown_code" | "expired" | "mismatch" | "number_changed" | "taken" | "phone_hidden";
 
