@@ -32,6 +32,8 @@ export interface Shop {
   city: string | null;
   district: string | null;
   whatsapp: string;
+  /** Posé par le serveur quand le numéro est vérifié via WhatsApp (migration 0049) ; null sinon. */
+  whatsapp_verified_at?: string | null;
   phone: string | null;
   logo_path: string | null;
   banner_path: string | null;

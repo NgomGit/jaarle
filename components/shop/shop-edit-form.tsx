@@ -128,6 +128,9 @@ export function ShopEditForm({ shop, logoUrl }: { shop: Shop; logoUrl: string | 
 
         <Field label={t("shop.whatsappLabel")} htmlFor="shop-whatsapp">
           <PhoneInput strict id="shop-whatsapp" value={whatsapp} onChange={setWhatsapp} placeholder={t("shop.whatsappPlaceholder")} required />
+          {shop.whatsapp_verified_at && whatsapp !== toLocalSenegal(shop.whatsapp) && (
+            <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-400">{t("shop.ed_whatsappReverify")}</p>
+          )}
         </Field>
 
         <CityFields city={city} district={district} onCity={setCity} onDistrict={setDistrict} />

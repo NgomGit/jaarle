@@ -8,6 +8,8 @@ import { shopQrSvg } from "@/lib/shops/qr";
 import { ShopOnboarding } from "@/components/shop/shop-onboarding";
 import { ShopOverview } from "@/components/shop/shop-overview";
 import { MarketStatusCard, type MarketStatus } from "@/components/shop/market-status";
+import { WhatsappVerifyCard } from "@/components/shop/whatsapp-verify-card";
+import { whatsappVerificationEnabled } from "@/lib/whatsapp/verification";
 
 export default async function ShopPage({ searchParams }: { searchParams: { created?: string; published?: string } }) {
   const supabase = createClient();
@@ -38,6 +40,10 @@ export default async function ShopPage({ searchParams }: { searchParams: { creat
       productCounts={productCounts}
       qrSvg={qrSvg}
       marketSlot={market ? <MarketStatusCard status={market} /> : null}
+      // Vérification WhatsApp en pause : carte affichée seulement si WHATSAPP_VERIFICATION_ENABLED=on.
+      whatsappSlot={
+        whatsappVerificationEnabled() ? <WhatsappVerifyCard whatsapp={shop.whatsapp} verified={!!shop.whatsapp_verified_at} /> : null
+      }
     />
   );
 }

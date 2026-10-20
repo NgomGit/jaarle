@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, MessageCircle, Search, Store } from "lucide-react";
-import { MarketShopCard, ProductRail } from "@/components/market/cards";
+import { ArrowRight, MessageCircle, Search, SlidersHorizontal, Store } from "lucide-react";
+import { MarketShopCard, Pagination, ProductRail } from "@/components/market/cards";
+import { InfiniteProductGrid } from "@/components/market/infinite-product-grid";
 import { MarketSearchHero } from "@/components/market/search-hero";
 import { MarketShell } from "@/components/market/shell";
 import { PromoBanners, ProPicks } from "@/components/market/promo";
@@ -17,6 +18,7 @@ import {
   getMarketPublicSettings,
   getMarketShops,
   getProPicks,
+  MARKET_PAGE_SIZE,
   totalsFor,
   type MarketBanner,
   type MarketProduct,
@@ -25,8 +27,9 @@ import {
 import { absoluteUrl, breadcrumbLd, jsonLdString, SITE_LOCALE } from "@/lib/seo";
 
 // Accueil de Jaarle Market, pensé pour la découverte sur mobile :
-// recherche au centre → catégories en puces → sections (à la une, nouveautés, boutiques, Dakar,
-// plus de produits). Une section n'apparaît que si elle a assez de contenu réel.
+// recherche au centre → catégories en puces → sections (à la une, nouveautés, boutiques, Dakar)
+// → catalogue complet de toutes les boutiques (grille paginée, suite au défilement).
+// Une rangée n'apparaît que si elle a assez de contenu réel.
 // Rendue côté serveur, mise en cache 5 minutes (ISR).
 export const revalidate = 300;
 
@@ -45,6 +48,14 @@ export const metadata: Metadata = {
 /** Nombre minimum d'éléments pour afficher une section (jamais de section vide ou maigre). */
 const MIN_SECTION = 4;
 const HOME_CITY = "dakar";
+/** Catalogue filtrable (tri, catégorie, prix, ville) : la recherche du Market, sans texte. */
+const CATALOG = "/market/recherche?type=produits";
+const CATALOG_SORTS: { label: string; tri: string | null }[] = [
+  { label: "Pertinence", tri: null },
+  { label: "Nouveautés", tri: "new" },
+  { label: "Prix croissant", tri: "price_asc" },
+  { label: "Prix décroissant", tri: "price_desc" },
+];
 
 export default async function MarketHome() {
   const [counts, newest, shops, relevant, local, allBanners, settings, promos] = await Promise.all([
@@ -52,7 +63,8 @@ export default async function MarketHome() {
     // Rangées intitulées « produits » : uniquement des produits (les services ont leurs pages et l'onglet « Services »).
     getMarketProducts({ sort: "new", limit: 8, type: "product" }),
     getMarketShops({ limit: 8 }),
-    getMarketProducts({ sort: "relevance", limit: 20, type: "product" }),
+    // Catalogue complet (1re page) : tous les produits visibles de toutes les boutiques du Market.
+    getMarketProducts({ sort: "relevance", limit: MARKET_PAGE_SIZE, type: "product" }),
     getMarketProducts({ city: HOME_CITY, sort: "relevance", limit: 16, type: "product" }),
     getMarketBanners(),
     getMarketPublicSettings(),
@@ -78,7 +90,6 @@ export default async function MarketHome() {
   const newSection = take(newest.items);
   const homeCity = getMarketCity(HOME_CITY);
   const localSection = homeCity ? take(local.items) : [];
-  const moreSection = take(relevant.items, 12);
 
   const chips = categoryChips(counts);
   const cities = citiesWithProducts(counts, null)
@@ -205,17 +216,53 @@ export default async function MarketHome() {
               </Section>
             )}
 
-            {moreSection.length > 0 && (
-              <Section title="Plus de produits" href="/market/recherche?type=produits" linkLabel="Tous les produits">
-                <ProductRail products={moreSection.slice(0, 8)} />
-                {moreSection.length > 8 && (
-                  <div className="mt-6 text-center sm:hidden">
-                    <Link href="/market/recherche?type=produits" className="inline-flex h-12 items-center gap-2 rounded-full border border-[#17151F] px-6 font-bold">
-                      Voir tous les produits <ArrowRight className="h-4 w-4" aria-hidden />
-                    </Link>
+            {relevant.items.length > 0 && (
+              <section id="catalogue" aria-labelledby="t-catalogue" className="mx-auto max-w-[1240px] scroll-mt-20 px-4 pb-12 sm:px-6 sm:pb-16">
+                <div className="mb-4 flex flex-wrap items-end justify-between gap-3 sm:mb-6">
+                  <div className="min-w-0">
+                    <h2 id="t-catalogue" className="font-[family-name:var(--font-market-display)] text-[24px] font-bold leading-tight tracking-tight sm:text-[30px]">
+                      Tous les produits
+                    </h2>
+                    <p className="mt-1 text-sm text-[#5E5A6B] sm:text-[15px]">
+                      {relevant.total.toLocaleString("fr-FR")} produit{relevant.total > 1 ? "s" : ""} de toutes les boutiques du Market.
+                    </p>
                   </div>
-                )}
-              </Section>
+                  <Link
+                    href={CATALOG}
+                    className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-[#17151F] px-4 text-sm font-bold"
+                  >
+                    <SlidersHorizontal className="h-4 w-4" aria-hidden /> Filtrer
+                  </Link>
+                </div>
+                {/* Tris : la recherche du Market gère tri, catégorie, prix et ville ensemble. */}
+                <nav aria-label="Trier le catalogue" className="-mx-4 mb-5 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0">
+                  <ul className="flex gap-2">
+                    {CATALOG_SORTS.map((o) => (
+                      <li key={o.label} className="shrink-0">
+                        <Link
+                          href={o.tri ? `${CATALOG}&tri=${o.tri}` : CATALOG}
+                          aria-current={o.tri ? undefined : "true"}
+                          className={
+                            o.tri
+                              ? "inline-flex h-9 items-center rounded-full border border-[#E4E1D8] bg-white px-4 text-sm font-semibold hover:border-[#17151F]"
+                              : "inline-flex h-9 items-center rounded-full bg-[#17151F] px-4 text-sm font-semibold text-white"
+                          }
+                        >
+                          {o.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </nav>
+                <InfiniteProductGrid
+                  initialItems={relevant.items}
+                  total={relevant.total}
+                  startPage={1}
+                  pageSize={MARKET_PAGE_SIZE}
+                  query={{ sort: "relevance", type: "product" }}
+                  fallback={<Pagination page={1} total={relevant.total} pageSize={MARKET_PAGE_SIZE} hrefFor={(n) => `${CATALOG}&page=${n}`} />}
+                />
+              </section>
             )}
 
             {cities.length >= 2 && (

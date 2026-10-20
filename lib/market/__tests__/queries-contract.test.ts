@@ -48,7 +48,7 @@ describe("getMarketProducts — contrat de market_products", () => {
     expect(calls[0].name).toBe("market_products");
     expect(calls[0].args).toEqual({
       p_categories: null, p_city: null, p_shop: null, p_q: null, p_min: null, p_max: null,
-      p_sort: "relevance", p_limit: 24, p_offset: 0, p_type: null,
+      p_sort: "relevance", p_limit: 36, p_offset: 0, p_type: null,
     });
   });
 

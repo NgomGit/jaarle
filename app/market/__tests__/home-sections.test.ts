@@ -31,11 +31,11 @@ vi.mock("@/lib/market/queries", async (orig) => {
 const { default: MarketHome } = await import("@/app/market/page");
 
 describe("accueil du Market — requêtes des rangées", () => {
-  it("Nouveautés, Produits à Dakar, Plus de produits : type product ; Promos : inchangée", async () => {
+  it("Nouveautés, Produits à Dakar, catalogue complet : type product ; Promos : inchangée", async () => {
     await MarketHome();
     expect(productCalls).toEqual([
       { sort: "new", limit: 8, type: "product" },
-      { sort: "relevance", limit: 20, type: "product" },
+      { sort: "relevance", limit: 36, type: "product" },
       { city: "dakar", sort: "relevance", limit: 16, type: "product" },
       { promo: true, sort: "promo", limit: 12 },
     ]);

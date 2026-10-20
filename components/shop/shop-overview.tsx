@@ -39,6 +39,7 @@ export function ShopOverview({
   productCounts = { total: 0, visible: 0 },
   qrSvg = null,
   marketSlot,
+  whatsappSlot,
 }: {
   shop: Shop;
   logoUrl: string | null;
@@ -48,6 +49,8 @@ export function ShopOverview({
   qrSvg?: string | null;
   /** Carte Jaarle Market (rendue par la page). */
   marketSlot?: React.ReactNode;
+  /** Carte de vérification du numéro WhatsApp (migration 0049, rendue par la page). */
+  whatsappSlot?: React.ReactNode;
 }) {
   const { t } = useLocale();
   const router = useRouter();
@@ -128,6 +131,7 @@ export function ShopOverview({
           <div className="flex items-center gap-2 text-muted-foreground">
             <MessageCircle className="h-4 w-4 shrink-0" strokeWidth={1.75} />
             <span className="text-foreground">{formatSenegalPhone(shop.whatsapp)}</span>
+            {shop.whatsapp_verified_at && <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" aria-label={t("shop.wa_badge")} />}
           </div>
           {location && (
             <div className="flex items-center gap-2 text-muted-foreground">
@@ -137,6 +141,8 @@ export function ShopOverview({
           )}
         </div>
       </section>
+
+      {whatsappSlot}
 
       {/* Lien + publication */}
       <section className="rounded-2xl border border-border bg-card p-4 sm:p-5">
