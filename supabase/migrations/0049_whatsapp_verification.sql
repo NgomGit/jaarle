@@ -126,7 +126,8 @@ begin
 
   loop
     v_try := v_try + 1;
-    v_code := lpad((floor(random() * 1000000))::int::text, 6, '0');
+    -- Tirage cryptographique (gen_random_uuid utilise pg_strong_random) plutôt que random().
+    v_code := lpad(((('x' || substr(replace(gen_random_uuid()::text, '-', ''), 1, 8))::bit(32)::bigint) % 1000000)::text, 6, '0');
     begin
       insert into public.whatsapp_verifications (shop_id, owner_id, phone, code)
       values (v_shop.id, auth.uid(), v_shop.whatsapp, v_code)

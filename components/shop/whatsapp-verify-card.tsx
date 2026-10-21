@@ -21,6 +21,25 @@ export function WhatsappVerifyCard({ whatsapp, verified: initiallyVerified }: { 
   const [pending, setPending] = React.useState<Pending | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  // Sur ordinateur : QR code du lien wa.me, à scanner avec le téléphone de la boutique.
+  const [qrSvg, setQrSvg] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!pending) {
+      setQrSvg(null);
+      return;
+    }
+    let cancelled = false;
+    import("qrcode")
+      .then((QRCode) =>
+        QRCode.toString(pending.waLink, { type: "svg", margin: 1, errorCorrectionLevel: "M", color: { dark: "#111827", light: "#FFFFFF" } })
+      )
+      .then((svg) => !cancelled && setQrSvg(svg))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [pending]);
 
   // Attente de la confirmation : toutes les 3 s tant que le code est valable.
   React.useEffect(() => {
@@ -104,6 +123,33 @@ export function WhatsappVerifyCard({ whatsapp, verified: initiallyVerified }: { 
               {t("shop.wa_reopen")}
             </a>
           </Button>
+
+          {/* Ordinateur : la boutique est souvent sur le téléphone → QR code + saisie manuelle. */}
+          <div className="mt-4 hidden items-center gap-4 border-t border-border/60 pt-4 md:flex">
+            {qrSvg ? (
+              <div
+                role="img"
+                aria-label={t("shop.wa_qrAlt")}
+                className="h-32 w-32 shrink-0 rounded-lg bg-white p-1.5 [&>svg]:h-full [&>svg]:w-full"
+                dangerouslySetInnerHTML={{ __html: qrSvg }}
+              />
+            ) : (
+              <div className="flex h-32 w-32 shrink-0 items-center justify-center rounded-lg bg-white">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            )}
+            <div className="min-w-0 text-xs leading-relaxed">
+              <p className="font-semibold">{t("shop.wa_qrTitle")}</p>
+              <p className="mt-1">{t("shop.wa_qrHint").replace("{phone}", formatSenegalPhone(whatsapp))}</p>
+              {jaarleNumber(pending.waLink) && (
+                <p className="mt-2">
+                  {t("shop.wa_manual")
+                    .replace("{code}", formatVerificationCode(pending.code))
+                    .replace("{jaarle}", formatSenegalPhone(jaarleNumber(pending.waLink) as string))}
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       ) : (
         <Button onClick={start} disabled={loading} className="mt-4 w-full sm:w-auto">
@@ -115,4 +161,10 @@ export function WhatsappVerifyCard({ whatsapp, verified: initiallyVerified }: { 
       {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
     </section>
   );
+}
+
+/** Numéro Jaarle lu dans le lien wa.me (https://wa.me/221771911408?text=…). */
+function jaarleNumber(waLink: string): string | null {
+  const m = /wa\.me\/(\d{8,15})/.exec(waLink);
+  return m ? `+${m[1]}` : null;
 }
