@@ -22,6 +22,8 @@ export interface StorefrontShop {
   onlineSince: string | null; // ex. « septembre 2026 »
   productCount: number;
   socials: { instagram?: string; facebook?: string; tiktok?: string };
+  /** Numéro WhatsApp vérifié par Jaarle (migration 0049) → badge vérifié. */
+  whatsappVerified: boolean;
   jaarleBadge: boolean; // mention « Boutique propulsée par Jaarle » (offre gratuite)
   referralCode: string | null; // code de parrainage du commerçant (lien « Crée ta boutique »)
 }

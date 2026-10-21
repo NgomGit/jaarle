@@ -5,12 +5,13 @@ import { cn } from "@/lib/utils";
 
 export const RELANCES_PATH = "/dashboard/admin/relances";
 
-export type RelanceReason = "draft_with_products" | "no_products" | "no_shop";
+export type RelanceReason = "draft_with_products" | "no_products" | "no_shop" | "wa_unverified";
 
 export const SEGMENTS = [
   { key: "produits", label: "Produits, pas en ligne", reason: "draft_with_products" },
   { key: "sans-produit", label: "Sans produit", reason: "no_products" },
   { key: "sans-boutique", label: "Compte sans boutique", reason: "no_shop" },
+  { key: "whatsapp", label: "WhatsApp non vérifié", reason: "wa_unverified" },
 ] as const satisfies readonly { key: string; label: string; reason: RelanceReason }[];
 
 export const FILTERS = [

@@ -14,7 +14,8 @@ export async function markContacted(targetId: string, reason: RelanceReason): Pr
   if (reason === "no_shop") {
     await logAdminAction(userId, "user.contacted", "user", targetId, { reason });
   } else {
-    await logAdminAction(userId, "shop.contacted", "shop", targetId, { reason: reason === "no_products" ? "no_products" : "draft_with_products" });
+    const r = reason === "no_products" || reason === "wa_unverified" ? reason : "draft_with_products";
+    await logAdminAction(userId, "shop.contacted", "shop", targetId, { reason: r });
   }
   revalidatePath("/dashboard/admin/relances");
   return { ok: true };

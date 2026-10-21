@@ -6,6 +6,7 @@ import { CartWidget } from "@/components/storefront/cart";
 import { ReportButton } from "@/components/storefront/report-button";
 import { ShareButton } from "@/components/storefront/share-button";
 import { TrackView } from "@/components/storefront/track-view";
+import { VerifiedBadge } from "@/components/storefront/verified-badge";
 import { Gallery } from "@/components/storefront/templates/moderne/gallery";
 import { ProductCard } from "@/components/storefront/templates/moderne/product-card";
 import { ShopLogo, StoreFooter, StoreHeader, themeStyle } from "@/components/storefront/templates/moderne/parts";
@@ -109,7 +110,10 @@ export function ModerneProductView({ shop, product, related, theme, marketCatego
             >
               <ShopLogo shop={shop} size={44} className="rounded-xl" />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold">{shop.name}</p>
+                <p className="flex min-w-0 items-center gap-1 text-sm font-semibold">
+                  <span className="truncate">{shop.name}</span>
+                  {shop.whatsappVerified && <VerifiedBadge className="h-4 w-4" />}
+                </p>
                 <p className="truncate text-xs text-gray-500">
                   {[shop.categoryLabel, `${shop.productCount} produit${shop.productCount > 1 ? "s" : ""}`].filter(Boolean).join(" · ")}
                 </p>

@@ -40,6 +40,7 @@ export function toStorefrontShop(
       : null,
     productCount,
     socials: shop.socials ?? {},
+    whatsappVerified: !!shop.whatsapp_verified_at,
     jaarleBadge: meta.brandingBadge,
     referralCode: meta.referralCode,
   };

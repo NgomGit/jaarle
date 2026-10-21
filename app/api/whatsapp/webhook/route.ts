@@ -30,10 +30,15 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const raw = await request.text();
   if (!verifyMetaSignature(raw, request.headers.get("x-hub-signature-256"), process.env.WHATSAPP_APP_SECRET ?? "")) {
+    // Le plus souvent : WHATSAPP_APP_SECRET absent ou d'une autre app Meta (App settings → Basic).
+    console.warn("[whatsapp/webhook] signature refusée", { hasSecret: !!process.env.WHATSAPP_APP_SECRET, hasHeader: !!request.headers.get("x-hub-signature-256") });
     return NextResponse.json({ error: "Signature invalide." }, { status: 403 });
   }
   // Vérification en pause : on accuse réception sans rien confirmer (pas de renvois de Meta).
-  if (!whatsappVerificationEnabled()) return NextResponse.json({ ok: true, paused: true });
+  if (!whatsappVerificationEnabled()) {
+    console.info("[whatsapp/webhook] reçu mais vérification en pause (WHATSAPP_VERIFICATION_ENABLED)");
+    return NextResponse.json({ ok: true, paused: true });
+  }
 
   let body: unknown;
   try {
@@ -43,9 +48,15 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient();
-  for (const msg of parseWebhookMessages(body)) {
+  const messages = parseWebhookMessages(body);
+  // Statuts de livraison (sent / delivered / read) : aucun message à traiter, c'est normal.
+  console.info("[whatsapp/webhook] reçu", { messages: messages.length });
+  for (const msg of messages) {
     const code = extractVerificationCode(msg.text);
-    if (!code) continue; // message ordinaire au numéro Jaarle : pas une vérification
+    if (!code) {
+      console.info("[whatsapp/webhook] message sans code de vérification");
+      continue;
+    } // message ordinaire au numéro Jaarle : pas une vérification
 
     if (!msg.from) {
       // Nom d'utilisateur WhatsApp sans numéro partagé : impossible de comparer au numéro de la boutique.
@@ -62,6 +73,8 @@ export async function POST(request: Request) {
       continue; // on répond 200 quand même : Meta renverrait sinon le lot entier
     }
     const status = (data as { status?: ConfirmStatus } | null)?.status;
+    // Statut seulement (verified, mismatch, unknown_code, expired…) : jamais le numéro ni le code.
+    console.info("[whatsapp/webhook] confirmation", { status });
     if (status) await sendReply(msg.replyTo, status);
   }
 

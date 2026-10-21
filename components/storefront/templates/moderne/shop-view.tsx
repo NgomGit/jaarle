@@ -1,6 +1,7 @@
 import { CalendarDays, MapPin, MessageCircle, Package, ShieldCheck } from "lucide-react";
 import { CartWidget } from "@/components/storefront/cart";
 import { ShareButton } from "@/components/storefront/share-button";
+import { VerifiedBadge, VerifiedChip } from "@/components/storefront/verified-badge";
 import { TrackView } from "@/components/storefront/track-view";
 import { Catalog } from "@/components/storefront/templates/moderne/catalog";
 import { ShopLogo, StoreFooter, StoreHeader, WhatsAppCta, themeStyle } from "@/components/storefront/templates/moderne/parts";
@@ -45,7 +46,10 @@ export function ModerneShopView({ shop, products, theme }: ShopViewProps) {
                     {shop.categoryLabel}
                   </p>
                 )}
-                <h1 className="text-[22px] font-bold leading-tight tracking-tight sm:text-4xl">{shop.name}</h1>
+                <h1 className="text-[22px] font-bold leading-tight tracking-tight sm:text-4xl">
+                  {shop.name}
+                  {shop.whatsappVerified && <VerifiedBadge className="ml-1.5 h-[0.8em] w-[0.8em] -translate-y-[0.06em]" />}
+                </h1>
                 {shop.description && (
                   <p className="mt-2 hidden max-w-2xl text-[15px] leading-relaxed text-gray-600 sm:block">{shop.description}</p>
                 )}
@@ -65,8 +69,13 @@ export function ModerneShopView({ shop, products, theme }: ShopViewProps) {
             {shop.description && (
               <p className="relative mt-3 line-clamp-2 text-sm leading-relaxed text-gray-600 sm:hidden">{shop.description}</p>
             )}
-            {meta.length > 0 && (
+            {(meta.length > 0 || shop.whatsappVerified) && (
               <ul className="relative -mx-4 mt-3 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:mt-5 sm:flex-wrap sm:px-0">
+                {shop.whatsappVerified && (
+                  <li className="shrink-0">
+                    <VerifiedChip />
+                  </li>
+                )}
                 {meta.map(({ Icon, label }) => (
                   <li
                     key={label}

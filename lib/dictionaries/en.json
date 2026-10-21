@@ -468,6 +468,8 @@
     "wa_manual": "Or send “{code}” on WhatsApp to {jaarle}, from the shop's WhatsApp.",
     "wa_qrAlt": "QR code to send the verification message on WhatsApp",
     "wa_verified": "WhatsApp {phone} verified",
+    "wa_statusHint": "Save Jaarle ({jaarle}) in your contacts to see our WhatsApp statuses: sales tips and news.",
+    "wa_statusCta": "Add Jaarle to my contacts",
     "wa_expired": "The code expired. Tap “Verify on WhatsApp” again.",
     "wa_err_mismatch": "The message didn't come from the shop's number. Send it from {phone}'s WhatsApp or change the shop number.",
     "wa_err_number_changed": "The shop number changed. Start the verification again.",

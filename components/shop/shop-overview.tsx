@@ -1,5 +1,6 @@
 "use client";
 
+import { VerifiedSeal } from "@/components/storefront/verified-badge";
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -131,7 +132,12 @@ export function ShopOverview({
           <div className="flex items-center gap-2 text-muted-foreground">
             <MessageCircle className="h-4 w-4 shrink-0" strokeWidth={1.75} />
             <span className="text-foreground">{formatSenegalPhone(shop.whatsapp)}</span>
-            {shop.whatsapp_verified_at && <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" aria-label={t("shop.wa_badge")} />}
+            {shop.whatsapp_verified_at && (
+              <span title={t("shop.wa_badge")} className="inline-flex">
+                <VerifiedSeal className="h-4 w-4" />
+                <span className="sr-only">{t("shop.wa_badge")}</span>
+              </span>
+            )}
           </div>
           {location && (
             <div className="flex items-center gap-2 text-muted-foreground">

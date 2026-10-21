@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Instagram, Facebook, MapPin } from "lucide-react";
 import { ReportButton } from "@/components/storefront/report-button";
 import { ShareButton } from "@/components/storefront/share-button";
+import { VerifiedBadge } from "@/components/storefront/verified-badge";
 import { WhatsAppIcon } from "@/components/storefront/whatsapp-icon";
 import { shopInitials } from "@/lib/shops/media";
 import type { StorefrontTheme } from "@/lib/storefront/theme";
@@ -43,6 +44,7 @@ export function StoreHeader({ shop, backToShop = false }: { shop: StorefrontShop
         <Link href={`/boutique/${shop.slug}`} className="flex min-w-0 items-center gap-2.5" aria-label={backToShop ? `Retour à ${shop.name}` : shop.name}>
           <ShopLogo shop={shop} size={34} className="rounded-xl" />
           <span className="truncate text-[15px] font-semibold text-gray-900">{shop.name}</span>
+          {shop.whatsappVerified && <VerifiedBadge className="-ml-1 h-4 w-4" />}
         </Link>
         <div className="ml-auto flex items-center gap-2">
           <ShareButton variant="icon" url={shop.url} title={shop.name} text={`Découvre la boutique ${shop.name} :`} shopId={shop.id} />
@@ -105,7 +107,10 @@ export function StoreFooter({ shop }: { shop: StorefrontShop }) {
         <div className="flex items-start gap-3.5">
           <ShopLogo shop={shop} size={48} className="rounded-2xl" />
           <div className="min-w-0">
-            <p className="font-semibold text-gray-900">{shop.name}</p>
+            <p className="flex items-center gap-1 font-semibold text-gray-900">
+              {shop.name}
+              {shop.whatsappVerified && <VerifiedBadge className="h-4 w-4" />}
+            </p>
             {shop.categoryLabel && <p className="text-sm text-gray-500">{shop.categoryLabel}</p>}
             {shop.location && (
               <p className="mt-2 flex items-center gap-1.5 text-sm text-gray-600">

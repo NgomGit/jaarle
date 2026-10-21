@@ -7,6 +7,7 @@ import { formatPrice, formatSenegalPhone } from "@/lib/shops/format";
 import { shopMediaThumbUrl } from "@/lib/shops/media";
 import { ContactButton } from "./contact-button";
 import { AccountsWithoutShop } from "./accounts-without-shop";
+import { ShopsWithoutWhatsappVerification } from "./whatsapp-unverified";
 import { FILTERS, FilterTabs, SEGMENTS, SegmentPills } from "./segments";
 
 // Boutiques à relancer, en deux listes :
@@ -72,6 +73,8 @@ export default async function AdminRelancesPage({ searchParams }: { searchParams
 
   // Comptes créés sans boutique : liste à part (lecture des comptes Supabase Auth).
   if (segment.key === "sans-boutique") return <AccountsWithoutShop filter={filter.key} />;
+  // Boutiques dont le WhatsApp n'est pas vérifié (migration 0049).
+  if (segment.key === "whatsapp") return <ShopsWithoutWhatsappVerification filter={filter.key} />;
 
   const base = admin
     .from("shops")
@@ -94,6 +97,8 @@ export default async function AdminRelancesPage({ searchParams }: { searchParams
       .from("admin_actions")
       .select("target_id, created_at")
       .eq("action", "shop.contacted")
+      // Les relances « WhatsApp non vérifié » ont leur propre liste.
+      .or("details->>reason.is.null,details->>reason.neq.wa_unverified")
       .in("target_id", withProducts.map((s) => s.id))
       .order("created_at", { ascending: false });
     for (const l of (logs ?? []) as { target_id: string; created_at: string }[]) {

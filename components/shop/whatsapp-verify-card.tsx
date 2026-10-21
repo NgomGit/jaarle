@@ -2,11 +2,13 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Loader2, ShieldAlert, ShieldCheck } from "lucide-react";
+import { CheckCircle2, Loader2, ShieldAlert } from "lucide-react";
 import { getWhatsappVerificationState, startWhatsappVerification } from "@/app/dashboard/boutique/whatsapp-actions";
 import { Button } from "@/components/ui/button";
 import { formatSenegalPhone } from "@/lib/shops/format";
 import { formatVerificationCode } from "@/lib/whatsapp/verification";
+import { JAARLE_STATUS_NUMBER_DISPLAY } from "@/lib/whatsapp/contact";
+import { VerifiedSeal } from "@/components/storefront/verified-badge";
 import { useLocale } from "@/lib/locale-context";
 
 // Carte « Vérifie ton WhatsApp » (migration 0049). Le vendeur ouvre WhatsApp avec un message pré-rempli
@@ -92,9 +94,18 @@ export function WhatsappVerifyCard({ whatsapp, verified: initiallyVerified }: { 
 
   if (verified) {
     return (
-      <section className="flex items-center gap-2.5 rounded-2xl border border-border bg-card p-4 text-sm">
-        <ShieldCheck className="h-5 w-5 shrink-0 text-emerald-600" />
-        <span>{t("shop.wa_verified").replace("{phone}", formatSenegalPhone(whatsapp))}</span>
+      <section className="rounded-2xl border border-border bg-card p-4 text-sm">
+        <p className="flex items-center gap-2.5">
+          <VerifiedSeal className="h-5 w-5" />
+          <span>{t("shop.wa_verified").replace("{phone}", formatSenegalPhone(whatsapp))}</span>
+        </p>
+        {/* Statuts Jaarle : visibles seulement si le vendeur enregistre aussi le numéro Jaarle. */}
+        <p className="mt-2 pl-[30px] text-muted-foreground">
+          {t("shop.wa_statusHint").replace("{jaarle}", JAARLE_STATUS_NUMBER_DISPLAY)}{" "}
+          <a href="/jaarle.vcf" className="font-medium text-primary underline-offset-2 hover:underline">
+            {t("shop.wa_statusCta")}
+          </a>
+        </p>
       </section>
     );
   }
